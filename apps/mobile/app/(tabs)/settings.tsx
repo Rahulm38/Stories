@@ -1,14 +1,12 @@
 import React from 'react';
 import { router } from 'expo-router';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, sharedStyles } from '@/src/ui/theme';
-import { deviceVaultLocation } from '@/src/vault/device-file-store';
+import { useVault } from '@/src/vault/provider';
 
 export default function SettingsScreen() {
-  const storageLocation = Platform.OS === 'web'
-    ? 'This browser · stories-vault'
-    : deviceVaultLocation();
+  const { storageLocation } = useVault();
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
@@ -20,7 +18,7 @@ export default function SettingsScreen() {
         <Text style={sharedStyles.sectionLabel}>Remembering</Text>
         <View style={styles.row}>
           <View style={styles.copy}>
-            <Text style={styles.title}>Recall is opt-in</Text>
+            <Text style={styles.title}>Recall starts in 3 days</Text>
             <Text style={styles.detail}>New memories return in 3 days by default. You can choose 1 week or turn recall off while capturing.</Text>
           </View>
         </View>

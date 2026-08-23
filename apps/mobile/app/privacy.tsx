@@ -23,7 +23,7 @@ export default function PrivacyScreen() {
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
-        <Pressable accessibilityRole="button" onPress={goBack}>
+        <Pressable accessibilityRole="button" onPress={goBack} style={styles.backButton}>
           <Text style={styles.back}>Back</Text>
         </Pressable>
         <Text style={[sharedStyles.title, styles.title]}>Privacy policy</Text>
@@ -59,6 +59,7 @@ export default function PrivacyScreen() {
 }
 
 const styles = StyleSheet.create({
+  backButton: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 48 },
   back: { color: colors.accent, fontSize: 16, fontWeight: '600' },
   title: { marginTop: 24 },
   updated: { color: colors.muted, fontSize: 13, marginTop: 8 },

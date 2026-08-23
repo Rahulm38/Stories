@@ -13,6 +13,7 @@ import { folderForKind } from '@/src/navigation/note-folder';
 import { localDateInputValue } from '@/src/navigation/local-date';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { colors, sharedStyles } from '@/src/ui/theme';
+import { MEMORY_KIND_OPTIONS } from '@/src/capture/options';
 
 type EditorDraft = {
   id?: string;
@@ -23,12 +24,6 @@ type EditorDraft = {
   recallPrompt: string;
   recallDate: string;
 };
-
-const KIND_OPTIONS: Array<{ label: string; value: MemoryKind }> = [
-  { label: 'Note', value: 'note' },
-  { label: 'Book', value: 'book-learning' },
-  { label: 'Experience', value: 'experience' },
-];
 
 function editorDraftFor(note: MemoryNote | undefined): EditorDraft {
   return {
@@ -77,7 +72,6 @@ export default function NoteScreen() {
   const { hydrated, notes, openError, saveNote, suggestLinks, resolveLink } = useVault();
   const note = notes.find((item) => item.id === noteId);
   const editing = editingFromParam(editParam);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [draftState, setDraftState] = useState<EditorDraft>(() => editorDraftFor(undefined));
   const [cursor, setCursor] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -87,7 +81,6 @@ export default function NoteScreen() {
   const openingLinkRef = useRef(false);
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
-  const editBaselineRef = useRef<EditorDraft | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -95,15 +88,13 @@ export default function NoteScreen() {
   }, []);
 
   const draft = note && draftState.id === note.id ? draftState : editorDraftFor(note);
-  const editBaseline = editBaselineRef.current || (note ? editorDraftFor(note) : null);
   const dirty = Boolean(note && editing && draftState.id === note.id && (
-    !editBaseline
-    || draft.title !== editBaseline.title
-    || draft.body !== editBaseline.body
-    || draft.kind !== editBaseline.kind
-    || draft.source !== editBaseline.source
-    || draft.recallPrompt !== editBaseline.recallPrompt
-    || draft.recallDate !== editBaseline.recallDate
+    draft.title !== note.title
+    || draft.body !== note.body
+    || draft.kind !== note.kind
+    || draft.source !== (note.source || '')
+    || draft.recallPrompt !== (note.recallPrompt || '')
+    || draft.recallDate !== localDateInputValue(note.nextRecallAt)
   ));
   useUnsavedChangesGuard(dirty, saving);
   const activeLink = editing ? activeWikilinkAtCursor(draft.body, cursor) : null;
@@ -116,28 +107,16 @@ export default function NoteScreen() {
     return () => clearInterval(timer);
   }, []));
 
-  useEffect(() => {
-    if (!editing || !note) {
-      if (!editing) editBaselineRef.current = null;
-      return;
-    }
-    if (editBaselineRef.current?.id !== note.id) editBaselineRef.current = editorDraftFor(note);
-  }, [editing, note]);
-
   const beginEditing = () => {
     if (!note) return;
     const initialDraft = editorDraftFor(note);
-    editBaselineRef.current = initialDraft;
     setDraftState(initialDraft);
-    setDetailsOpen(false);
     setSaveError('');
     router.setParams({ edit: 'true' });
   };
 
   const cancelEditingNow = () => {
-    editBaselineRef.current = null;
     setDraftState(editorDraftFor(note));
-    setDetailsOpen(false);
     setSaveError('');
     router.setParams({ edit: undefined });
   };
@@ -166,7 +145,7 @@ export default function NoteScreen() {
     setSaveError('');
     try {
       const nextRecallAt = nextRecallValue(draft.recallDate, note.nextRecallAt);
-      const baseline = editBaseline || editorDraftFor(note);
+      const baseline = editorDraftFor(note);
       const kindChanged = draft.kind !== baseline.kind;
       await saveNote({
         id: note.id,
@@ -178,7 +157,6 @@ export default function NoteScreen() {
         ...(draft.recallDate !== baseline.recallDate ? { nextRecallAt } : {}),
       });
       if (!mountedRef.current) return;
-      setDetailsOpen(false);
       router.setParams({ edit: undefined });
     } catch (error) {
       if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This file could not be saved');
@@ -214,22 +192,17 @@ export default function NoteScreen() {
     }
   };
 
-  const goBackFromNote = useCallback(() => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)/files');
-  }, [router]);
-
   if (!hydrated) {
-    return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top']}><Text style={styles.muted}>Opening note…</Text></SafeAreaView>;
+    return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}><Text style={styles.muted}>Opening note…</Text></SafeAreaView>;
   }
 
   if (openError) {
-    return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top']}><Text accessibilityRole="alert" style={styles.error}>{openError}</Text></SafeAreaView>;
+    return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}><Text accessibilityRole="alert" style={styles.error}>{openError}</Text></SafeAreaView>;
   }
 
   if (!note) {
     return (
-      <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top']}>
+      <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}>
         <Text style={styles.missingTitle}>File not found</Text>
         <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/(tabs)/files')} style={sharedStyles.quietButton}>
           <Text style={sharedStyles.quietButtonText}>Back to Library</Text>
@@ -239,14 +212,14 @@ export default function NoteScreen() {
   }
 
   return (
-    <SafeAreaView style={sharedStyles.screen} edges={['top']}>
+    <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
       <View style={styles.topBar}>
         {editing ? (
           <Pressable accessibilityRole="button" disabled={saving} onPress={cancelEditing} style={styles.topBarAction}>
             <Text style={[styles.topBarActionText, saving && styles.disabled]}>Cancel</Text>
           </Pressable>
         ) : (
-          <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={goBackFromNote} style={styles.topBarIconButton}>
+          <Pressable accessibilityLabel="Back to Library" accessibilityRole="button" onPress={() => router.dismissTo('/(tabs)/files')} style={styles.topBarIconButton}>
             <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={21} tintColor={colors.accent} />
           </Pressable>
         )}
@@ -291,15 +264,8 @@ export default function NoteScreen() {
               />
             </View>
 
-            <Text style={styles.editorHint}>Type [[ to link another file.</Text>
-
-            <Pressable
-              accessibilityHint={detailsOpen ? 'Hides note kind, source, and recall options' : 'Shows note kind, source, and recall options'}
-              accessibilityLabel={`Memory details, ${detailsOpen ? 'expanded' : 'collapsed'}`}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: detailsOpen, disabled: saving }}
-              disabled={saving}
-              onPress={() => setDetailsOpen((open) => !open)}
+            <View
+              accessibilityRole="header"
               style={styles.detailsToggle}
             >
               <SymbolView name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }} size={19} tintColor={colors.muted} />
@@ -309,18 +275,12 @@ export default function NoteScreen() {
                   {noteKindLabel({ kind: draft.kind })}{draft.source ? ` · ${draft.source}` : ''}
                 </Text>
               </View>
-              <SymbolView
-                name={{ ios: detailsOpen ? 'chevron.up' : 'chevron.down', android: detailsOpen ? 'expand_less' : 'expand_more', web: detailsOpen ? 'expand_less' : 'expand_more' }}
-                size={20}
-                tintColor={colors.muted}
-              />
-            </Pressable>
+            </View>
 
-            {detailsOpen ? (
-              <View style={styles.detailsPanel}>
+            <View style={styles.detailsPanel}>
                 <Text style={styles.fieldLabel}>Kind</Text>
                 <View accessibilityRole="radiogroup" style={styles.kindRow}>
-                  {KIND_OPTIONS.map((option) => {
+                  {MEMORY_KIND_OPTIONS.map((option) => {
                     const selected = draft.kind === option.value;
                     return (
                       <Pressable
@@ -373,8 +333,7 @@ export default function NoteScreen() {
                   style={styles.fieldInput}
                   value={draft.recallDate}
                 />
-              </View>
-            ) : null}
+            </View>
           </ScrollView>
 
           {suggestions.length > 0 ? (
@@ -454,7 +413,6 @@ const styles = StyleSheet.create({
   editorContent: { paddingBottom: 42, paddingHorizontal: 20, paddingTop: 14 },
   titleInput: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, color: colors.ink, fontSize: 23, fontWeight: '600', minHeight: 50, paddingBottom: 9 },
   editorCanvas: { marginTop: 12 },
-  editorHint: { color: colors.muted, fontSize: 12, paddingBottom: 12, paddingTop: 8 },
   detailsToggle: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, minHeight: 58 },
   detailsToggleCopy: { flex: 1 },
   detailsToggleTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },

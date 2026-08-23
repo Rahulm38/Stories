@@ -8,11 +8,29 @@ import { localDateInputValue } from '../src/navigation/local-date.ts';
 import { openMarkdownLink } from '../src/ui/markdown-links.ts';
 import { readBrowserValue, writeBrowserValue } from '../src/vault/browser-storage.ts';
 import { ensureVaultReady } from '../src/vault/save-gate.ts';
+import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, recallDaysForChoice } from '../src/capture/options.ts';
+import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
 
 test('capture route params update the selected capture kind', () => {
   assert.equal(captureKindFromParam(undefined), 'note');
   assert.equal(captureKindFromParam('book-learning'), 'book-learning');
   assert.equal(captureKindFromParam(['experience']), 'experience');
+  assert.deepEqual(MEMORY_KIND_OPTIONS.map((option) => option.label), ['Note', 'Book learning', 'Experience']);
+});
+
+test('capture defaults to a three-day recall without a Tomorrow shortcut', () => {
+  assert.equal(DEFAULT_RECALL_CHOICE, 'three-days');
+  assert.equal(recallDaysForChoice(DEFAULT_RECALL_CHOICE), 3);
+  assert.equal(recallDaysForChoice('week'), 7);
+  assert.equal(recallDaysForChoice('off'), undefined);
+  assert.deepEqual(RECALL_OPTIONS.map((option) => option.label), ['3 days', '1 week', 'Off']);
+});
+
+test('bottom tabs keep a comfortable device-safe gap', () => {
+  assert.deepEqual(tabBarMetrics(0, false), { bottomPadding: 16, height: 74 });
+  assert.deepEqual(tabBarMetrics(24, false), { bottomPadding: 24, height: 82 });
+  assert.deepEqual(tabBarMetrics(0, true), { bottomPadding: 18, height: 76 });
+  assert.deepEqual(tabBarMetrics(34, true), { bottomPadding: 34, height: 92 });
 });
 
 test('library search includes the durable Markdown path and note kind', () => {

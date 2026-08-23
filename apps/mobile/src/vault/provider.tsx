@@ -3,13 +3,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { createMemoryVault } from '@core/index';
 import type { LinkResolution, MemoryNote, MemoryVault, NoteDraft } from '@core/index';
 import { BrowserFileStore } from './browser-file-store';
-import { DeviceFileStore } from './device-file-store';
+import { DeviceFileStore, deviceVaultLocation } from './device-file-store';
 import { ensureVaultReady } from './save-gate';
 
 type VaultContextValue = {
   notes: MemoryNote[];
   hydrated: boolean;
   openError: string | null;
+  storageLocation: string;
   saveNote: (draft: NoteDraft) => Promise<MemoryNote>;
   suggestLinks: (query: string, fromId?: string) => MemoryNote[];
   resolveLink: (target: string, fromId?: string) => LinkResolution;
@@ -23,6 +24,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const storageLocation = useMemo(
+    () => (Platform.OS === 'web' ? 'This browser · stories-vault' : deviceVaultLocation()),
+    [],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -63,7 +68,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return vaultRef.current?.resolveLink(target, fromId) || { target, status: 'missing' as const };
   }, []);
 
-  const value = useMemo(() => ({ notes, hydrated, openError, saveNote, suggestLinks, resolveLink }), [hydrated, notes, openError, resolveLink, saveNote, suggestLinks]);
+  const value = useMemo(() => ({ notes, hydrated, openError, storageLocation, saveNote, suggestLinks, resolveLink }), [hydrated, notes, openError, resolveLink, saveNote, storageLocation, suggestLinks]);
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
 }
 

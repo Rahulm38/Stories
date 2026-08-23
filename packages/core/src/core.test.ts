@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyMarkdownAction } from './markdown-editor.ts';
 import {
   activeWikilinkAtCursor,
   appendRecallReflection,
@@ -418,64 +417,6 @@ test('recall reflections append a dated Markdown section only when nonblank', ()
     appendRecallReflection(body, '  I can apply this to [[Work/focus.md]].  ', now),
     'An existing note.\n\n## Recall reflection\n\n2026-08-08\n\nI can apply this to [[Work/focus.md]].',
   );
-});
-
-test('inline Markdown actions wrap content and return the useful next selection', () => {
-  assert.deepEqual(applyMarkdownAction('Remember this', { start: 9, end: 13 }, 'bold'), {
-    value: 'Remember **this**',
-    selection: { start: 11, end: 15 },
-  });
-  assert.deepEqual(applyMarkdownAction('Remember ', { start: 9, end: 9 }, 'italic'), {
-    value: 'Remember **',
-    selection: { start: 10, end: 10 },
-  });
-  assert.deepEqual(applyMarkdownAction('site', { start: 0, end: 4 }, 'link'), {
-    value: '[site]()',
-    selection: { start: 7, end: 7 },
-  });
-  assert.deepEqual(applyMarkdownAction('', { start: 0, end: 0 }, 'inline-code'), {
-    value: '``',
-    selection: { start: 1, end: 1 },
-  });
-});
-
-test('block Markdown actions format every selected line and preserve its selection', () => {
-  const selection = { start: 0, end: 10 };
-  assert.deepEqual(applyMarkdownAction('alpha\nbeta', selection, 'heading'), {
-    value: '## alpha\n## beta',
-    selection: { start: 3, end: 16 },
-  });
-  assert.deepEqual(applyMarkdownAction('alpha\nbeta', selection, 'quote'), {
-    value: '> alpha\n> beta',
-    selection: { start: 2, end: 14 },
-  });
-  assert.deepEqual(applyMarkdownAction('alpha\nbeta', selection, 'bullet-list'), {
-    value: '- alpha\n- beta',
-    selection: { start: 2, end: 14 },
-  });
-  assert.deepEqual(applyMarkdownAction('alpha\nbeta', selection, 'numbered-list'), {
-    value: '1. alpha\n2. beta',
-    selection: { start: 3, end: 16 },
-  });
-  assert.deepEqual(applyMarkdownAction('alpha\nbeta', selection, 'checklist'), {
-    value: '- [ ] alpha\n- [ ] beta',
-    selection: { start: 6, end: 22 },
-  });
-});
-
-test('indent and outdent transform each selected line without losing the selection', () => {
-  assert.deepEqual(applyMarkdownAction('one\n  two', { start: 0, end: 9 }, 'indent'), {
-    value: '  one\n    two',
-    selection: { start: 2, end: 13 },
-  });
-  assert.deepEqual(applyMarkdownAction('  one\n    two', { start: 0, end: 13 }, 'outdent'), {
-    value: 'one\n  two',
-    selection: { start: 0, end: 9 },
-  });
-  assert.deepEqual(applyMarkdownAction('\titem', { start: 0, end: 5 }, 'outdent'), {
-    value: 'item',
-    selection: { start: 0, end: 4 },
-  });
 });
 
 function note(id: string, title: string, path: string, folder: string, nextRecallAt?: string): MemoryNote {

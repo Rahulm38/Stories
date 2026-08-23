@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { forwardRef, useCallback, useRef, useState, type MutableRefObject } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -9,9 +9,12 @@ import {
   type TextInputSelectionChangeEventData,
 } from 'react-native';
 
-import type { MarkdownSelection } from '@core/markdown-editor';
-
 import { colors } from './theme';
+
+export type MarkdownSelection = {
+  start: number;
+  end: number;
+};
 
 const webInputStyle = Platform.OS === 'web'
   ? ({ outlineStyle: 'none' } as unknown as TextStyle)
@@ -42,13 +45,7 @@ export const MarkdownEditor = forwardRef<TextInput, MarkdownEditorProps>(functio
   forwardedRef,
 ) {
   const inputRef = useRef<TextInput | null>(null);
-  const valueRef = useRef(value);
-  const selectionRef = useRef<MarkdownSelection>({ start: value.length, end: value.length });
   const [focused, setFocused] = useState(false);
-
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
 
   const assignInputRef = useCallback((input: TextInput | null) => {
     inputRef.current = input;
@@ -63,12 +60,10 @@ export const MarkdownEditor = forwardRef<TextInput, MarkdownEditorProps>(functio
     event: NativeSyntheticEvent<TextInputSelectionChangeEventData>,
   ) => {
     const selection = event.nativeEvent.selection;
-    selectionRef.current = selection;
     onSelectionChange?.(selection);
   }, [onSelectionChange]);
 
   const handleChangeText = useCallback((nextValue: string) => {
-    valueRef.current = nextValue;
     onChangeText(nextValue);
   }, [onChangeText]);
 

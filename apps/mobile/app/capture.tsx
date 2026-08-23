@@ -4,26 +4,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleFirstRecall } from '@core/recall';
-import type { MemoryKind } from '@core/model';
 import { MarkdownEditor } from '@/src/ui/MarkdownEditor';
+import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, recallDaysForChoice, type RecallChoice } from '@/src/capture/options';
 import { captureKindFromParam } from '@/src/navigation/route-state';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles } from '@/src/ui/theme';
-
-type RecallChoice = 'off' | 'three-days' | 'week';
-
-const kindOptions: Array<{ kind: MemoryKind; label: string }> = [
-  { kind: 'note', label: 'Note' },
-  { kind: 'book-learning', label: 'Book learning' },
-  { kind: 'experience', label: 'Experience' },
-];
-
-const recallOptions: Array<{ label: string; value: RecallChoice }> = [
-  { label: '3 days', value: 'three-days' },
-  { label: '1 week', value: 'week' },
-  { label: 'Off', value: 'off' },
-];
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -32,7 +18,7 @@ export default function CaptureScreen() {
   const { hydrated, openError, saveNote } = useVault();
   const [draft, setDraft] = useState('');
   const [source, setSource] = useState('');
-  const [recallChoice, setRecallChoice] = useState<RecallChoice>('three-days');
+  const [recallChoice, setRecallChoice] = useState<RecallChoice>(DEFAULT_RECALL_CHOICE);
   const [recallPrompt, setRecallPrompt] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -53,7 +39,7 @@ export default function CaptureScreen() {
     const body = draft;
     if (!hydrated || !body.trim() || savingRef.current) return;
     savingRef.current = true;
-    const recallDays = recallChoice === 'three-days' ? 3 : recallChoice === 'week' ? 7 : undefined;
+    const recallDays = recallDaysForChoice(recallChoice);
     setSaving(true);
     setSaveError('');
     try {
@@ -108,16 +94,16 @@ export default function CaptureScreen() {
 
             <Text style={styles.fieldLabel}>Save as</Text>
             <View accessibilityRole="radiogroup" accessibilityLabel="Remember as" style={styles.modeRow}>
-              {kindOptions.map((option) => {
-                const selected = kind === option.kind;
+              {MEMORY_KIND_OPTIONS.map((option) => {
+                const selected = kind === option.value;
                 return (
                   <Pressable
                     accessibilityLabel={option.label}
-                    key={option.kind}
+                    key={option.value}
                     accessibilityRole="radio"
                     accessibilityState={{ selected }}
                     disabled={saving}
-                    onPress={() => router.setParams({ kind: option.kind })}
+                    onPress={() => router.setParams({ kind: option.value })}
                     style={[styles.modeChip, selected && styles.modeChipSelected]}
                   >
                     <Text style={[styles.modeChipText, selected && styles.modeChipTextSelected]}>{option.label}</Text>
@@ -144,7 +130,7 @@ export default function CaptureScreen() {
             <View style={styles.detailField}>
               <Text style={styles.fieldLabel}>Bring this back</Text>
               <View accessibilityRole="radiogroup" accessibilityLabel="Recall timing" style={styles.segmentedRow}>
-                {recallOptions.map((option) => {
+                {RECALL_OPTIONS.map((option) => {
                   const selected = recallChoice === option.value;
                   return (
                     <Pressable
@@ -209,9 +195,9 @@ const styles = StyleSheet.create({
   topBarTitle: { color: colors.ink, fontSize: 17, fontWeight: '600' },
   editorLabel: { color: colors.ink, fontSize: 15, fontWeight: '600', marginBottom: 10, marginTop: 18 },
   modeRow: { flexDirection: 'row', gap: 7 },
-  modeChip: { alignItems: 'center', borderColor: 'transparent', borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 12 },
+  modeChip: { alignItems: 'center', borderColor: 'transparent', borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
   modeChipSelected: { backgroundColor: colors.accentSoft, borderColor: colors.line },
-  modeChipText: { color: colors.muted, fontSize: 13, fontWeight: '500' },
+  modeChipText: { color: colors.muted, fontSize: 13, fontWeight: '500', textAlign: 'center' },
   modeChipTextSelected: { color: colors.accent, fontWeight: '600' },
   detailsPanel: { borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 24, paddingTop: 18 },
   detailsHeading: { alignItems: 'center', flexDirection: 'row', gap: 9, marginBottom: 18 },

@@ -3,6 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { Platform, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/src/ui/theme';
+import { tabBarMetrics } from '@/src/navigation/tab-bar';
 
 type TabIconProps = {
   android: 'today' | 'book_2' | 'settings';
@@ -16,7 +17,7 @@ function TabIcon({ android, color, ios }: TabIconProps) {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 18 : 12);
+  const tabBar = tabBarMetrics(insets.bottom, Platform.OS === 'ios');
 
   return (
     <Tabs
@@ -28,8 +29,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
-          height: 58 + bottomPadding,
-          paddingBottom: bottomPadding,
+          height: tabBar.height,
+          paddingBottom: tabBar.bottomPadding,
           paddingTop: 8,
         },
       }}
