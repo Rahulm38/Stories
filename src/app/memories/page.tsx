@@ -1,118 +1,150 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import React, { FormEvent, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Folder, FolderPlus, Search } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
-import { MemoryCard } from '@/components/shared/memory-card';
-import { appCopy } from '@/data/copy';
-import { mockMemories } from '@/data/memories-mock';
-import { MemoryType } from '@/types';
-
-const filterMap: Record<string, MemoryType | 'all'> = {
-  All: 'all',
-  Life: 'life',
-  Work: 'work',
-  Trips: 'trip',
-  People: 'person',
-  Places: 'place',
-  Decisions: 'decision',
-  Books: 'book',
-};
+import { FileRow } from '@/components/shared/file-row';
+import { DEFAULT_FOLDERS, memoryKindLabel, useMemoryStore } from '@/components/shared/memory-store';
 
 export default function MemoriesPage() {
-  const [activeFilter, setActiveFilter] = useState('All');
+  const { memories, folders, addFolder } = useMemoryStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({ Inbox: true });
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolder, setNewFolder] = useState('');
 
-  const filteredMemories = mockMemories.filter((m) => {
-    const matchesFilter = activeFilter === 'All' || m.type === filterMap[activeFilter];
-    const matchesSearch =
-      !searchQuery ||
-      m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.summary.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  const query = searchQuery.trim().toLowerCase();
+  const availableFolders = useMemo(
+    () => {
+      const noteFolders = memories.map((memory) => memory.folderPath || 'Inbox');
+      const userFolders = folders.filter((folder) => !DEFAULT_FOLDERS.includes(folder));
+      return Array.from(new Set(['Inbox', ...userFolders, ...noteFolders]));
+    },
+    [folders, memories],
+  );
+  const matchingMemories = useMemo(
+    () => memories.filter((memory) => {
+      if (!query) return true;
+      return [memory.title, memory.summary, memory.originalCapture, memory.folderPath || '', memoryKindLabel(memory.kind)]
+        .some((value) => value.toLowerCase().includes(query));
+    }),
+    [memories, query],
+  );
+
+  const folderGroups = useMemo(
+    () => availableFolders.map((folder) => ({
+      folder,
+      memories: matchingMemories.filter((memory) => (memory.folderPath || 'Inbox') === folder),
+    })),
+    [availableFolders, matchingMemories],
+  );
+
+  const submitFolder = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newFolder.trim()) return;
+    const added = addFolder(newFolder);
+    if (added) setOpenFolders((current) => ({ ...current, [newFolder.trim()]: true }));
+    setNewFolder('');
+    setShowNewFolder(false);
+  };
 
   return (
     <AppShell>
-      <div className="px-5 pt-2 pb-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center justify-between mb-4"
-        >
-          <h1 className="text-xl font-semibold text-foreground">{appCopy.memories.title}</h1>
-        </motion.div>
+      <div className="page-stack">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">Markdown vault</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em] text-foreground">Files</h1>
+          </div>
+          <span className="count-label">{memories.length} files</span>
+        </header>
 
-        {/* Search Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="relative mb-4"
-        >
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+        <div className="search-field">
+          <Search className="h-[18px] w-[18px] text-text-dim" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={appCopy.memories.searchPlaceholder}
-            className="w-full bg-surface-1 rounded-xl pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-text-dim border border-white/[0.04] focus:outline-none focus:ring-1 focus:ring-amber/30 focus:border-amber/30 transition-all"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search files"
+            aria-label="Search files"
           />
-        </motion.div>
-
-        {/* Filter Chips */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 mb-5"
-        >
-          {appCopy.memories.filters.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 ${
-                activeFilter === filter
-                  ? 'bg-amber text-background'
-                  : 'bg-surface-1 text-muted-foreground border border-white/[0.04] hover:bg-surface-2'
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
-        </motion.div>
-
-        {/* Memory Count */}
-        <p className="text-xs text-text-dim mb-3">
-          {filteredMemories.length} {filteredMemories.length === 1 ? 'memory' : 'memories'}
-        </p>
-
-        {/* Memory Cards */}
-        <div className="space-y-3">
-          {filteredMemories.map((memory, i) => (
-            <MemoryCard key={memory.id} memory={memory} index={i} />
-          ))}
         </div>
 
-        {filteredMemories.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-16"
-          >
-            <p className="text-sm text-muted-foreground">No memories match this filter.</p>
+        <section className="folder-tree" aria-labelledby="folders-heading">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Your structure</p>
+              <h2 id="folders-heading" className="mt-1 text-xl font-semibold text-foreground">Folders</h2>
+            </div>
             <button
-              onClick={() => { setActiveFilter('All'); setSearchQuery(''); }}
-              className="text-xs text-amber mt-2 hover:underline"
+              type="button"
+              className="text-link inline-flex items-center gap-1.5"
+              onClick={() => setShowNewFolder((open) => !open)}
+              aria-expanded={showNewFolder}
             >
-              Clear filters
+              <FolderPlus className="h-4 w-4" aria-hidden="true" />
+              New folder
             </button>
-          </motion.div>
-        )}
+          </div>
 
-        <div className="h-4" />
+          {showNewFolder && (
+            <form className="new-folder-form" onSubmit={submitFolder}>
+              <label className="sr-only" htmlFor="new-folder">Folder name</label>
+              <input
+                id="new-folder"
+                value={newFolder}
+                onChange={(event) => setNewFolder(event.target.value)}
+                placeholder="e.g. Ideas"
+                className="text-input"
+                autoFocus
+              />
+              <button type="submit" className="button-primary">Add</button>
+            </form>
+          )}
+
+          <div className="folder-list">
+            {folderGroups.map(({ folder, memories: folderMemories }) => {
+              const isOpen = openFolders[folder] ?? false;
+              return (
+                <div className="folder-group" key={folder}>
+                  <button
+                    type="button"
+                    className={`folder-row ${isOpen ? 'is-open' : ''}`}
+                    onClick={() => setOpenFolders((current) => ({ ...current, [folder]: !isOpen }))}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      {isOpen ? (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                      )}
+                      <Folder className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
+                      <span className="truncate font-semibold">{folder}</span>
+                    </span>
+                    <span className="folder-count">{folderMemories.length}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="folder-file-list">
+                      {folderMemories.length > 0 ? (
+                        folderMemories.map((memory) => <FileRow key={memory.id} memory={memory} />)
+                      ) : (
+                        <p className="folder-empty">No Markdown files here yet.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {matchingMemories.length === 0 && (
+          <div className="empty-state">
+            <p className="text-base font-semibold text-foreground">No files found</p>
+            <p className="mt-1 text-sm text-muted-foreground">Try another word or add a new note.</p>
+          </div>
+        )}
       </div>
     </AppShell>
   );

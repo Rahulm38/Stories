@@ -1,19 +1,18 @@
-import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
-});
+import { MemoryProvider } from '@/components/shared/memory-store';
 
 export const metadata: Metadata = {
-  title: "Memory OS — Your life, remembered.",
-  description:
-    "A personal memory system that helps you capture, strengthen, connect, and reuse fragile memories. Capture what matters. Recall it before it fades.",
-  keywords: ["memory", "recall", "personal knowledge", "journal", "capture"],
+  title: "Stories — Your Markdown vault.",
+  description: "A quiet, local Markdown vault for capturing and organizing the things you want to remember.",
+  keywords: ["markdown", "notes", "personal knowledge", "journal", "memory"],
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#f7f5f0",
 };
 
 export default function RootLayout({
@@ -22,9 +21,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable}`}>
+    <html lang="en">
       <body className="antialiased">
-        {children}
+        <MemoryProvider>{children}</MemoryProvider>
       </body>
     </html>
   );

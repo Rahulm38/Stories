@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <rect width="1024" height="500" fill="#F7F0E3"/>
+  <circle cx="194" cy="250" r="154" fill="#EADFCB"/>
+  <path d="M78 139 Q78 105 112 105 L248 105 Q278 105 278 137 L278 361 Q278 393 246 393 L112 393 Q78 393 78 359 Z" fill="#282D31"/>
+  <path d="M173 178 Q173 145 205 145 L340 145 Q373 145 373 178 L373 383 Q373 416 340 416 L205 416 Q173 416 173 383 Z" fill="#C96043"/>
+  <path d="M176 200 C236 213 242 262 198 281 C157 299 164 343 220 368" fill="none" stroke="#F7F0E3" stroke-width="30" stroke-linecap="round"/>
+  <text x="454" y="226" font-family="Georgia, serif" font-size="92" font-weight="700" fill="#282D31">Stories</text>
+  <text x="458" y="284" font-family="Arial, sans-serif" font-size="30" fill="#6D655D">Keep what matters.</text>
+  <text x="458" y="326" font-family="Arial, sans-serif" font-size="30" fill="#6D655D">Recall it when it counts.</text>
+</svg>

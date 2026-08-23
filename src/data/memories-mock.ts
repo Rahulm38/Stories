@@ -1,5 +1,5 @@
 // ============================================
-// Memory OS — Sample Memories (Mock Data)
+// Stories — Sample Memories (Mock Data)
 // ============================================
 // 📝 EDIT THIS FILE to add, remove, or change sample memories.
 // These are realistic examples from the product brief.
@@ -86,7 +86,7 @@ export const mockMemories: Memory[] = [
     type: 'work',
     date: '2026-05-10T16:30:00',
     timeAgo: '2 days ago',
-    project: 'Memory OS Backend',
+    project: 'Stories Backend',
     whyItMatters: 'This pattern will come up again. Remember to check middleware caching on any token refresh logic.',
     tags: ['auth', 'debugging', 'backend'],
     connectedMemoryIds: ['mem-8'],
@@ -102,6 +102,8 @@ export const mockMemories: Memory[] = [
     date: '2026-05-08T22:00:00',
     timeAgo: '4 days ago',
     source: 'Indistractable by Nir Eyal',
+    recallPrompt: 'What does Indistractable say is underneath a distraction?',
+    nextRecallAt: '2026-08-07T08:00:00.000Z',
     whyItMatters: 'I do this constantly — I open Instagram or YouTube when the work feels unclear or hard.',
     useItWhen: 'When I reach for Instagram, YouTube, or random browsing during work.',
     tags: ['distraction', 'focus', 'self-awareness'],
@@ -130,7 +132,7 @@ export const mockMemories: Memory[] = [
     type: 'work',
     date: '2026-05-09T11:00:00',
     timeAgo: '3 days ago',
-    project: 'Memory OS Backend',
+    project: 'Stories Backend',
     whyItMatters: 'Always check how clients retry before setting rate limits.',
     tags: ['backend', 'debugging', 'rate-limiting'],
     connectedMemoryIds: ['mem-5'],
@@ -188,7 +190,7 @@ export const mockMemories: Memory[] = [
     type: 'work',
     date: '2026-05-12T10:30:00',
     timeAgo: '5 hours ago',
-    project: 'Memory OS Backend',
+    project: 'Stories Backend',
     whyItMatters: 'Don\'t start MoEngage work until auth is shipped. Will be asked about this.',
     tags: ['standup', 'decision', 'planning'],
     connectedMemoryIds: ['mem-5'],

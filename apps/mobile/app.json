@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Stories",
+    "slug": "stories",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/stories-icon.png",
+    "scheme": "stories",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.rahulm.stories",
+      "versionCode": 1,
+      "allowBackup": false,
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F3EA",
+        "foregroundImage": "./assets/images/stories-adaptive-foreground.png"
+      },
+      "predictiveBackGestureEnabled": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rahulm.stories",
+      "buildNumber": "1"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "816b91c2-c913-4267-840b-58bb34f6f6bb"
+      }
+    }
+  }
+}
