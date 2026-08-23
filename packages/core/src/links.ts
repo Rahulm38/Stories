@@ -23,7 +23,13 @@ export function activeWikilinkAtCursor(value: string, cursor: number): ActiveWik
 
   const query = beforeCursor.slice(start + 2);
   if (query.includes(']]') || query.includes('\n') || query.includes('[') || query.includes(']')) return null;
-  return { start, end: cursor, query };
+  const afterCursor = value.slice(cursor);
+  const closingOffset = afterCursor.indexOf(']]');
+  const newlineOffset = afterCursor.indexOf('\n');
+  const end = closingOffset !== -1 && (newlineOffset === -1 || closingOffset < newlineOffset)
+    ? cursor + closingOffset + 2
+    : cursor;
+  return { start, end, query };
 }
 
 export function resolveLink(target: string, notes: MemoryNote[], fromId?: string): LinkResolution {

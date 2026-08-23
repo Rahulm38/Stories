@@ -9,16 +9,15 @@ export const RECALL_INTERVAL_DAYS: Readonly<Record<RecallStatus, number>> = {
 function parseRecallDate(value: string | undefined): Date | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
-  const calendarDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (calendarDate) {
-    const [, yearText, monthText, dayText] = calendarDate;
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    if (month < 1 || month > 12 || day < 1 || day > daysInMonth) return undefined;
-    if (trimmed.length === 10) return new Date(year, month - 1, day);
-  }
+  const calendarDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?=$|T)/);
+  if (!calendarDate) return undefined;
+  const [, yearText, monthText, dayText] = calendarDate;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth) return undefined;
+  if (trimmed.length === 10) return new Date(year, month - 1, day);
 
   const parsed = new Date(trimmed);
   return Number.isFinite(parsed.getTime()) ? parsed : undefined;

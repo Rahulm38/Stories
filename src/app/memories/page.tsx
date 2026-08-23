@@ -32,6 +32,7 @@ export default function MemoriesPage() {
     }),
     [memories, query],
   );
+  const hasSearchNoResults = Boolean(query) && matchingMemories.length === 0;
 
   const folderGroups = useMemo(
     () => availableFolders.map((folder) => ({
@@ -85,7 +86,7 @@ export default function MemoriesPage() {
           />
             </div>
 
-            <section className="folder-tree" aria-labelledby="folders-heading">
+            {!hasSearchNoResults && <section className="folder-tree" aria-labelledby="folders-heading">
           <div className="section-heading">
             <div>
               <p className="eyebrow">Your structure</p>
@@ -152,7 +153,7 @@ export default function MemoriesPage() {
               );
             })}
           </div>
-            </section>
+            </section>}
 
             {matchingMemories.length === 0 && (
               <div className="empty-state">

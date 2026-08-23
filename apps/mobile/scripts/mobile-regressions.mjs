@@ -154,6 +154,28 @@ test('failed external links do not create local notes', async () => {
   assert.deepEqual(localTargets, ['[[local-note.md]]']);
 });
 
+test('phone and SMS links are handed to the device instead of creating notes', async () => {
+  const externalTargets = [];
+  const localTargets = [];
+  const openExternal = async (target) => externalTargets.push(target);
+
+  await openMarkdownLink('tel:+15551234567', openExternal, (target) => localTargets.push(target));
+  await openMarkdownLink('sms:+15551234567', openExternal, (target) => localTargets.push(target));
+
+  assert.deepEqual(externalTargets, ['tel:+15551234567', 'sms:+15551234567']);
+  assert.deepEqual(localTargets, []);
+});
+
+test('angle-wrapped external Markdown links are unwrapped before handoff', async () => {
+  const externalTargets = [];
+  const localTargets = [];
+
+  await openMarkdownLink(' <https://example.com/a> ', async (target) => externalTargets.push(target), (target) => localTargets.push(target));
+
+  assert.deepEqual(externalTargets, ['https://example.com/a']);
+  assert.deepEqual(localTargets, []);
+});
+
 test('cold-start saves stay blocked until the vault has hydrated', () => {
 assert.throws(() => ensureVaultReady(false, true), /local vault is still opening/);
 assert.throws(() => ensureVaultReady(true, false), /local vault is still opening/);

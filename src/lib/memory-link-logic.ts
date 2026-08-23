@@ -7,7 +7,8 @@ export type LinkMemory = {
 export function memoryFileName(memory: Pick<LinkMemory, 'title'>): string {
   const slug = memory.title
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, ' ')
+    .normalize('NFC')
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
     .trim()
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
@@ -51,6 +52,7 @@ export function findLinkedMemory<T extends LinkMemory>(target: string, memories:
   const exactFileMatches = memories.filter((memory) => normalizeTarget(memoryFileName(memory)) === normalizedTarget);
   if (exactFileMatches.length === 1) return exactFileMatches[0];
 
+  if (!/^[a-z0-9][a-z0-9 /_-]*$/i.test(normalizedTarget)) return undefined;
   const fuzzyMatches = memories.filter((memory) => isLinkToMemory(target, memory));
   return fuzzyMatches.length === 1 ? fuzzyMatches[0] : undefined;
 }
@@ -103,7 +105,7 @@ export function insertWikilink<T extends LinkMemory>(value: string, active: Acti
 }
 
 export function replaceRenamedWikilinks<T extends LinkMemory>(content: string, previous: T, next: T, memories: T[] = [previous]) {
-  if (!content.includes('[[')) return content;
+  if (!content.includes('[[') || memoryFilePath(previous) === memoryFilePath(next)) return content;
   return content.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (whole, target: string, alias?: string) => {
     if (findLinkedMemory(target, memories)?.id !== previous.id) return whole;
     const replacement = normalizeTarget(target).includes('/') ? memoryFilePath(next) : memoryFileName(next);

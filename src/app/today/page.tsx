@@ -1,6 +1,6 @@
 'use client';
 
-import React, { FormEvent, useMemo, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   BookOpen,
@@ -17,7 +17,7 @@ import { memoryKindLabel, useMemoryStore } from '@/components/shared/memory-stor
 import { selectDueMemory } from '@/lib/recall-scheduling';
 import { MemoryKind, RecallStatus } from '@/types';
 
-type RecallStage = 'ready' | 'thinking' | 'revealed' | 'complete';
+type RecallStage = 'ready' | 'thinking' | 'revealed';
 
 const RECALL_INTERVAL_DAYS: Record<RecallStatus, number> = {
   remembered: 14,
@@ -38,21 +38,33 @@ export default function TodayPage() {
   const [savedMessage, setSavedMessage] = useState('');
   const [recallStage, setRecallStage] = useState<RecallStage>('ready');
   const [recallCompleteMessage, setRecallCompleteMessage] = useState('');
-  const [openedAt] = useState(() => Date.now());
+  const [nowTime, setNowTime] = useState(() => Date.now());
   const { memories, hydrated, addMemory, updateMemory } = useMemoryStore();
+
+  useEffect(() => {
+    const refreshTime = () => setNowTime(Date.now());
+    const timer = window.setInterval(refreshTime, 60_000);
+    window.addEventListener('focus', refreshTime);
+    document.addEventListener('visibilitychange', refreshTime);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshTime);
+      document.removeEventListener('visibilitychange', refreshTime);
+    };
+  }, []);
 
   const recentMemories = useMemo(
     () => [...memories].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [memories],
   );
   const dueMemory = useMemo(() => {
-    return selectDueMemory(recentMemories, openedAt);
-  }, [openedAt, recentMemories]);
+    return selectDueMemory(recentMemories, nowTime);
+  }, [nowTime, recentMemories]);
   const recentMemory = recentMemories.find((memory) => memory.id !== dueMemory?.id);
 
   const todayDate = useMemo(
-    () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
-    [],
+    () => new Date(nowTime).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+    [nowTime],
   );
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -84,7 +96,7 @@ export default function TodayPage() {
     });
     const returnDate = next.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     setRecallCompleteMessage(`Practiced. Back on ${returnDate}.`);
-    setRecallStage('complete');
+    setRecallStage('ready');
   };
 
   const deferRecall = () => {
@@ -116,7 +128,7 @@ export default function TodayPage() {
           </header>
         )}
 
-        {!captureOpen && recallStage === 'complete' && (
+        {!captureOpen && recallCompleteMessage && (
           <section className="native-section" aria-labelledby="recall-complete-title">
             <p className="native-section-label" id="recall-complete-title">Due recall</p>
             <div className="recall-surface">
@@ -128,7 +140,7 @@ export default function TodayPage() {
           </section>
         )}
 
-        {!captureOpen && recallStage !== 'complete' && dueMemory && (
+        {!captureOpen && dueMemory && (
           <section className="native-section" aria-labelledby="recall-title">
             <p className="native-section-label" id="recall-title">Due recall</p>
             <div className="recall-surface">
@@ -142,7 +154,7 @@ export default function TodayPage() {
 
               {recallStage === 'ready' && (
                 <div className="recall-actions">
-                  <button type="button" className="native-primary-button native-primary-wide" onClick={() => setRecallStage('thinking')}>
+                  <button type="button" className="native-primary-button native-primary-wide" onClick={() => { setRecallCompleteMessage(''); setRecallStage('thinking'); }}>
                     Try to recall
                   </button>
                   <button type="button" className="native-text-button" onClick={deferRecall}><Clock3 aria-hidden="true" /> Tomorrow</button>
@@ -201,6 +213,7 @@ export default function TodayPage() {
                 <summary>
                   <span>Memory details</span>
                   <small>{memoryKindLabel(kind)} · returns in 3 days</small>
+                  <ChevronRight className="capture-details-chevron" aria-hidden="true" />
                 </summary>
                 <div className="capture-kind-row" role="group" aria-label="Memory type">
                   <button type="button" aria-pressed={kind === 'note'} className={kind === 'note' ? 'is-selected' : ''} onClick={() => setKind('note')}>

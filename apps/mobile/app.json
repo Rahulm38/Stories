@@ -25,16 +25,16 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/stories-icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/stories-adaptive-foreground.png",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#FAFAF8"
         }
       ]
     ],

@@ -9,6 +9,7 @@ type BeforeRemoveEvent = {
 };
 type Navigation = {
   dispatch: (action: NavigationAction) => void;
+  setOptions: (options: { gestureEnabled: boolean }) => void;
   addListener: (
     event: 'beforeRemove',
     listener: (event: BeforeRemoveEvent) => void,
@@ -50,6 +51,14 @@ export function useUnsavedChangesGuard(dirty: boolean, busy = false): () => void
     },
     [busy, navigation],
   );
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      navigation.setOptions({ gestureEnabled: !dirty && !busy });
+      return () => navigation.setOptions({ gestureEnabled: true });
+    }
+    return undefined;
+  }, [busy, dirty, navigation]);
 
   useEffect(() => {
     if (Platform.OS === 'web' || (!dirty && !busy)) {

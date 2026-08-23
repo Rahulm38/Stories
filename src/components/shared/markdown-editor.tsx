@@ -49,10 +49,20 @@ export function MarkdownEditor({
     () => activeWikilink ? wikilinkSuggestions(activeWikilink.query, memories, currentMemoryId) : [],
     [activeWikilink, currentMemoryId, memories],
   );
+  const hasTitle = Boolean(title.trim());
+  const hasBody = Boolean(body.trim());
+  const canSubmit = hasTitle && hasBody;
+  const validationMessage = !hasTitle && !hasBody
+    ? 'Add a title and some text before saving.'
+    : !hasTitle
+      ? 'Add a title before saving.'
+      : !hasBody
+        ? 'Write something before saving.'
+        : '';
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim()) return;
+    if (!canSubmit) return;
     onSave({
       title: title.trim(),
       body: body.trim(),
@@ -97,7 +107,7 @@ export function MarkdownEditor({
         onChange={(event) => setTitle(event.target.value)}
         className="markdown-editor-title"
         placeholder="Untitled note"
-        autoFocus
+        autoFocus={!currentMemoryId}
       />
       <label className="sr-only" htmlFor="editor-body">Markdown body</label>
       <textarea
@@ -138,10 +148,13 @@ export function MarkdownEditor({
           ))}
         </div>
       )}
-      <p className="markdown-editor-hint">Link files with <code>[[filename.md]]</code>. {memoryKindHint(kind)}</p>
+      <p id="editor-hint" className="markdown-editor-hint" aria-live="polite">
+        {validationMessage && <span className="markdown-editor-validation">{validationMessage} </span>}
+        Link files with <code>[[filename.md]]</code>. {memoryKindHint(kind)}
+      </p>
       <div className="markdown-editor-actions">
         {onCancel && <button type="button" className="button-secondary" onClick={onCancel}>Cancel</button>}
-        <button type="submit" className="button-primary">{submitLabel}</button>
+        <button type="submit" className="button-primary" disabled={!canSubmit} aria-describedby="editor-hint">{submitLabel}</button>
       </div>
     </form>
   );

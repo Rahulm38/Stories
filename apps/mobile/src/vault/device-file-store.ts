@@ -82,12 +82,16 @@ export class DeviceFileStore implements VaultFileStore {
         }
 
         const destinationHealthy = destination.exists && isCompleteMarkdown(await destination.text());
+        let restored = false;
         if (!destinationHealthy) {
           const markdown = await entry.text();
-          if (isCompleteMarkdown(markdown)) await entry.move(destination, { overwrite: true });
+          if (isCompleteMarkdown(markdown)) {
+            await entry.move(destination, { overwrite: true });
+            restored = true;
+          }
           else continue;
         }
-        if (entry.exists) entry.delete();
+        if (!restored && entry.exists) entry.delete();
       } catch {
         // Leave an unrecoverable artifact for a later startup rather than deleting data.
       }
@@ -136,7 +140,7 @@ export class DeviceFileStore implements VaultFileStore {
       temporary.create({ overwrite: true });
       temporary.write(markdown);
       if (await temporary.text() !== markdown) throw new Error('The Markdown file could not be verified');
-      await temporary.move(destination, { overwrite: true });
+      await temporary.move(destination, { overwrite: previousPath === path });
       committed = true;
 
       if (previousPath && previousPath !== path) {
@@ -144,7 +148,17 @@ export class DeviceFileStore implements VaultFileStore {
         if (previous?.exists) previous.delete();
       }
     } catch (error) {
-      if (!committed && backupCreated && backup?.exists) {
+      if (committed) {
+        try {
+          if (backupCreated && backup?.exists) {
+            await backup.move(destination, { overwrite: true });
+            backupCreated = false;
+          }
+          else if (destination.exists) destination.delete();
+        } catch (restoreError) {
+          throw new Error('The Markdown file could not be restored after a failed move', { cause: restoreError });
+        }
+      } else if (backupCreated && backup?.exists) {
         let destinationHealthy = false;
         try {
           destinationHealthy = destination.exists && isCompleteMarkdown(await destination.text());
@@ -155,16 +169,25 @@ export class DeviceFileStore implements VaultFileStore {
         if (!destinationHealthy) {
           try {
             await backup.move(destination, { overwrite: true });
+            backupCreated = false;
           } catch (restoreError) {
             throw new Error('The Markdown file could not be restored after a failed replacement', { cause: restoreError });
           }
         }
       }
       if (!committed && temporary.exists) temporary.delete();
-      if (backup?.exists) backup.delete();
+      try {
+        if (backupCreated && backup?.exists) backup.delete();
+      } catch {
+        // A verified backup is a safe recovery artifact and will be cleaned on startup.
+      }
       throw error;
     }
 
-    if (backup?.exists) backup.delete();
+    try {
+      if (backupCreated && backup?.exists) backup.delete();
+    } catch {
+      // The committed destination is healthy; startup recovery will remove the stale backup.
+    }
   }
 }

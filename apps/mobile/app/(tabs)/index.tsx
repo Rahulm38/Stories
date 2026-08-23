@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ColorValue } from 'react-native';
+import { AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ColorValue } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -71,6 +71,12 @@ export default function TodayScreen() {
     }, 0);
     return () => clearTimeout(timer);
   }, [params.nextRecallAt, params.saved, router]);
+
+  useEffect(() => {
+    if (!statusMessage) return;
+    const timer = setTimeout(() => setStatusMessage(''), 6_000);
+    return () => clearTimeout(timer);
+  }, [statusMessage]);
 
   useFocusEffect(useCallback(() => {
     setNow(new Date());
@@ -167,110 +173,122 @@ export default function TodayScreen() {
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <View>
-            <Text accessibilityRole="header" style={sharedStyles.title}>Today</Text>
-            <Text style={sharedStyles.subtitle}>{todayDate()}</Text>
+      <KeyboardAvoidingView style={sharedStyles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <View>
+              <Text accessibilityRole="header" style={sharedStyles.title}>Today</Text>
+              <Text style={sharedStyles.subtitle}>{todayDate()}</Text>
+            </View>
           </View>
-        </View>
 
-        {statusMessage ? (
-          <View accessibilityLiveRegion="polite" style={styles.successMessage}>
-            <Icon color={colors.green} name={icons.check} size={18} />
-            <Text style={styles.successText}>{statusMessage}</Text>
-          </View>
-        ) : null}
+          {statusMessage ? (
+            <View accessibilityLiveRegion="polite" style={styles.successMessage}>
+              <Icon color={colors.green} name={icons.check} size={18} />
+              <Text style={styles.successText}>{statusMessage}</Text>
+            </View>
+          ) : null}
 
-        {!dueNote ? <CaptureEntry isEmpty={notes.length === 0} onPress={() => router.navigate('/capture')} /> : null}
+          {!dueNote ? <CaptureEntry isEmpty={notes.length === 0} onPress={() => router.navigate('/capture')} /> : null}
 
-        {dueNote ? (
-          <View style={styles.section}>
-            <Text style={sharedStyles.sectionLabel}>Due recall</Text>
-            <View style={styles.recallCard}>
-              <View style={styles.recallHeader}>
-                <View style={styles.recallIcon}><Icon name={kindIcon(dueNote.kind)} size={23} /></View>
-                <View style={styles.recallCopy}>
-                  <Text accessibilityRole="header" style={styles.recallTitle}>{recallCue(dueNote)}</Text>
-                  <Text style={styles.recallMeta}>
-                    {dueNote.source || noteKindLabel(dueNote)} · {dueNotes.length} due
-                  </Text>
+          {dueNote ? (
+            <View style={styles.section}>
+              <Text style={sharedStyles.sectionLabel}>Due recall</Text>
+              <View style={styles.recallCard}>
+                <View style={styles.recallHeader}>
+                  <View style={styles.recallIcon}><Icon name={kindIcon(dueNote.kind)} size={23} /></View>
+                  <View style={styles.recallCopy}>
+                    <Text accessibilityRole="header" style={styles.recallTitle}>{recallCue(dueNote)}</Text>
+                    <Text style={styles.recallMeta}>
+                      {dueNote.source || noteKindLabel(dueNote)} · {dueNotes.length} due
+                    </Text>
+                  </View>
                 </View>
+
+                <View style={styles.recallDivider} />
+
+                {visibleRecallStage === 'cue' ? (
+                  <View style={styles.recallActions}>
+                    <Pressable accessibilityRole="button" accessibilityState={{ busy: savingRecall, disabled: savingRecall }} disabled={savingRecall} onPress={() => startRecall(dueNote)} style={[styles.primaryButton, savingRecall && styles.buttonDisabled]}>
+                      <Text style={styles.primaryButtonText}>Try to recall</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" accessibilityState={{ busy: savingRecall, disabled: savingRecall }} disabled={savingRecall} onPress={() => { void postponeRecall(); }} style={[styles.laterButton, savingRecall && styles.buttonDisabled]}>
+                      <Icon name={icons.later} size={19} />
+                      <Text style={styles.laterText}>Tomorrow</Text>
+                    </Pressable>
+                  </View>
+                ) : visibleRecallStage === 'attempt' ? (
+                  <View accessibilityLiveRegion="polite" style={styles.attemptBlock}>
+                    <Icon name={icons.lightbulb} size={21} />
+                    <Text style={styles.attemptText}>Say the idea in your own words. The note is still hidden.</Text>
+                    <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => setRecallStage('revealed')} style={[styles.primaryButton, savingRecall && styles.buttonDisabled]}>
+                      <Text style={styles.primaryButtonText}>Reveal memory</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View accessibilityLiveRegion="polite" style={styles.revealBlock}>
+                    <Text style={styles.revealedBody}>{dueNote.body}</Text>
+                    <TextInput
+                      accessibilityLabel="Optional recall reflection"
+                      editable={!savingRecall}
+                      onChangeText={setReflection}
+                      placeholder="Add a reflection (optional)"
+                      placeholderTextColor={colors.muted}
+                      style={styles.reflectionInput}
+                      value={reflection}
+                    />
+                    <Text style={styles.ratingPrompt}>How well did you remember it?</Text>
+                    <View style={styles.ratingRow}>
+                      {(['forgot', 'partial', 'remembered'] as const).map((status) => (
+                        <Pressable
+                          accessibilityHint="Saves this recall result immediately"
+                          accessibilityLabel={savingRecall ? `Saving ${recallResultLabel(status)} recall` : `Mark recall ${recallResultLabel(status)}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ busy: savingRecall, disabled: savingRecall }}
+                          disabled={savingRecall}
+                          key={status}
+                          onPress={() => { void saveRecall(status); }}
+                          style={[styles.ratingButton, savingRecall && styles.buttonDisabled]}
+                        >
+                          <Text style={styles.ratingText}>{recallResultLabel(status)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {savingRecall ? <Text accessibilityLiveRegion="polite" style={styles.savingStatus}>Saving recall…</Text> : null}
+                  </View>
+                )}
               </View>
-
-              <View style={styles.recallDivider} />
-
-              {visibleRecallStage === 'cue' ? (
-                <View style={styles.recallActions}>
-                  <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => startRecall(dueNote)} style={styles.primaryButton}>
-                    <Text style={styles.primaryButtonText}>Try to recall</Text>
-                  </Pressable>
-                  <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => { void postponeRecall(); }} style={styles.laterButton}>
-                    <Icon name={icons.later} size={19} />
-                    <Text style={styles.laterText}>Tomorrow</Text>
-                  </Pressable>
-                </View>
-              ) : visibleRecallStage === 'attempt' ? (
-                <View accessibilityLiveRegion="polite" style={styles.attemptBlock}>
-                  <Icon name={icons.lightbulb} size={21} />
-                  <Text style={styles.attemptText}>Say the idea in your own words. The note is still hidden.</Text>
-                  <Pressable accessibilityRole="button" onPress={() => setRecallStage('revealed')} style={styles.primaryButton}>
-                    <Text style={styles.primaryButtonText}>Reveal memory</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View accessibilityLiveRegion="polite" style={styles.revealBlock}>
-                  <Text style={styles.revealedBody}>{dueNote.body}</Text>
-                  <TextInput
-                    accessibilityLabel="Optional recall reflection"
-                    editable={!savingRecall}
-                    onChangeText={setReflection}
-                    placeholder="Add a reflection (optional)"
-                    placeholderTextColor={colors.muted}
-                    style={styles.reflectionInput}
-                    value={reflection}
-                  />
-                  <Text style={styles.ratingPrompt}>How well did you remember it?</Text>
-                  <View accessibilityRole="radiogroup" accessibilityLabel="Recall result" style={styles.ratingRow}>
-                    {(['forgot', 'partial', 'remembered'] as const).map((status) => (
-                      <Pressable key={status} accessibilityRole="button" disabled={savingRecall} onPress={() => { void saveRecall(status); }} style={styles.ratingButton}>
-                        <Text style={styles.ratingText}>{recallResultLabel(status)}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              )}
+              {recallError ? <Text accessibilityRole="alert" style={styles.error}>{recallError}</Text> : null}
             </View>
-            {recallError ? <Text accessibilityRole="alert" style={styles.error}>{recallError}</Text> : null}
-          </View>
-        ) : null}
+          ) : null}
 
-        {dueNote ? <CaptureEntry isEmpty={false} onPress={() => router.navigate('/capture')} /> : null}
+          {dueNote ? <CaptureEntry isEmpty={false} onPress={() => router.navigate('/capture')} /> : null}
 
-        {recentNotes.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={sharedStyles.sectionLabel}>Recent</Text>
-            <View style={styles.recentList}>
-              {recentNotes.map((note, index) => (
-                <Pressable
-                  key={note.id}
-                  accessibilityLabel={`Open ${note.title}`}
-                  accessibilityRole="button"
-                  onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
-                  style={[styles.recentRow, index > 0 && styles.recentRowBorder]}
-                >
-                  <View style={styles.recentIcon}><Icon name={kindIcon(note.kind)} size={21} /></View>
-                  <View style={styles.recentCopy}>
-                    <Text numberOfLines={1} style={styles.recentTitle}>{note.title}</Text>
-                    <Text style={styles.recentSubtitle}>{noteKindLabel(note)} · {displayDate(note.updatedAt)}</Text>
-                  </View>
-                  <Icon color={colors.muted} name={icons.chevron} size={19} />
-                </Pressable>
-              ))}
+          {recentNotes.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={sharedStyles.sectionLabel}>Recent</Text>
+              <View style={styles.recentList}>
+                {recentNotes.map((note, index) => (
+                  <Pressable
+                    key={note.id}
+                    accessibilityLabel={`Open ${note.title}`}
+                    accessibilityRole="button"
+                    onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
+                    style={[styles.recentRow, index > 0 && styles.recentRowBorder]}
+                  >
+                    <View style={styles.recentIcon}><Icon name={kindIcon(note.kind)} size={21} /></View>
+                    <View style={styles.recentCopy}>
+                      <Text numberOfLines={2} style={styles.recentTitle}>{note.title}</Text>
+                      <Text style={styles.recentSubtitle}>{noteKindLabel(note)} · {displayDate(note.updatedAt)}</Text>
+                    </View>
+                    <Icon color={colors.muted} name={icons.chevron} size={19} />
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
-        ) : null}
-      </ScrollView>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -305,7 +323,7 @@ const styles = StyleSheet.create({
   errorHint: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 8, maxWidth: 310, textAlign: 'center' },
   header: { marginBottom: 0 },
   captureSection: { marginTop: 29 },
-  captureRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 13, minHeight: 64, paddingHorizontal: 15 },
+  captureRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 13, minHeight: 64, paddingHorizontal: 15 },
   captureTitle: { color: colors.muted, flex: 1, fontSize: 17 },
   emptyPromise: { color: colors.muted, fontSize: 15, lineHeight: 22, marginBottom: 12, marginTop: -1, maxWidth: 330 },
   section: { marginTop: 29 },
@@ -320,18 +338,20 @@ const styles = StyleSheet.create({
   recallDivider: { backgroundColor: colors.line, height: StyleSheet.hairlineWidth, marginVertical: 15 },
   recallActions: { gap: 8 },
   primaryButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 11, justifyContent: 'center', minHeight: 48, paddingHorizontal: 16 },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  primaryButtonText: { color: colors.onAction, fontSize: 15, fontWeight: '600' },
+  buttonDisabled: { opacity: 0.52 },
   laterButton: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 46 },
   laterText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
   attemptBlock: { gap: 13 },
   attemptText: { color: colors.muted, fontSize: 15, lineHeight: 22 },
   revealBlock: { gap: 13 },
   revealedBody: { color: colors.ink, fontSize: 16, lineHeight: 25 },
-  reflectionInput: { borderColor: colors.line, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, lineHeight: 21, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },
+  reflectionInput: { borderColor: colors.controlLine, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, lineHeight: 21, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },
   ratingPrompt: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   ratingRow: { flexDirection: 'row', gap: 7 },
-  ratingButton: { alignItems: 'center', borderColor: colors.line, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 6 },
+  ratingButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 6 },
   ratingText: { color: colors.ink, fontSize: 13, fontWeight: '600' },
+  savingStatus: { color: colors.muted, fontSize: 13, lineHeight: 18 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20, marginTop: 10 },
   recentList: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth },
   recentRow: { alignItems: 'center', flexDirection: 'row', minHeight: 68, paddingVertical: 10 },

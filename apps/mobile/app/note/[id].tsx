@@ -112,6 +112,11 @@ export default function NoteScreen() {
   const suggestions = activeLink ? suggestLinks(activeLink.query, note?.id) : [];
   const dueLabel = recallLabel(note?.nextRecallAt, now.getTime());
 
+  const leaveNote = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/files');
+  };
+
   useFocusEffect(useCallback(() => {
     setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -211,13 +216,22 @@ export default function NoteScreen() {
   }
 
   if (openError) {
-    return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}><Text accessibilityRole="alert" style={styles.error}>{openError}</Text></SafeAreaView>;
+    return (
+      <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}>
+        <Text accessibilityRole="header" style={styles.missingTitle}>Your vault could not be opened</Text>
+        <Text accessibilityRole="alert" style={styles.error}>{openError}</Text>
+        <Pressable accessibilityRole="button" onPress={leaveNote} style={sharedStyles.quietButton}>
+          <Text style={sharedStyles.quietButtonText}>Go back</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
   }
 
   if (!note) {
     return (
       <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}>
-        <Text style={styles.missingTitle}>File not found</Text>
+        <Text accessibilityRole="header" style={styles.missingTitle}>This memory isn’t available</Text>
+        <Text style={styles.missingCopy}>It may have been moved or deleted.</Text>
         <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/(tabs)/files')} style={sharedStyles.quietButton}>
           <Text style={sharedStyles.quietButtonText}>Back to Library</Text>
         </Pressable>
@@ -233,19 +247,19 @@ export default function NoteScreen() {
             <Text style={[styles.topBarActionText, saving && styles.disabled]}>Cancel</Text>
           </Pressable>
         ) : (
-          <Pressable accessibilityLabel="Back to Library" accessibilityRole="button" onPress={() => router.dismissTo('/(tabs)/files')} style={styles.topBarIconButton}>
+          <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={leaveNote} style={styles.topBarIconButton}>
             <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={21} tintColor={colors.accent} />
           </Pressable>
         )}
 
-        <Text numberOfLines={1} style={styles.topBarTitle}>{editing ? 'Edit note' : 'Note'}</Text>
+        <Text numberOfLines={1} style={styles.topBarTitle}>{editing ? 'Edit memory' : 'Memory'}</Text>
 
         {editing ? (
           <Pressable accessibilityRole="button" disabled={saving} onPress={() => { void save(); }} style={styles.topBarAction}>
             <Text style={[styles.topBarActionText, saving && styles.disabled]}>{saving ? 'Saving…' : 'Save'}</Text>
           </Pressable>
         ) : (
-          <Pressable accessibilityLabel="Edit note" accessibilityRole="button" onPress={beginEditing} style={styles.topBarIconButton}>
+          <Pressable accessibilityLabel="Edit memory" accessibilityRole="button" onPress={beginEditing} style={styles.topBarIconButton}>
             <SymbolView name={{ ios: 'square.and.pencil', android: 'edit', web: 'edit' }} size={20} tintColor={colors.accent} />
           </Pressable>
         )}
@@ -253,9 +267,9 @@ export default function NoteScreen() {
 
       {editing ? (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.editorWrap}>
-          <ScrollView contentContainerStyle={styles.editorContent} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={styles.editorContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
             <TextInput
-              accessibilityLabel="Note title"
+              accessibilityLabel="Memory title"
               onChangeText={(title) => updateDraft({ title })}
               placeholder="Title"
               placeholderTextColor={colors.muted}
@@ -269,7 +283,7 @@ export default function NoteScreen() {
                 ref={bodyRef}
                 value={draft.body}
                 onChangeText={(body) => updateDraft({ body })}
-                accessibilityLabel="Note body"
+                accessibilityLabel="Memory body"
                 placeholder="Write in Markdown…"
                 autoFocus
                 editable={!saving}
@@ -294,9 +308,17 @@ export default function NoteScreen() {
                   {editorDetailsSummary(draft)}
                 </Text>
               </View>
-              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.detailsToggleIcon}>
-                {detailsExpanded ? '−' : '+'}
-              </Text>
+              <SymbolView
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                name={{
+                  android: detailsExpanded ? 'expand_less' : 'expand_more',
+                  ios: detailsExpanded ? 'chevron.up' : 'chevron.down',
+                  web: detailsExpanded ? 'expand_less' : 'expand_more',
+                }}
+                size={20}
+                tintColor={colors.accent}
+              />
             </Pressable>
 
             {detailsExpanded ? <View style={styles.detailsPanel}>
@@ -392,10 +414,6 @@ export default function NoteScreen() {
         </KeyboardAvoidingView>
       ) : (
         <ScrollView contentContainerStyle={styles.readingContent}>
-          <View style={styles.pathRow}>
-            <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={14} tintColor={colors.muted} />
-            <Text numberOfLines={2} style={styles.pathText}>{note.path}</Text>
-          </View>
           <Text accessibilityRole="header" style={styles.noteTitle}>{note.title}</Text>
           <Text style={styles.noteMeta}>{noteKindLabel(note)} · {note.folder}</Text>
 
@@ -415,6 +433,10 @@ export default function NoteScreen() {
 
           <View style={styles.divider} />
           <MarkdownBody body={note.body} onOpenLink={(target) => { void openLink(target); }} />
+          <View style={styles.pathRow}>
+            <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={14} tintColor={colors.muted} />
+            <Text accessibilityLabel={`Stored as ${note.path}`} style={styles.pathText}>{note.path}</Text>
+          </View>
         </ScrollView>
       )}
       {saveError ? <Text accessibilityRole="alert" style={styles.error}>{saveError}</Text> : null}
@@ -426,6 +448,7 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   muted: { color: colors.muted, fontSize: 16 },
   missingTitle: { color: colors.ink, fontSize: 20, fontWeight: '600', marginBottom: 10 },
+  missingCopy: { color: colors.muted, fontSize: 15, lineHeight: 21, marginBottom: 8, textAlign: 'center' },
   topBar: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', minHeight: 54, paddingHorizontal: 12 },
   topBarTitle: { color: colors.ink, flex: 1, fontSize: 16, fontWeight: '600', paddingHorizontal: 5, textAlign: 'center' },
   topBarAction: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 66, paddingHorizontal: 8 },
@@ -444,18 +467,18 @@ const styles = StyleSheet.create({
   detailsPanel: { paddingBottom: 12 },
   fieldLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', letterSpacing: 0.2, marginBottom: 8, marginTop: 18 },
   kindRow: { flexDirection: 'row', gap: 8 },
-  kindButton: { alignItems: 'center', borderColor: colors.line, borderRadius: 9, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
+  kindButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 9, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
   kindButtonSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   kindButtonText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   kindButtonTextSelected: { color: colors.accent },
-  fieldInput: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 10, borderWidth: 1, color: colors.ink, fontSize: 16, minHeight: 48, paddingHorizontal: 13, paddingVertical: 10 },
+  fieldInput: { backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, color: colors.ink, fontSize: 16, minHeight: 48, paddingHorizontal: 13, paddingVertical: 10 },
   cueInput: { minHeight: 76, textAlignVertical: 'top' },
   suggestionList: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 11, borderWidth: 1, bottom: 14, left: 20, maxHeight: 224, overflow: 'hidden', position: 'absolute', right: 20 },
   suggestionRow: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, minHeight: 53, paddingHorizontal: 14, paddingVertical: 8 },
   suggestionTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   suggestionPath: { color: colors.muted, fontSize: 12, marginTop: 2 },
   readingContent: { paddingBottom: 40, paddingHorizontal: 20, paddingTop: 22 },
-  pathRow: { alignItems: 'center', flexDirection: 'row', gap: 7, marginBottom: 12 },
+  pathRow: { alignItems: 'center', borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, marginTop: 28, paddingTop: 14 },
   pathText: { color: colors.muted, flex: 1, fontSize: 12, lineHeight: 17 },
   noteTitle: { color: colors.ink, fontSize: 27, fontWeight: '600', letterSpacing: -0.35, lineHeight: 34 },
   noteMeta: { color: colors.muted, fontSize: 13, marginTop: 7 },

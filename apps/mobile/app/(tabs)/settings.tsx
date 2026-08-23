@@ -11,7 +11,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
       <ScrollView style={sharedStyles.screen} contentContainerStyle={sharedStyles.scrollContent}>
-        <Text style={sharedStyles.title}>Settings</Text>
+        <Text accessibilityRole="header" style={sharedStyles.title}>Settings</Text>
         <Text style={sharedStyles.subtitle}>Local by default. Recall on your terms.</Text>
 
         <View style={styles.section}>

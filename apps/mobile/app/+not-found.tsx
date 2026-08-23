@@ -16,7 +16,7 @@ export default function NotFoundScreen() {
       />
       <SafeAreaView style={sharedStyles.screen} edges={['bottom']}>
         <View style={styles.container}>
-          <Text style={styles.title}>This screen isn&apos;t available.</Text>
+          <Text accessibilityRole="header" style={styles.title}>This screen isn&apos;t available.</Text>
           <Text style={styles.detail}>Return to Today to continue with your memories.</Text>
 
           <Link href="/" replace style={styles.link}>

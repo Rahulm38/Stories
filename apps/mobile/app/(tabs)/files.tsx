@@ -99,10 +99,11 @@ function flattenFolder(
   depth: number,
   expandedFolders: Record<string, boolean>,
   searching: boolean,
+  defaultExpandedRootPath?: string,
 ): LibraryRow[] {
   const expanded = searching
     ? folder.count > 0
-    : expandedFolders[folder.path] ?? (folder.path === 'Books');
+    : expandedFolders[folder.path] ?? (folder.path === defaultExpandedRootPath);
   const rows: LibraryRow[] = [{
     type: 'folder',
     key: `folder:${folder.path}`,
@@ -123,7 +124,7 @@ function flattenFolder(
     depth,
     first: index === 0,
   })));
-  folder.children.forEach((child) => rows.push(...flattenFolder(child, depth + 1, expandedFolders, searching)));
+  folder.children.forEach((child) => rows.push(...flattenFolder(child, depth + 1, expandedFolders, searching, defaultExpandedRootPath)));
   return rows;
 }
 
@@ -131,11 +132,7 @@ export default function FilesScreen() {
   const router = useRouter();
   const { hydrated, notes, openError } = useVault();
   const [query, setQuery] = useState('');
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    Books: true,
-    Experiences: false,
-    Inbox: false,
-  });
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const normalizedQuery = query.trim().toLowerCase();
 
   const duplicateTitles = useMemo(() => {
@@ -148,8 +145,9 @@ export default function FilesScreen() {
     const matchingNotes = normalizedQuery
       ? notes.filter((note) => matchesLibrarySearch(note, normalizedQuery))
       : notes;
-    return buildFolderTree(matchingNotes, !normalizedQuery)
-      .flatMap((folder) => flattenFolder(folder, 0, expandedFolders, Boolean(normalizedQuery)));
+    const folderTree = buildFolderTree(matchingNotes, !normalizedQuery);
+    const defaultExpandedRootPath = folderTree.find((folder) => folder.count > 0)?.path;
+    return folderTree.flatMap((folder) => flattenFolder(folder, 0, expandedFolders, Boolean(normalizedQuery), defaultExpandedRootPath));
   }, [expandedFolders, normalizedQuery, notes]);
 
   const hasSearchResults = !normalizedQuery || rows.some((row) => row.type === 'note');
@@ -167,14 +165,14 @@ export default function FilesScreen() {
       <SafeAreaView style={sharedStyles.screen} edges={['top']}>
         <View style={[sharedStyles.scrollContent, styles.emptyScreen]}>
           <View style={styles.header}>
-            <Text style={sharedStyles.title}>Library</Text>
-            <Pressable accessibilityLabel="New memory" accessibilityRole="button" onPress={() => router.navigate('/capture')} style={styles.newButton}>
+            <Text accessibilityRole="header" style={sharedStyles.title}>Library</Text>
+            <Pressable accessibilityLabel="New memory" accessibilityRole="button" onPress={() => router.navigate('/capture')} style={({ pressed }) => [styles.newButton, pressed && styles.pressedButton]}>
               <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={18} tintColor={colors.accent} />
-              <Text style={styles.newButtonText}>New</Text>
+              <Text style={styles.newButtonText}>New memory</Text>
             </Pressable>
           </View>
 
-          <Text style={styles.emptyCopy}>Your saved memories will appear here.</Text>
+          <Text style={styles.emptyCopy}>Start with one thought. Your saved memories will appear here.</Text>
         </View>
       </SafeAreaView>
     );
@@ -192,10 +190,10 @@ export default function FilesScreen() {
           <>
             <View style={styles.header}>
               <View style={styles.headerCopy}>
-                <Text style={sharedStyles.title}>Library</Text>
-                <Text accessibilityLabel={`${notes.length} notes`} style={styles.count}>{notes.length} {notes.length === 1 ? 'note' : 'notes'}</Text>
+                <Text accessibilityRole="header" style={sharedStyles.title}>Library</Text>
+                <Text accessibilityLabel={`${notes.length} memories`} style={styles.count}>{notes.length} {notes.length === 1 ? 'memory' : 'memories'}</Text>
               </View>
-              <Pressable accessibilityLabel="New memory" accessibilityRole="button" onPress={() => router.navigate('/capture')} style={styles.newButton}>
+              <Pressable accessibilityLabel="New memory" accessibilityRole="button" onPress={() => router.navigate('/capture')} style={({ pressed }) => [styles.newButton, pressed && styles.pressedButton]}>
                 <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={18} tintColor={colors.accent} />
                 <Text style={styles.newButtonText}>New</Text>
               </Pressable>
@@ -208,7 +206,7 @@ export default function FilesScreen() {
                 autoCapitalize="none"
                 clearButtonMode="while-editing"
                 onChangeText={setQuery}
-                placeholder="Search notes"
+                placeholder="Search memories"
                 placeholderTextColor={colors.muted}
                 returnKeyType="search"
                 style={styles.searchInput}
@@ -230,18 +228,23 @@ export default function FilesScreen() {
         ) : null}
         renderItem={({ item }) => {
           if (item.type === 'folder') {
-            const noteLabel = `${item.folder.count} ${item.folder.count === 1 ? 'note' : 'notes'}`;
+            const memoryLabel = `${item.folder.count} ${item.folder.count === 1 ? 'memory' : 'memories'}`;
             return (
               <Pressable
                 accessibilityHint={normalizedQuery ? 'Folders stay expanded while searching' : undefined}
-                accessibilityLabel={`${item.folder.name} folder, ${noteLabel}, ${item.expanded ? 'expanded' : 'collapsed'}`}
+                accessibilityLabel={`${item.folder.name} folder, ${memoryLabel}, ${item.expanded ? 'expanded' : 'collapsed'}`}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: Boolean(normalizedQuery), expanded: item.expanded }}
                 disabled={Boolean(normalizedQuery)}
                 onPress={() => {
                   setExpandedFolders((current) => ({ ...current, [item.folder.path]: !item.expanded }));
                 }}
-                style={[styles.folderRow, { paddingLeft: item.depth * 18 }]}
+                style={({ pressed }) => [
+                  styles.folderRow,
+                  normalizedQuery && styles.folderRowDisabled,
+                  pressed && styles.pressedRow,
+                  { paddingLeft: item.depth * 18 },
+                ]}
               >
                 <SymbolView
                   name={{ ios: item.expanded ? 'chevron.down' : 'chevron.right', android: item.expanded ? 'expand_more' : 'chevron_right', web: item.expanded ? 'expand_more' : 'chevron_right' }}
@@ -256,7 +259,7 @@ export default function FilesScreen() {
           }
 
           if (item.type === 'folder-empty') {
-            return <Text style={[styles.folderEmpty, { marginLeft: 47 + item.depth * 18 }]}>No notes here yet.</Text>;
+            return <Text style={[styles.folderEmpty, { marginLeft: 47 + item.depth * 18 }]}>No memories here yet.</Text>;
           }
 
           const showPath = duplicateTitles.has(item.note.title.toLowerCase());
@@ -265,7 +268,7 @@ export default function FilesScreen() {
               accessibilityLabel={`${item.note.title}, ${showPath ? item.note.path : item.note.folder}`}
               accessibilityRole="button"
               onPress={() => router.push({ pathname: '/note/[id]', params: { id: item.note.id } })}
-              style={[styles.fileRow, { marginLeft: 27 + item.depth * 18 }, item.first && styles.fileRowFirst]}
+              style={({ pressed }) => [styles.fileRow, pressed && styles.pressedRow, { marginLeft: 27 + item.depth * 18 }, item.first && styles.fileRowFirst]}
             >
               <View style={styles.fileIcon}>
                 <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={17} tintColor={colors.accent} />
@@ -294,10 +297,13 @@ const styles = StyleSheet.create({
   count: { color: colors.muted, fontSize: 14 },
   newButton: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 6, minHeight: 44, paddingHorizontal: 10 },
   newButtonText: { color: colors.accent, fontSize: 15, fontWeight: '600' },
-  searchField: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, minHeight: 48, paddingHorizontal: 14 },
+  pressedButton: { opacity: 0.65 },
+  searchField: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, minHeight: 48, paddingHorizontal: 14 },
   searchInput: { color: colors.ink, flex: 1, fontSize: 16, paddingVertical: 0 },
   sectionLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', letterSpacing: 0.2, marginBottom: 6, marginTop: 28 },
   folderRow: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, minHeight: 56 },
+  folderRowDisabled: { opacity: 0.58 },
+  pressedRow: { opacity: 0.72 },
   folderName: { color: colors.ink, flex: 1, fontSize: 16, fontWeight: '600' },
   folderNameExpanded: { color: colors.accent },
   folderCount: { color: colors.muted, fontSize: 13, minWidth: 24, textAlign: 'right' },

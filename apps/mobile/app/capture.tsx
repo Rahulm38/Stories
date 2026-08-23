@@ -28,7 +28,7 @@ export default function CaptureScreen() {
 
   useEffect(() => () => { mountedRef.current = false; }, []);
 
-  const dirty = Boolean(draft.trim() || source.trim() || recallPrompt.trim());
+  const dirty = Boolean(draft.trim() || source.trim() || recallPrompt.trim() || kind !== 'note' || recallChoice !== DEFAULT_RECALL_CHOICE);
   const allowNextNavigation = useUnsavedChangesGuard(dirty, saving);
 
   const leaveCapture = useCallback(() => {
@@ -69,13 +69,21 @@ export default function CaptureScreen() {
   };
 
   if (openError) {
-    return <SafeAreaView style={[sharedStyles.screen, styles.errorScreen]} edges={['top']}><Text accessibilityRole="alert" style={styles.error}>{openError}</Text></SafeAreaView>;
+    return (
+      <SafeAreaView style={[sharedStyles.screen, styles.errorScreen]} edges={['top', 'bottom']}>
+        <Text accessibilityRole="header" style={styles.errorTitle}>Your vault could not be opened</Text>
+        <Text accessibilityRole="alert" style={styles.error}>{openError}</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)')} style={sharedStyles.quietButton}>
+          <Text style={sharedStyles.quietButtonText}>Back to Today</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={sharedStyles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
           <View style={styles.topBar}>
             <Text accessibilityRole="header" style={styles.topBarTitle}>New memory</Text>
           </View>
@@ -85,7 +93,7 @@ export default function CaptureScreen() {
           <MarkdownEditor
             value={draft}
             onChangeText={(value) => { if (!savingRef.current) setDraft(value); }}
-            accessibilityLabel="Memory"
+            accessibilityLabel="What do you want to remember?"
             placeholder="Write what you want to remember…"
             autoFocus
             editable={!saving}
@@ -109,7 +117,17 @@ export default function CaptureScreen() {
                   <Text style={styles.detailsSummary}>{memoryDetailsSummary(kind, recallChoice)}</Text>
                 </View>
               </View>
-              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.disclosureIcon}>{detailsExpanded ? '−' : '+'}</Text>
+              <SymbolView
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                name={{
+                  android: detailsExpanded ? 'expand_less' : 'expand_more',
+                  ios: detailsExpanded ? 'chevron.up' : 'chevron.down',
+                  web: detailsExpanded ? 'expand_less' : 'expand_more',
+                }}
+                size={20}
+                tintColor={colors.accent}
+              />
             </Pressable>
 
             {detailsExpanded ? (
@@ -237,19 +255,20 @@ const styles = StyleSheet.create({
   fieldLabel: { color: colors.ink, fontSize: 13, fontWeight: '600', marginBottom: 9 },
   optional: { color: colors.muted, fontWeight: '500' },
   segmentedRow: { flexDirection: 'row', gap: 7 },
-  segment: { alignItems: 'center', borderColor: colors.line, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 7 },
+  segment: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 7 },
   segmentSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   segmentText: { color: colors.muted, fontSize: 13, fontWeight: '500', textAlign: 'center' },
   segmentTextSelected: { color: colors.accent, fontWeight: '600' },
-  input: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, minHeight: 48, paddingHorizontal: 13 },
+  input: { backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, minHeight: 48, paddingHorizontal: 13 },
   storageHintRow: { alignItems: 'center', flexDirection: 'row', gap: 7, marginTop: 24 },
+  errorTitle: { color: colors.ink, fontSize: 17, fontWeight: '600', textAlign: 'center' },
   storageHint: { color: colors.muted, flex: 1, fontSize: 13, lineHeight: 18 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20, paddingBottom: 16, paddingTop: 12 },
   errorScreen: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   bottomBar: { backgroundColor: colors.paper, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12 },
-  cancelButton: { alignItems: 'center', borderColor: colors.line, borderRadius: 12, borderWidth: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 18 },
+  cancelButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 12, borderWidth: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 18 },
   cancelButtonText: { color: colors.accent, fontSize: 15, fontWeight: '600' },
   saveButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 12, flex: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 18 },
-  saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  saveButtonText: { color: colors.onAction, fontSize: 16, fontWeight: '600' },
   buttonDisabled: { opacity: 0.35 },
 });

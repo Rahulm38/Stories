@@ -1,5 +1,5 @@
 export function isExternalMarkdownLink(value: string): boolean {
-  return /^(?:https?:|mailto:)/i.test(value.trim());
+  return /^(?:https?:|mailto:|tel:|sms:)/i.test(value.trim());
 }
 
 export async function openMarkdownLink(
@@ -7,7 +7,10 @@ export async function openMarkdownLink(
   openExternal: (target: string) => Promise<void>,
   openLocal: (target: string) => void,
 ): Promise<void> {
-  const trimmed = target.trim();
+  const rawTarget = target.trim();
+  const trimmed = rawTarget.startsWith('<') && rawTarget.endsWith('>')
+    ? rawTarget.slice(1, -1).trim()
+    : rawTarget;
   if (!isExternalMarkdownLink(trimmed)) {
     openLocal(trimmed);
     return;

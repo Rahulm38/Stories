@@ -85,6 +85,11 @@ export function parseNoteFile(file: VaultFile): MemoryNote {
   let collectingExtra = false;
 
   match?.[1].split('\n').forEach((line) => {
+    if (/^\s/.test(line)) {
+      collectingExtra = true;
+      extraFrontmatter.push(line);
+      return;
+    }
     const separator = line.indexOf(':');
     if (separator === -1) {
       if (collectingExtra) extraFrontmatter.push(line);

@@ -265,6 +265,19 @@ test('moving into a filename collision rewrites basename-only backlinks', async 
   assert.equal(vault.read(unrelated.id)?.body, 'See [[alpha.md]]');
 });
 
+test('moving a note rewrites qualified links in its own body', async () => {
+  const store = new MemoryFileStore();
+  const vault = createMemoryVault(store);
+  await vault.open();
+  const target = await vault.save({ title: 'Alpha', body: 'See [[Books/alpha.md]]', folder: 'Books' });
+
+  const moved = await vault.save({ id: target.id, body: target.body, folder: 'Experiences' });
+
+  assert.equal(moved.path, 'Experiences/alpha.md');
+  assert.equal(moved.body, 'See [[Experiences/alpha.md]]');
+  assert.match(store.files.get(moved.path) || '', /See \[\[Experiences\/alpha\.md\]\]/);
+});
+
 test('moving a note rolls back the target when backlink rewriting fails', async () => {
   const store = new FailingMemoryFileStore();
   const vault = createMemoryVault(store);
@@ -326,6 +339,18 @@ test('wikilink insertion qualifies only duplicate filenames', async () => {
   assert.equal(insertWikilink('See [[be', active, notes[0], notes).value, 'See [[Books/alpha.md]]');
 });
 
+test('wikilink insertion replaces a completed link when the cursor is inside it', () => {
+  const notes = [
+    note('one', 'Alpha', 'Books/alpha.md', 'Books'),
+    note('two', 'Beta', 'Books/beta.md', 'Books'),
+  ];
+  const value = 'See [[beta.md]] later';
+  const active = activeWikilinkAtCursor(value, 'See [[be'.length);
+  assert.ok(active);
+
+  assert.equal(insertWikilink(value, active, notes[0], notes).value, 'See [[alpha.md]] later');
+});
+
 test('missing links seed a local draft without losing Unicode folders', () => {
   assert.deepEqual(draftForMissingLink('研究/书籍.md', 'Inbox'), {
     title: '书籍',
@@ -373,6 +398,21 @@ test('editing a note preserves unknown and multiline frontmatter', async () => {
   assert.match(markdown, /aliases: \["Remember this"\]/);
 });
 
+test('indented keys in multiline frontmatter cannot override note metadata', () => {
+  const parsed = parseNoteFile({
+    path: 'Books/metadata.md',
+    markdown: '---\nid: "metadata-1"\ntitle: "Metadata"\nfolder: "Books"\ncustom: |\n  id: "not-note-metadata"\n  title: "Also not note metadata"\n---\nBody',
+  });
+
+  assert.equal(parsed.id, 'metadata-1');
+  assert.equal(parsed.title, 'Metadata');
+  assert.deepEqual(parsed.frontmatter, [
+    'custom: |',
+    '  id: "not-note-metadata"',
+    '  title: "Also not note metadata"',
+  ]);
+});
+
 test('recall scheduling is deterministic and cue order is earliest first', () => {
   const now = new Date('2026-08-08T10:00:00.000Z');
   const later = note('later', 'Later', 'Books/later.md', 'Books', '2026-08-08T09:00:00.000Z');
@@ -408,6 +448,8 @@ test('recall outcomes preserve the existing one, four, and fourteen day schedule
 
 test('recall timestamps reject impossible calendar dates and tie-break equal due times', () => {
   assert.equal(normalizeRecallTimestamp('2026-02-31T09:00:00.000Z'), undefined);
+  assert.equal(normalizeRecallTimestamp('2026-2-31'), undefined);
+  assert.equal(normalizeRecallTimestamp('02/31/2026'), undefined);
 
   const due = '2026-08-08T08:00:00.000Z';
   const alpha = note('alpha', 'Alpha', 'Books/alpha.md', 'Books', due);
@@ -424,6 +466,24 @@ test('vault ordering puts notes with invalid update dates after dated notes', as
   await vault.open();
 
   assert.deepEqual(vault.list().map((note) => note.id), ['dated', 'invalid']);
+});
+
+test('vault ordering is deterministic when update dates tie or are invalid', async () => {
+  const first = new MemoryFileStore();
+  const second = new MemoryFileStore();
+  const files = [
+    ['Inbox/beta.md', '---\nid: "beta"\ntitle: "Beta"\nupdatedAt: "not-a-date"\n---\nBeta'],
+    ['Inbox/alpha.md', '---\nid: "alpha"\ntitle: "Alpha"\nupdatedAt: "not-a-date"\n---\nAlpha'],
+  ] as const;
+  for (const [path, markdown] of files) first.files.set(path, markdown);
+  for (const [path, markdown] of [...files].reverse()) second.files.set(path, markdown);
+
+  const firstVault = createMemoryVault(first);
+  const secondVault = createMemoryVault(second);
+  await Promise.all([firstVault.open(), secondVault.open()]);
+
+  assert.deepEqual(firstVault.list().map((item) => item.path), ['Inbox/alpha.md', 'Inbox/beta.md']);
+  assert.deepEqual(secondVault.list().map((item) => item.path), ['Inbox/alpha.md', 'Inbox/beta.md']);
 });
 
 test('recall reflections append a dated Markdown section only when nonblank', () => {

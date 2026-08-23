@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test:core": "node --experimental-strip-types --test packages/core/src/*.test.ts",
+    "test:web": "node --experimental-strip-types --test src/lib/*.test.ts",
+    "test:mobile": "node --experimental-strip-types --test apps/mobile/scripts/mobile-regressions.mjs",
+    "test": "node --experimental-strip-types --test packages/core/src/*.test.ts src/lib/*.test.ts apps/mobile/scripts/mobile-regressions.mjs",
     "mobile:start": "npm --prefix apps/mobile run start",
     "mobile:android": "npm --prefix apps/mobile run android",
     "mobile:ios": "npm --prefix apps/mobile run ios"

@@ -693,6 +693,11 @@
   line-height: 1.45;
 }
 
+.markdown-editor-validation {
+  color: var(--action);
+  font-weight: 650;
+}
+
 .wikilink-suggestions {
   position: fixed;
   right: 20px;
@@ -1184,6 +1189,15 @@
   outline: 0;
 }
 
+.inline-capture textarea:focus {
+  border-bottom-color: var(--action);
+}
+
+.inline-capture textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--action) 32%, transparent);
+  outline-offset: 2px;
+}
+
 .inline-capture textarea::placeholder {
   color: var(--text-dim);
 }
@@ -1222,6 +1236,27 @@
 
 .capture-details summary::-webkit-details-marker {
   display: none;
+}
+
+.capture-details summary > span {
+  min-width: 0;
+}
+
+.capture-details summary > small {
+  margin-left: auto;
+  text-align: right;
+}
+
+.capture-details-chevron {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
+.capture-details[open] .capture-details-chevron {
+  color: var(--action);
+  transform: rotate(90deg);
 }
 
 .capture-details summary small {

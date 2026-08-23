@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { mockMemories } from '@/data/memories-mock';
 import { Memory, MemoryKind } from '@/types';
 import { memoryFilePath } from '@/lib/memory-paths';
-import { mergeHydratedMemories, parseStorageRecord, StorageReadResult } from '@/lib/memory-store-logic';
+import { makeRuntimeIdsUnique, mergeHydratedMemories, parseStorageRecord, patchPendingItems, StorageReadResult } from '@/lib/memory-store-logic';
 import { replaceRenamedWikilinks } from '@/lib/memory-links';
 
 export { memoryFileName, memoryFilePath } from '@/lib/memory-paths';
@@ -183,7 +183,15 @@ function readStoredMemories(): StorageReadResult<Memory[]> {
   if (typeof window === 'undefined') return { status: 'missing' };
 
   const stored = parseStorageRecord(window.localStorage.getItem(MEMORY_STORAGE_KEY), isStoredVault);
-  if (stored.status === 'valid') return { status: 'valid', value: dedupeMemories(stored.value.files.map(memoryFromVaultFile)) };
+  if (stored.status === 'valid') {
+    return {
+      status: 'valid',
+      value: makeRuntimeIdsUnique(stored.value.files.map((file) => ({
+        item: memoryFromVaultFile(file),
+        stableKey: file.path,
+      }))),
+    };
+  }
   if (stored.status === 'corrupt') return stored;
 
   const legacy = parseStorageRecord(window.localStorage.getItem(LEGACY_MEMORY_STORAGE_KEY), (value): value is Memory[] => (
@@ -316,6 +324,7 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated]);
 
   const updateMemory = useCallback((id: string, patch: Partial<Memory>) => {
+    pendingMemoriesRef.current = patchPendingItems(pendingMemoriesRef.current, id, patch);
     setMemories((current) => {
       const previous = current.find((memory) => memory.id === id);
       if (!previous) return current;

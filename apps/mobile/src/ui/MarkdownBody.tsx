@@ -56,7 +56,7 @@ function indentationFor(line: string) {
   const columns = Array.from(whitespace).reduce((total, character) => total + (character === '\t' ? 2 : 1), 0);
   return {
     content: line.slice(whitespace.length).trimEnd(),
-    marginLeft: Math.floor(columns / 2) * 18,
+    marginLeft: Math.min(Math.floor(columns / 2), 4) * 18,
   };
 }
 
@@ -69,7 +69,15 @@ export function MarkdownBody({ body, onOpenLink }: MarkdownBodyProps) {
         const indented = marginLeft ? { marginLeft } : null;
         const heading = content.match(/^(#{1,6})\s+(.+)$/);
         if (heading) {
-          return <Text key={`heading-${index}`} accessibilityRole="header" style={[styles.heading, indented]}>{inlineParts(heading[2], onOpenLink)}</Text>;
+          const level = heading[1].length;
+          const headingStyle = level === 1
+            ? styles.headingOne
+            : level === 2
+              ? styles.headingTwo
+              : level === 3
+                ? styles.headingThree
+                : styles.headingFour;
+          return <Text key={`heading-${index}`} accessibilityRole="header" style={[styles.heading, headingStyle, indented]}>{inlineParts(heading[2], onOpenLink)}</Text>;
         }
         const quote = content.match(/^>\s?(.*)$/);
         if (quote) {
@@ -121,7 +129,11 @@ export function noteKindLabel(note: Pick<MemoryNote, 'kind'>) {
 const styles = StyleSheet.create({
   body: { paddingBottom: 24 },
   blankLine: { height: 10 },
-  heading: { color: colors.ink, fontSize: 22, fontWeight: '600', lineHeight: 29, marginBottom: 10, marginTop: 14 },
+  heading: { color: colors.ink, marginBottom: 10, marginTop: 14 },
+  headingOne: { fontSize: 24, fontWeight: '700', lineHeight: 31 },
+  headingTwo: { fontSize: 21, fontWeight: '600', lineHeight: 28 },
+  headingThree: { fontSize: 18, fontWeight: '600', lineHeight: 25 },
+  headingFour: { fontSize: 17, fontWeight: '600', lineHeight: 24 },
   paragraph: { color: colors.ink, flex: 1, fontSize: 17, lineHeight: 27 },
   listRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 9, marginBottom: 7 },
   bullet: { color: colors.accent, fontSize: 23, lineHeight: 27, width: 16 },

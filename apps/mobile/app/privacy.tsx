@@ -26,7 +26,7 @@ export default function PrivacyScreen() {
         <Pressable accessibilityRole="button" onPress={goBack} style={styles.backButton}>
           <Text style={styles.back}>Back</Text>
         </Pressable>
-        <Text style={[sharedStyles.title, styles.title]}>Privacy policy</Text>
+        <Text accessibilityRole="header" style={[sharedStyles.title, styles.title]}>Privacy policy</Text>
         <Text style={styles.updated}>Effective 23 August 2026</Text>
 
         <Text style={styles.heading}>Your memories stay on your device</Text>

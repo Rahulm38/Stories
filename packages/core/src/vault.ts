@@ -15,10 +15,11 @@ function sortNotes(notes: MemoryNote[]): MemoryNote[] {
     const bTime = new Date(b.updatedAt).getTime();
     const aValid = Number.isFinite(aTime);
     const bValid = Number.isFinite(bTime);
-    if (!aValid && !bValid) return 0;
+    const stableOrder = a.path.localeCompare(b.path) || a.id.localeCompare(b.id);
+    if (!aValid && !bValid) return stableOrder;
     if (!aValid) return 1;
     if (!bValid) return -1;
-    return bTime - aTime;
+    return bTime - aTime || stableOrder;
   });
 }
 
@@ -115,6 +116,14 @@ export function createMemoryVault(fileStore: VaultFileStore): MemoryVault {
     candidate.createdAt = previous?.createdAt || candidate.createdAt;
     candidate.path = uniquePath({ ...candidate, path: previous?.path || candidate.path }, notes);
     candidate.updatedAt = new Date().toISOString();
+
+    if (previous && previous.path !== candidate.path) {
+      const previousFileName = previous.path.split('/').pop() || previous.path;
+      const filenameChanged = previousFileName.toLowerCase() !== candidate.path.split('/').pop()?.toLowerCase();
+      const rewriteBasename = filenameChanged
+        && resolveLink(previousFileName, notes, previous.id).note?.id === previous.id;
+      candidate.body = rewriteMovedLink(candidate.body, previous.path, candidate.path, rewriteBasename);
+    }
 
     const nextNotes = notes.filter((note) => note.id !== candidate.id);
     const writes: VaultWrite[] = [{
