@@ -7,9 +7,11 @@ import { folderForKind } from '../src/navigation/note-folder.ts';
 import { localDateInputValue } from '../src/navigation/local-date.ts';
 import { openMarkdownLink } from '../src/ui/markdown-links.ts';
 import { readBrowserValue, writeBrowserValue } from '../src/vault/browser-storage.ts';
+import { BrowserFileStore } from '../src/vault/browser-file-store.ts';
 import { ensureVaultReady } from '../src/vault/save-gate.ts';
-import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, recallDaysForChoice } from '../src/capture/options.ts';
+import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, memoryDetailsSummary, recallDaysForChoice } from '../src/capture/options.ts';
 import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
+import { recallCompletionMessage, recallResultLabel, remainingRecallMessage, savedMemoryMessage } from '../src/recall/presentation.ts';
 
 test('capture route params update the selected capture kind', () => {
   assert.equal(captureKindFromParam(undefined), 'note');
@@ -24,6 +26,35 @@ test('capture defaults to a three-day recall without a Tomorrow shortcut', () =>
   assert.equal(recallDaysForChoice('week'), 7);
   assert.equal(recallDaysForChoice('off'), undefined);
   assert.deepEqual(RECALL_OPTIONS.map((option) => option.label), ['3 days', '1 week', 'Off']);
+});
+
+test('collapsed memory details summarize kind and the existing recall choice', () => {
+  assert.equal(memoryDetailsSummary('note', 'three-days'), 'Note · returns in 3 days');
+  assert.equal(memoryDetailsSummary('book-learning', 'week'), 'Book learning · returns in 1 week');
+  assert.equal(memoryDetailsSummary('experience', 'off'), 'Experience · does not return');
+});
+
+test('recall result copy maps to the existing scheduling outcomes', () => {
+  assert.equal(recallResultLabel('forgot'), 'Not yet');
+  assert.equal(recallResultLabel('partial'), 'Partly');
+  assert.equal(recallResultLabel('remembered'), 'Got it');
+});
+
+test('recall completion names the return date and remaining work', () => {
+  assert.equal(
+    recallCompletionMessage('2026-08-25T10:00:00.000Z', 2, 'en-US'),
+    'Practiced. Back on Aug 25. 2 recalls left today.',
+  );
+  assert.equal(remainingRecallMessage(0), 'All caught up today.');
+  assert.equal(recallCompletionMessage('not-a-date', 0, 'en-US'), 'Practiced. All caught up today.');
+});
+
+test('first-save confirmation explains the scheduled return', () => {
+  assert.equal(
+    savedMemoryMessage('2026-08-26T10:00:00.000Z', 'en-US'),
+    'Saved privately. It returns on Aug 26.',
+  );
+  assert.equal(savedMemoryMessage(undefined, 'en-US'), 'Saved privately.');
 });
 
 test('bottom tabs keep a comfortable device-safe gap', () => {
@@ -91,6 +122,21 @@ test('browser storage writes can be read back through the same adapter seam', ()
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
     writeBrowserValue('stories:test', 'value');
     assert.equal(readBrowserValue('stories:test'), 'value');
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('a first browser launch opens an empty vault without preview fixtures', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const storage = {
+    getItem: () => null,
+    setItem: () => {},
+  };
+  try {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+    assert.deepEqual(await new BrowserFileStore().list(), []);
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
     else delete globalThis.localStorage;

@@ -1,5 +1,11 @@
 # Stories editor redesign QA
 
+> **Historical evidence (2026-08-09 to 2026-08-12).** This file records a past
+> editor redesign and its validation; it is not the current product
+> specification. Use the
+> [Stories Design System](./docs/product/STORIES-DESIGN-SYSTEM.md) for current
+> lifecycle, component, copy, accessibility, and QA requirements.
+
 ## Comparison target
 
 - Source visual truth:

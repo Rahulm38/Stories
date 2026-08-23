@@ -64,6 +64,16 @@ function nextRecallValue(date: string, previous: string | undefined): string {
   return parsed.toISOString();
 }
 
+function editorDetailsSummary(draft: EditorDraft): string {
+  const kind = noteKindLabel({ kind: draft.kind });
+  const value = draft.recallDate.trim();
+  if (!value) return `${kind} · No recall set`;
+
+  const parsed = new Date(`${value}T09:00:00`);
+  if (Number.isNaN(parsed.getTime())) return `${kind} · Recall ${value}`;
+  return `${kind} · Recall ${parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+}
+
 export default function NoteScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[]; edit?: string | string[] }>();
@@ -76,6 +86,7 @@ export default function NoteScreen() {
   const [cursor, setCursor] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const bodyRef = useRef<TextInput>(null);
   const openingLinkRef = useRef(false);
@@ -111,12 +122,14 @@ export default function NoteScreen() {
     if (!note) return;
     const initialDraft = editorDraftFor(note);
     setDraftState(initialDraft);
+    setDetailsExpanded(false);
     setSaveError('');
     router.setParams({ edit: 'true' });
   };
 
   const cancelEditingNow = () => {
     setDraftState(editorDraftFor(note));
+    setDetailsExpanded(false);
     setSaveError('');
     router.setParams({ edit: undefined });
   };
@@ -157,6 +170,7 @@ export default function NoteScreen() {
         ...(draft.recallDate !== baseline.recallDate ? { nextRecallAt } : {}),
       });
       if (!mountedRef.current) return;
+      setDetailsExpanded(false);
       router.setParams({ edit: undefined });
     } catch (error) {
       if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This file could not be saved');
@@ -264,20 +278,28 @@ export default function NoteScreen() {
               />
             </View>
 
-            <View
-              accessibilityRole="header"
-              style={styles.detailsToggle}
+            <Pressable
+              accessibilityHint={detailsExpanded ? 'Hides optional memory settings' : 'Shows memory type, source, recall cue, and recall date'}
+              accessibilityLabel={`Memory details, ${editorDetailsSummary(draft)}`}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: detailsExpanded }}
+              disabled={saving}
+              onPress={() => setDetailsExpanded((expanded) => !expanded)}
+              style={({ pressed }) => [styles.detailsToggle, pressed && styles.detailsTogglePressed]}
             >
               <SymbolView name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }} size={19} tintColor={colors.muted} />
               <View style={styles.detailsToggleCopy}>
                 <Text style={styles.detailsToggleTitle}>Memory details</Text>
                 <Text numberOfLines={1} style={styles.detailsToggleSummary}>
-                  {noteKindLabel({ kind: draft.kind })}{draft.source ? ` · ${draft.source}` : ''}
+                  {editorDetailsSummary(draft)}
                 </Text>
               </View>
-            </View>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.detailsToggleIcon}>
+                {detailsExpanded ? '−' : '+'}
+              </Text>
+            </Pressable>
 
-            <View style={styles.detailsPanel}>
+            {detailsExpanded ? <View style={styles.detailsPanel}>
                 <Text style={styles.fieldLabel}>Kind</Text>
                 <View accessibilityRole="radiogroup" style={styles.kindRow}>
                   {MEMORY_KIND_OPTIONS.map((option) => {
@@ -333,7 +355,7 @@ export default function NoteScreen() {
                   style={styles.fieldInput}
                   value={draft.recallDate}
                 />
-            </View>
+            </View> : null}
           </ScrollView>
 
           {suggestions.length > 0 ? (
@@ -414,9 +436,11 @@ const styles = StyleSheet.create({
   titleInput: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, color: colors.ink, fontSize: 23, fontWeight: '600', minHeight: 50, paddingBottom: 9 },
   editorCanvas: { marginTop: 12 },
   detailsToggle: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, minHeight: 58 },
+  detailsTogglePressed: { opacity: 0.62 },
   detailsToggleCopy: { flex: 1 },
   detailsToggleTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   detailsToggleSummary: { color: colors.muted, fontSize: 12, marginTop: 3 },
+  detailsToggleIcon: { color: colors.accent, fontSize: 23, fontWeight: '400', lineHeight: 28, marginLeft: 8, textAlign: 'center', width: 28 },
   detailsPanel: { paddingBottom: 12 },
   fieldLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', letterSpacing: 0.2, marginBottom: 8, marginTop: 18 },
   kindRow: { flexDirection: 'row', gap: 8 },

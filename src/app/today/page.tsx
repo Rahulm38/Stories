@@ -37,8 +37,9 @@ export default function TodayPage() {
   const [kind, setKind] = useState<MemoryKind>('note');
   const [savedMessage, setSavedMessage] = useState('');
   const [recallStage, setRecallStage] = useState<RecallStage>('ready');
+  const [recallCompleteMessage, setRecallCompleteMessage] = useState('');
   const [openedAt] = useState(() => Date.now());
-  const { memories, addMemory, updateMemory } = useMemoryStore();
+  const { memories, hydrated, addMemory, updateMemory } = useMemoryStore();
 
   const recentMemories = useMemo(
     () => [...memories].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
@@ -60,11 +61,15 @@ export default function TodayPage() {
     if (!body) return;
 
     const folderPath = kind === 'book-learning' ? 'Books' : kind === 'experience' ? 'Experiences' : 'Inbox';
-    addMemory({ body, folderPath, kind });
+    const memory = addMemory({ body, folderPath, kind });
+    const returnsAt = new Date();
+    returnsAt.setDate(returnsAt.getDate() + 3);
+    updateMemory(memory.id, { nextRecallAt: returnsAt.toISOString() });
     setDraft('');
     setKind('note');
     setCaptureOpen(false);
-    setSavedMessage('Saved on this device');
+    const returnDate = returnsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    setSavedMessage(`Saved privately. It returns on ${returnDate}.`);
   };
 
   const finishRecall = (status: RecallStatus) => {
@@ -77,6 +82,8 @@ export default function TodayPage() {
       lastRecalledAt: now.toISOString(),
       nextRecallAt: next.toISOString(),
     });
+    const returnDate = next.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    setRecallCompleteMessage(`Practiced. Back on ${returnDate}.`);
     setRecallStage('complete');
   };
 
@@ -109,17 +116,80 @@ export default function TodayPage() {
           </header>
         )}
 
+        {!captureOpen && recallStage === 'complete' && (
+          <section className="native-section" aria-labelledby="recall-complete-title">
+            <p className="native-section-label" id="recall-complete-title">Due recall</p>
+            <div className="recall-surface">
+              <div className="recall-complete" role="status">
+                <span className="native-leading-icon"><Check aria-hidden="true" /></span>
+                <div><strong>Memory practiced</strong><p>{recallCompleteMessage}</p></div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {!captureOpen && recallStage !== 'complete' && dueMemory && (
+          <section className="native-section" aria-labelledby="recall-title">
+            <p className="native-section-label" id="recall-title">Due recall</p>
+            <div className="recall-surface">
+              <div className="recall-question-row">
+                <span className="native-leading-icon"><BookOpen aria-hidden="true" /></span>
+                <div>
+                  <h2>{recallQuestion(dueMemory.title, dueMemory.recallPrompt)}</h2>
+                  <p>{dueMemory.source || dueMemory.title}</p>
+                </div>
+              </div>
+
+              {recallStage === 'ready' && (
+                <div className="recall-actions">
+                  <button type="button" className="native-primary-button native-primary-wide" onClick={() => setRecallStage('thinking')}>
+                    Try to recall
+                  </button>
+                  <button type="button" className="native-text-button" onClick={deferRecall}><Clock3 aria-hidden="true" /> Tomorrow</button>
+                </div>
+              )}
+
+              {recallStage === 'thinking' && (
+                <div className="recall-thinking">
+                  <Lightbulb aria-hidden="true" />
+                  <p>Say the idea in your own words before revealing it.</p>
+                  <button type="button" className="native-primary-button native-primary-wide" onClick={() => setRecallStage('revealed')}>
+                    Reveal memory
+                  </button>
+                </div>
+              )}
+
+              {recallStage === 'revealed' && (
+                <div className="recall-reveal">
+                  <p>{dueMemory.originalCapture}</p>
+                  <div className="recall-rating" aria-label="How well did you remember?">
+                    <button type="button" onClick={() => finishRecall('forgot')}>Not yet</button>
+                    <button type="button" onClick={() => finishRecall('partial')}>Partly</button>
+                    <button type="button" onClick={() => finishRecall('remembered')}>Got it</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         <section className="native-section capture-section" aria-labelledby="capture-title">
           {!captureOpen && <p className="native-section-label" id="capture-title">Capture</p>}
           {!captureOpen ? (
-            <button type="button" className="quick-capture-row" onClick={() => setCaptureOpen(true)}>
-              <span className="native-leading-icon"><PenLine aria-hidden="true" /></span>
-              <span>What is worth keeping?</span>
-              <ChevronRight aria-hidden="true" />
-            </button>
+            <>
+              {hydrated && memories.length === 0 && (
+                <p className="empty-capture-promise">Save something worth remembering. Stories will bring it back later.</p>
+              )}
+              <button type="button" className="quick-capture-row" onClick={() => setCaptureOpen(true)}>
+                <span className="native-leading-icon"><PenLine aria-hidden="true" /></span>
+                <span>What is worth remembering?</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+            </>
           ) : (
             <form id="today-capture-form" className="inline-capture focused-capture" onSubmit={handleSubmit}>
               <label htmlFor="today-capture">What is worth remembering?</label>
+              <p className="capture-supporting-copy">One sentence is enough.</p>
               <textarea
                 id="today-capture"
                 value={draft}
@@ -127,73 +197,28 @@ export default function TodayPage() {
                 placeholder="Write in Markdown…"
                 autoFocus
               />
-              <div className="capture-kind-row" role="group" aria-label="Memory type">
-                <button type="button" aria-pressed={kind === 'book-learning'} className={kind === 'book-learning' ? 'is-selected' : ''} onClick={() => setKind(kind === 'book-learning' ? 'note' : 'book-learning')}>
-                  <BookOpen aria-hidden="true" /> Book learning
-                </button>
-                <button type="button" aria-pressed={kind === 'experience'} className={kind === 'experience' ? 'is-selected' : ''} onClick={() => setKind(kind === 'experience' ? 'note' : 'experience')}>
-                  Experience
-                </button>
-              </div>
+              <details className="capture-details">
+                <summary>
+                  <span>Memory details</span>
+                  <small>{memoryKindLabel(kind)} · returns in 3 days</small>
+                </summary>
+                <div className="capture-kind-row" role="group" aria-label="Memory type">
+                  <button type="button" aria-pressed={kind === 'note'} className={kind === 'note' ? 'is-selected' : ''} onClick={() => setKind('note')}>
+                    Note
+                  </button>
+                  <button type="button" aria-pressed={kind === 'book-learning'} className={kind === 'book-learning' ? 'is-selected' : ''} onClick={() => setKind('book-learning')}>
+                    <BookOpen aria-hidden="true" /> Book learning
+                  </button>
+                  <button type="button" aria-pressed={kind === 'experience'} className={kind === 'experience' ? 'is-selected' : ''} onClick={() => setKind('experience')}>
+                    Experience
+                  </button>
+                </div>
+              </details>
               <p className="focused-capture-hint">Saved locally as Markdown. Add <code>[[links]]</code> whenever useful.</p>
             </form>
           )}
           {savedMessage && <p className="native-status" role="status"><Check aria-hidden="true" /> {savedMessage}</p>}
         </section>
-
-        {!captureOpen && dueMemory && (
-          <section className="native-section" aria-labelledby="recall-title">
-            <p className="native-section-label" id="recall-title">Due recall</p>
-            <div className="recall-surface">
-              {recallStage === 'complete' ? (
-                <div className="recall-complete" role="status">
-                  <span className="native-leading-icon"><Check aria-hidden="true" /></span>
-                  <div><strong>Memory practiced</strong><p>It will return when it is useful to try again.</p></div>
-                </div>
-              ) : (
-                <>
-                  <div className="recall-question-row">
-                    <span className="native-leading-icon"><BookOpen aria-hidden="true" /></span>
-                    <div>
-                      <h2>{recallQuestion(dueMemory.title, dueMemory.recallPrompt)}</h2>
-                      <p>{dueMemory.source || dueMemory.title}</p>
-                    </div>
-                  </div>
-
-                  {recallStage === 'ready' && (
-                    <div className="recall-actions">
-                      <button type="button" className="native-primary-button native-primary-wide" onClick={() => setRecallStage('thinking')}>
-                        Try to recall
-                      </button>
-                      <button type="button" className="native-text-button" onClick={deferRecall}><Clock3 aria-hidden="true" /> Later</button>
-                    </div>
-                  )}
-
-                  {recallStage === 'thinking' && (
-                    <div className="recall-thinking">
-                      <Lightbulb aria-hidden="true" />
-                      <p>Say the idea in your own words before revealing it.</p>
-                      <button type="button" className="native-primary-button native-primary-wide" onClick={() => setRecallStage('revealed')}>
-                        Reveal memory
-                      </button>
-                    </div>
-                  )}
-
-                  {recallStage === 'revealed' && (
-                    <div className="recall-reveal">
-                      <p>{dueMemory.originalCapture}</p>
-                      <div className="recall-rating" aria-label="How well did you remember?">
-                        <button type="button" onClick={() => finishRecall('forgot')}>Forgot</button>
-                        <button type="button" onClick={() => finishRecall('partial')}>Partly</button>
-                        <button type="button" onClick={() => finishRecall('remembered')}>Remembered</button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-        )}
 
         {!captureOpen && recentMemory && (
           <section className="native-section recent-section" aria-labelledby="recent-title">

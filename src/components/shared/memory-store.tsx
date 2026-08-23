@@ -20,6 +20,11 @@ const LEGACY_MEMORY_STORAGE_KEY = 'stories:markdown-files:v2';
 const FOLDER_STORAGE_KEY = 'stories:folders:v3';
 const LEGACY_FOLDER_STORAGE_KEY = 'stories:folders:v2';
 const CORRUPT_MEMORY_BACKUP_PREFIX = 'stories:corrupt-vault:';
+const DEMO_MODE = process.env.NEXT_PUBLIC_STORIES_DEMO_MODE === 'true';
+
+function initialMemories(): Memory[] {
+  return DEMO_MODE ? mockMemories.map(normalizeMemory) : [];
+}
 
 type NewMemoryInput = {
   title?: string;
@@ -226,7 +231,7 @@ function createMemoryId() {
 }
 
 export function MemoryProvider({ children }: { children: React.ReactNode }) {
-  const [memories, setMemories] = useState<Memory[]>(() => mockMemories.map(normalizeMemory));
+  const [memories, setMemories] = useState<Memory[]>(initialMemories);
   const [folders, setFolders] = useState<string[]>(DEFAULT_FOLDERS);
   const [hydrated, setHydrated] = useState(false);
   const pendingMemoriesRef = useRef<Memory[]>([]);
@@ -242,7 +247,7 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
       if (storedMemories.status === 'valid') {
         setMemories(mergeHydratedMemories(storedMemories.value, pendingMemories));
       } else if (storedMemories.status === 'missing') {
-        setMemories([...pendingMemories, ...mockMemories.map(normalizeMemory)]);
+        setMemories([...pendingMemories, ...initialMemories()]);
       } else {
         try {
           window.localStorage.setItem(`${CORRUPT_MEMORY_BACKUP_PREFIX}${Date.now()}`, storedMemories.raw);

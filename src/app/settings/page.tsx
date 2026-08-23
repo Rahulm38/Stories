@@ -40,7 +40,7 @@ export default function SettingsPage() {
               <p className="eyebrow">Coming after device testing</p>
               <h2 id="reminder-heading" className="mt-1 text-xl font-semibold text-foreground">Local notifications</h2>
             </div>
-            <Bell className="mt-1 h-4 w-4 text-amber" aria-hidden="true" />
+            <Bell className="mt-1 h-4 w-4 text-action" aria-hidden="true" />
           </div>
           <div className="settings-list mt-4">
             <div><strong>Not enabled yet</strong><span>The app will ask permission only when reminders are ready to work on your device.</span></div>

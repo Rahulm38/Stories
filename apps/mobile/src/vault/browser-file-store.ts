@@ -1,7 +1,8 @@
 import type { VaultFile, VaultFileStore } from '@core/model';
-import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { readBrowserValue, writeBrowserValue } from './browser-storage.ts';
 
 const STORAGE_KEY = 'stories:native-prototype:v1';
+const DEMO_MODE = process.env.EXPO_PUBLIC_STORIES_DEMO_MODE === 'true';
 
 const PREVIEW_FILES: Record<string, string> = {
   'Books/indistractable-internal-triggers.md': `---
@@ -31,7 +32,7 @@ Being fully present mattered more than documenting the evening. It connects to [
 export class BrowserFileStore implements VaultFileStore {
   private read(): Record<string, string> {
     const raw = readBrowserValue(STORAGE_KEY);
-    if (!raw) return { ...PREVIEW_FILES };
+    if (!raw) return DEMO_MODE ? { ...PREVIEW_FILES } : {};
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error('The local vault could not be read safely');
     if (!Object.values(parsed).every((value) => typeof value === 'string')) throw new Error('The local vault contains invalid files');

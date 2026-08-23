@@ -1,17 +1,29 @@
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, sharedStyles, spacing, typography } from '@/src/ui/theme';
 
 export default function NotFoundScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>This screen is not available.</Text>
+      <Stack.Screen
+        options={{
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: colors.canvas },
+          headerTintColor: colors.textPrimary,
+          title: 'Not found',
+        }}
+      />
+      <SafeAreaView style={sharedStyles.screen} edges={['bottom']}>
+        <View style={styles.container}>
+          <Text style={styles.title}>This screen isn&apos;t available.</Text>
+          <Text style={styles.detail}>Return to Today to continue with your memories.</Text>
 
-        <Link href="/" replace style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
-        </Link>
-      </View>
+          <Link href="/" replace style={styles.link}>
+            <Text style={sharedStyles.quietButtonText}>Back to Today</Text>
+          </Link>
+        </View>
+      </SafeAreaView>
     </>
   );
 }
@@ -21,18 +33,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: spacing.xl,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    ...typography.sectionTitle,
+  },
+  detail: {
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    maxWidth: 300,
+    textAlign: 'center',
+    ...typography.supporting,
   },
   link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#2e78b7',
+    ...sharedStyles.quietButton,
+    marginTop: spacing.md,
   },
 });

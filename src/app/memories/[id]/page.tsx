@@ -28,9 +28,9 @@ export default function MemoryDetailPage() {
     return (
       <AppShell>
         <div className="empty-state">
-          <p className="text-base font-semibold text-foreground">File not found</p>
+          <p className="text-base font-semibold text-foreground">Memory not found</p>
           <Link className="button-secondary mt-4" href="/memories">
-            Back to Files
+            Back to Library
           </Link>
         </div>
       </AppShell>
@@ -54,12 +54,12 @@ export default function MemoryDetailPage() {
     <AppShell hideNav={isEditing}>
       <div className="page-stack">
         <header className="page-header">
-          <Link href="/memories" className="note-back-link" aria-label="Back to Files">
+          <Link href="/memories" className="note-back-link" aria-label="Back to Library">
             <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
-            <span>Files</span>
+            <span>Library</span>
           </Link>
           {!isEditing && (
-            <button type="button" className="icon-button" onClick={() => setIsEditing(true)} aria-label="Edit file">
+            <button type="button" className="icon-button" onClick={() => setIsEditing(true)} aria-label="Edit memory">
               <Edit3 className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
           )}

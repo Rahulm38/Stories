@@ -1,5 +1,8 @@
 # Stories Native Design Language
 
+> This document defines runtime and platform mapping. The product UI source of
+> truth is the [Stories Design System](./STORIES-DESIGN-SYSTEM.md).
+
 ## Direction
 
 Stories should feel like a quiet system app for remembering, not a responsive website inside a phone frame. The product identity comes from its language, recall behavior, and restrained ink-blue palette; platform behavior should remain native.

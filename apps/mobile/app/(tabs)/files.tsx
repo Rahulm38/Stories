@@ -162,6 +162,24 @@ export default function FilesScreen() {
     return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top']}><Text accessibilityRole="alert" style={[styles.muted, styles.error]}>{openError}</Text></SafeAreaView>;
   }
 
+  if (notes.length === 0) {
+    return (
+      <SafeAreaView style={sharedStyles.screen} edges={['top']}>
+        <View style={[sharedStyles.scrollContent, styles.emptyScreen]}>
+          <View style={styles.header}>
+            <Text style={sharedStyles.title}>Library</Text>
+            <Pressable accessibilityLabel="New memory" accessibilityRole="button" onPress={() => router.navigate('/capture')} style={styles.newButton}>
+              <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={18} tintColor={colors.accent} />
+              <Text style={styles.newButtonText}>New</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.emptyCopy}>Your saved memories will appear here.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
       <FlatList
@@ -269,6 +287,8 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   muted: { color: colors.muted, fontSize: 15, lineHeight: 21 },
   error: { color: colors.danger, maxWidth: 310, textAlign: 'center' },
+  emptyScreen: { flex: 1 },
+  emptyCopy: { color: colors.muted, fontSize: 16, lineHeight: 23, maxWidth: 290 },
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   headerCopy: { gap: 5 },
   count: { color: colors.muted, fontSize: 14 },

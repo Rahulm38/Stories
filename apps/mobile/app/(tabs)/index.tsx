@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ColorValue } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { appendRecallReflection, deferRecall, dueRecalls, gradeRecall } from '@core/recall';
@@ -8,6 +8,7 @@ import type { MemoryKind, MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles } from '@/src/ui/theme';
 import { noteKindLabel } from '@/src/ui/MarkdownBody';
+import { recallCompletionMessage, recallResultLabel, remainingRecallMessage, savedMemoryMessage, shortDateLabel } from '@/src/recall/presentation';
 
 type RecallStage = 'cue' | 'attempt' | 'revealed';
 type AppSymbol = {
@@ -31,7 +32,7 @@ const icons = {
 } satisfies Record<string, AppSymbol>;
 
 function displayDate(date: string) {
-  return new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return shortDateLabel(date) || 'Unknown date';
 }
 
 function todayDate() {
@@ -44,19 +45,32 @@ function kindIcon(kind: MemoryKind): AppSymbol {
 
 export default function TodayScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ nextRecallAt?: string | string[]; saved?: string | string[] }>();
   const { hydrated, notes, openError, saveNote } = useVault();
   const [now, setNow] = useState(() => new Date());
   const [recallStage, setRecallStage] = useState<RecallStage>('cue');
   const [activeRecallId, setActiveRecallId] = useState<string>();
   const [activeRecallVersion, setActiveRecallVersion] = useState<string>();
   const [reflection, setReflection] = useState('');
-  const [recallMessage, setRecallMessage] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [recallError, setRecallError] = useState('');
   const [savingRecall, setSavingRecall] = useState(false);
   const mountedRef = useRef(true);
   const savingRecallRef = useRef(false);
 
   useEffect(() => () => { mountedRef.current = false; }, []);
+
+  useEffect(() => {
+    const saved = Array.isArray(params.saved) ? params.saved[0] : params.saved;
+    if (saved !== '1') return;
+
+    const nextRecallAt = Array.isArray(params.nextRecallAt) ? params.nextRecallAt[0] : params.nextRecallAt;
+    const timer = setTimeout(() => {
+      setStatusMessage(savedMemoryMessage(nextRecallAt));
+      router.setParams({ nextRecallAt: undefined, saved: undefined });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [params.nextRecallAt, params.saved, router]);
 
   useFocusEffect(useCallback(() => {
     setNow(new Date());
@@ -75,7 +89,6 @@ export default function TodayScreen() {
   const activeDueNote = activeCandidate && activeCandidate.updatedAt === activeRecallVersion ? activeCandidate : undefined;
   const dueNote = activeDueNote || dueNotes[0];
   const visibleRecallStage = activeDueNote ? recallStage : 'cue';
-  const duePosition = Math.max(1, dueNotes.findIndex((note) => note.id === dueNote?.id) + 1);
   const recentNotes = notes.filter((note) => note.id !== dueNote?.id).slice(0, 3);
 
   const startRecall = (note: MemoryNote) => {
@@ -83,7 +96,7 @@ export default function TodayScreen() {
     setActiveRecallVersion(note.updatedAt);
     setRecallStage('attempt');
     setReflection('');
-    setRecallMessage('');
+    setStatusMessage('');
     setRecallError('');
   };
 
@@ -100,7 +113,8 @@ export default function TodayScreen() {
         body: appendRecallReflection(graded.body, reflection, recalledAt),
       });
       if (!mountedRef.current) return;
-      setRecallMessage('Recall saved. It will return at the right time.');
+      const remaining = Math.max(0, dueNotes.length - 1);
+      setStatusMessage(recallCompletionMessage(graded.nextRecallAt!, remaining));
       setActiveRecallId(undefined);
       setActiveRecallVersion(undefined);
       setRecallStage('cue');
@@ -122,7 +136,8 @@ export default function TodayScreen() {
     try {
       await saveNote(deferRecall(dueNote));
       if (!mountedRef.current) return;
-      setRecallMessage('Moved to tomorrow.');
+      const remaining = Math.max(0, dueNotes.length - 1);
+      setStatusMessage(`Moved to tomorrow. ${remainingRecallMessage(remaining)}`);
       setActiveRecallId(undefined);
       setActiveRecallVersion(undefined);
       setRecallStage('cue');
@@ -160,31 +175,14 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        <Text style={sharedStyles.sectionLabel}>Capture</Text>
-        <Pressable accessibilityRole="button" onPress={() => router.navigate('/capture')} style={styles.captureRow}>
-          <Icon name={icons.edit} size={25} />
-          <Text style={styles.captureTitle}>What is worth keeping?</Text>
-          <Icon name={icons.add} size={22} />
-        </Pressable>
-        <View style={styles.quickKindRow}>
-          <QuickCapture
-            icon={icons.book}
-            label="Book learning"
-            onPress={() => router.navigate({ pathname: '/capture', params: { kind: 'book-learning' } })}
-          />
-          <QuickCapture
-            icon={icons.experience}
-            label="Experience"
-            onPress={() => router.navigate({ pathname: '/capture', params: { kind: 'experience' } })}
-          />
-        </View>
-
-        {recallMessage ? (
+        {statusMessage ? (
           <View accessibilityLiveRegion="polite" style={styles.successMessage}>
             <Icon color={colors.green} name={icons.check} size={18} />
-            <Text style={styles.successText}>{recallMessage}</Text>
+            <Text style={styles.successText}>{statusMessage}</Text>
           </View>
         ) : null}
+
+        {!dueNote ? <CaptureEntry isEmpty={notes.length === 0} onPress={() => router.navigate('/capture')} /> : null}
 
         {dueNote ? (
           <View style={styles.section}>
@@ -195,7 +193,7 @@ export default function TodayScreen() {
                 <View style={styles.recallCopy}>
                   <Text accessibilityRole="header" style={styles.recallTitle}>{recallCue(dueNote)}</Text>
                   <Text style={styles.recallMeta}>
-                    {dueNote.source || noteKindLabel(dueNote)} · {duePosition} of {dueNotes.length}
+                    {dueNote.source || noteKindLabel(dueNote)} · {dueNotes.length} due
                   </Text>
                 </View>
               </View>
@@ -209,7 +207,7 @@ export default function TodayScreen() {
                   </Pressable>
                   <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => { void postponeRecall(); }} style={styles.laterButton}>
                     <Icon name={icons.later} size={19} />
-                    <Text style={styles.laterText}>Later</Text>
+                    <Text style={styles.laterText}>Tomorrow</Text>
                   </Pressable>
                 </View>
               ) : visibleRecallStage === 'attempt' ? (
@@ -226,19 +224,17 @@ export default function TodayScreen() {
                   <TextInput
                     accessibilityLabel="Optional recall reflection"
                     editable={!savingRecall}
-                    multiline
                     onChangeText={setReflection}
-                    placeholder="Optional: what came to mind?"
+                    placeholder="Add a reflection (optional)"
                     placeholderTextColor={colors.muted}
                     style={styles.reflectionInput}
-                    textAlignVertical="top"
                     value={reflection}
                   />
                   <Text style={styles.ratingPrompt}>How well did you remember it?</Text>
                   <View accessibilityRole="radiogroup" accessibilityLabel="Recall result" style={styles.ratingRow}>
                     {(['forgot', 'partial', 'remembered'] as const).map((status) => (
                       <Pressable key={status} accessibilityRole="button" disabled={savingRecall} onPress={() => { void saveRecall(status); }} style={styles.ratingButton}>
-                        <Text style={styles.ratingText}>{status === 'partial' ? 'Partly' : status[0].toUpperCase() + status.slice(1)}</Text>
+                        <Text style={styles.ratingText}>{recallResultLabel(status)}</Text>
                       </Pressable>
                     ))}
                   </View>
@@ -248,6 +244,8 @@ export default function TodayScreen() {
             {recallError ? <Text accessibilityRole="alert" style={styles.error}>{recallError}</Text> : null}
           </View>
         ) : null}
+
+        {dueNote ? <CaptureEntry isEmpty={false} onPress={() => router.navigate('/capture')} /> : null}
 
         {recentNotes.length > 0 ? (
           <View style={styles.section}>
@@ -277,13 +275,17 @@ export default function TodayScreen() {
   );
 }
 
-function QuickCapture({ icon, label, onPress }: { icon: AppSymbol; label: string; onPress: () => void }) {
+function CaptureEntry({ isEmpty, onPress }: { isEmpty: boolean; onPress: () => void }) {
   return (
-    <Pressable accessibilityLabel={`Capture a ${label.toLowerCase()}`} accessibilityRole="button" onPress={onPress} style={styles.quickKindButton}>
-      <Icon name={icon} size={22} />
-      <Text style={styles.quickKindText}>{label}</Text>
-      <Icon color={colors.muted} name={icons.chevron} size={18} />
-    </Pressable>
+    <View style={styles.captureSection}>
+      <Text style={sharedStyles.sectionLabel}>Capture</Text>
+      {isEmpty ? <Text style={styles.emptyPromise}>Save something worth remembering. Stories will bring it back later.</Text> : null}
+      <Pressable accessibilityRole="button" onPress={onPress} style={styles.captureRow}>
+        <Icon name={icons.edit} size={25} />
+        <Text style={styles.captureTitle}>What is worth remembering?</Text>
+        <Icon name={icons.add} size={22} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -301,12 +303,11 @@ const styles = StyleSheet.create({
   errorTitle: { color: colors.ink, fontSize: 21, fontWeight: '700', textAlign: 'center' },
   errorCopy: { marginTop: 10, maxWidth: 310, textAlign: 'center' },
   errorHint: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 8, maxWidth: 310, textAlign: 'center' },
-  header: { marginBottom: 32 },
+  header: { marginBottom: 0 },
+  captureSection: { marginTop: 29 },
   captureRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 13, minHeight: 64, paddingHorizontal: 15 },
   captureTitle: { color: colors.muted, flex: 1, fontSize: 17 },
-  quickKindRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
-  quickKindButton: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 13, borderWidth: 1, flex: 1, flexDirection: 'row', gap: 10, minHeight: 58, paddingHorizontal: 12 },
-  quickKindText: { color: colors.ink, flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 18 },
+  emptyPromise: { color: colors.muted, fontSize: 15, lineHeight: 22, marginBottom: 12, marginTop: -1, maxWidth: 330 },
   section: { marginTop: 29 },
   successMessage: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 14 },
   successText: { color: colors.green, flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 20 },
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
   attemptText: { color: colors.muted, fontSize: 15, lineHeight: 22 },
   revealBlock: { gap: 13 },
   revealedBody: { color: colors.ink, fontSize: 16, lineHeight: 25 },
-  reflectionInput: { borderColor: colors.line, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, lineHeight: 21, minHeight: 78, paddingHorizontal: 12, paddingVertical: 10 },
+  reflectionInput: { borderColor: colors.line, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, lineHeight: 21, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },
   ratingPrompt: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   ratingRow: { flexDirection: 'row', gap: 7 },
   ratingButton: { alignItems: 'center', borderColor: colors.line, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 6 },

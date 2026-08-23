@@ -21,3 +21,9 @@ export function recallDaysForChoice(choice: RecallChoice): number | undefined {
   if (choice === 'week') return 7;
   return undefined;
 }
+
+export function memoryDetailsSummary(kind: MemoryKind, recallChoice: RecallChoice): string {
+  const kindLabel = MEMORY_KIND_OPTIONS.find((option) => option.value === kind)?.label ?? 'Note';
+  const recallLabel = recallChoice === 'three-days' ? 'returns in 3 days' : recallChoice === 'week' ? 'returns in 1 week' : 'does not return';
+  return `${kindLabel} · ${recallLabel}`;
+}

@@ -5,7 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleFirstRecall } from '@core/recall';
 import { MarkdownEditor } from '@/src/ui/MarkdownEditor';
-import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, recallDaysForChoice, type RecallChoice } from '@/src/capture/options';
+import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, memoryDetailsSummary, recallDaysForChoice, type RecallChoice } from '@/src/capture/options';
 import { captureKindFromParam } from '@/src/navigation/route-state';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { useVault } from '@/src/vault/provider';
@@ -20,6 +20,7 @@ export default function CaptureScreen() {
   const [source, setSource] = useState('');
   const [recallChoice, setRecallChoice] = useState<RecallChoice>(DEFAULT_RECALL_CHOICE);
   const [recallPrompt, setRecallPrompt] = useState('');
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const mountedRef = useRef(true);
@@ -40,6 +41,7 @@ export default function CaptureScreen() {
     if (!hydrated || !body.trim() || savingRef.current) return;
     savingRef.current = true;
     const recallDays = recallDaysForChoice(recallChoice);
+    const nextRecallAt = recallDays ? scheduleFirstRecall(new Date(), recallDays) : undefined;
     setSaving(true);
     setSaveError('');
     try {
@@ -48,12 +50,15 @@ export default function CaptureScreen() {
         kind,
         folder: kind === 'book-learning' ? 'Books' : kind === 'experience' ? 'Experiences' : 'Inbox',
         source: kind === 'note' ? undefined : source.trim() || undefined,
-        nextRecallAt: recallDays ? scheduleFirstRecall(new Date(), recallDays) : undefined,
+        nextRecallAt,
         recallPrompt: recallDays ? recallPrompt.trim() || undefined : undefined,
       });
       if (mountedRef.current) {
         allowNextNavigation();
-        leaveCapture();
+        router.replace({
+          pathname: '/(tabs)',
+          params: { saved: '1', ...(nextRecallAt ? { nextRecallAt } : {}) },
+        });
       }
     } catch (error) {
       if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be saved');
@@ -76,6 +81,7 @@ export default function CaptureScreen() {
           </View>
 
           <Text style={styles.editorLabel}>What do you want to remember?</Text>
+          <Text style={styles.editorSupport}>One sentence is enough.</Text>
           <MarkdownEditor
             value={draft}
             onChangeText={(value) => { if (!savingRef.current) setDraft(value); }}
@@ -87,79 +93,97 @@ export default function CaptureScreen() {
           />
 
           <View style={styles.detailsPanel}>
-            <View style={styles.detailsHeading}>
-              <SymbolView name={{ android: 'tune', ios: 'slider.horizontal.3', web: 'tune' }} size={20} tintColor={colors.accent} />
-              <Text style={styles.detailsTitle}>Memory details</Text>
-            </View>
-
-            <Text style={styles.fieldLabel}>Save as</Text>
-            <View accessibilityRole="radiogroup" accessibilityLabel="Remember as" style={styles.modeRow}>
-              {MEMORY_KIND_OPTIONS.map((option) => {
-                const selected = kind === option.value;
-                return (
-                  <Pressable
-                    accessibilityLabel={option.label}
-                    key={option.value}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected }}
-                    disabled={saving}
-                    onPress={() => router.setParams({ kind: option.value })}
-                    style={[styles.modeChip, selected && styles.modeChipSelected]}
-                  >
-                    <Text style={[styles.modeChipText, selected && styles.modeChipTextSelected]}>{option.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {kind !== 'note' ? (
-              <View style={styles.detailField}>
-                <Text style={styles.fieldLabel}>{kind === 'book-learning' ? 'Book or author' : 'People, place, or context'} <Text style={styles.optional}>Optional</Text></Text>
-                <TextInput
-                  accessibilityLabel={kind === 'book-learning' ? 'Optional book or author' : 'Optional people, place, or context'}
-                  editable={!saving}
-                  onChangeText={(value) => { if (!savingRef.current) setSource(value); }}
-                  placeholder={kind === 'book-learning' ? 'e.g. Deep Work by Cal Newport' : 'e.g. Goa with Mira'}
-                  placeholderTextColor={colors.muted}
-                  style={styles.input}
-                  value={source}
-                />
+            <Pressable
+              accessibilityHint={detailsExpanded ? 'Hides optional memory settings' : 'Shows memory type, recall timing, and optional recall cue'}
+              accessibilityLabel={`Memory details, ${memoryDetailsSummary(kind, recallChoice)}`}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: detailsExpanded }}
+              disabled={saving}
+              onPress={() => setDetailsExpanded((expanded) => !expanded)}
+              style={({ pressed }) => [styles.detailsDisclosure, pressed && styles.detailsDisclosurePressed]}
+            >
+              <View style={styles.detailsHeading}>
+                <SymbolView name={{ android: 'tune', ios: 'slider.horizontal.3', web: 'tune' }} size={20} tintColor={colors.accent} />
+                <View style={styles.detailsHeadingCopy}>
+                  <Text style={styles.detailsTitle}>Memory details</Text>
+                  <Text style={styles.detailsSummary}>{memoryDetailsSummary(kind, recallChoice)}</Text>
+                </View>
               </View>
-            ) : null}
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.disclosureIcon}>{detailsExpanded ? '−' : '+'}</Text>
+            </Pressable>
 
-            <View style={styles.detailField}>
-              <Text style={styles.fieldLabel}>Bring this back</Text>
-              <View accessibilityRole="radiogroup" accessibilityLabel="Recall timing" style={styles.segmentedRow}>
-                {RECALL_OPTIONS.map((option) => {
-                  const selected = recallChoice === option.value;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected }}
-                      disabled={saving}
-                      onPress={() => setRecallChoice(option.value)}
-                      style={[styles.segment, selected && styles.segmentSelected]}
-                    >
-                      <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+            {detailsExpanded ? (
+              <View style={styles.detailsContent}>
+                <Text style={styles.fieldLabel}>Save as</Text>
+                <View accessibilityRole="radiogroup" accessibilityLabel="Remember as" style={styles.modeRow}>
+                  {MEMORY_KIND_OPTIONS.map((option) => {
+                    const selected = kind === option.value;
+                    return (
+                      <Pressable
+                        accessibilityLabel={option.label}
+                        key={option.value}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        disabled={saving}
+                        onPress={() => router.setParams({ kind: option.value })}
+                        style={[styles.modeChip, selected && styles.modeChipSelected]}
+                      >
+                        <Text style={[styles.modeChipText, selected && styles.modeChipTextSelected]}>{option.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
 
-            {recallChoice !== 'off' ? (
-              <View style={styles.detailField}>
-                <Text style={styles.fieldLabel}>Recall cue <Text style={styles.optional}>Optional</Text></Text>
-                <TextInput
-                  accessibilityLabel="Optional recall cue"
-                  editable={!saving}
-                  onChangeText={(value) => { if (!savingRef.current) setRecallPrompt(value); }}
-                  placeholder="What should future-you try to recall?"
-                  placeholderTextColor={colors.muted}
-                  style={styles.input}
-                  value={recallPrompt}
-                />
+                {kind !== 'note' ? (
+                  <View style={styles.detailField}>
+                    <Text style={styles.fieldLabel}>{kind === 'book-learning' ? 'Book or author' : 'People, place, or context'} <Text style={styles.optional}>Optional</Text></Text>
+                    <TextInput
+                      accessibilityLabel={kind === 'book-learning' ? 'Optional book or author' : 'Optional people, place, or context'}
+                      editable={!saving}
+                      onChangeText={(value) => { if (!savingRef.current) setSource(value); }}
+                      placeholder={kind === 'book-learning' ? 'e.g. Deep Work by Cal Newport' : 'e.g. Goa with Mira'}
+                      placeholderTextColor={colors.muted}
+                      style={styles.input}
+                      value={source}
+                    />
+                  </View>
+                ) : null}
+
+                <View style={styles.detailField}>
+                  <Text style={styles.fieldLabel}>Bring this back</Text>
+                  <View accessibilityRole="radiogroup" accessibilityLabel="Recall timing" style={styles.segmentedRow}>
+                    {RECALL_OPTIONS.map((option) => {
+                      const selected = recallChoice === option.value;
+                      return (
+                        <Pressable
+                          key={option.value}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                          disabled={saving}
+                          onPress={() => setRecallChoice(option.value)}
+                          style={[styles.segment, selected && styles.segmentSelected]}
+                        >
+                          <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {recallChoice !== 'off' ? (
+                  <View style={styles.detailField}>
+                    <Text style={styles.fieldLabel}>Recall cue <Text style={styles.optional}>Optional</Text></Text>
+                    <TextInput
+                      accessibilityLabel="Optional recall cue"
+                      editable={!saving}
+                      onChangeText={(value) => { if (!savingRef.current) setRecallPrompt(value); }}
+                      placeholder="What should future-you try to recall?"
+                      placeholderTextColor={colors.muted}
+                      style={styles.input}
+                      value={recallPrompt}
+                    />
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -194,14 +218,21 @@ const styles = StyleSheet.create({
   topBar: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, justifyContent: 'center', minHeight: 58 },
   topBarTitle: { color: colors.ink, fontSize: 17, fontWeight: '600' },
   editorLabel: { color: colors.ink, fontSize: 15, fontWeight: '600', marginBottom: 10, marginTop: 18 },
+  editorSupport: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 12, marginTop: -4 },
   modeRow: { flexDirection: 'row', gap: 7 },
   modeChip: { alignItems: 'center', borderColor: 'transparent', borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
   modeChipSelected: { backgroundColor: colors.accentSoft, borderColor: colors.line },
   modeChipText: { color: colors.muted, fontSize: 13, fontWeight: '500', textAlign: 'center' },
   modeChipTextSelected: { color: colors.accent, fontWeight: '600' },
-  detailsPanel: { borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 24, paddingTop: 18 },
-  detailsHeading: { alignItems: 'center', flexDirection: 'row', gap: 9, marginBottom: 18 },
+  detailsPanel: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 24 },
+  detailsDisclosure: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 68, paddingVertical: 10 },
+  detailsDisclosurePressed: { opacity: 0.62 },
+  detailsHeading: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 9 },
+  detailsHeadingCopy: { flex: 1 },
   detailsTitle: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  detailsSummary: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  disclosureIcon: { color: colors.accent, fontSize: 23, fontWeight: '400', lineHeight: 28, marginLeft: 12, textAlign: 'center', width: 28 },
+  detailsContent: { paddingBottom: 20 },
   detailField: { marginTop: 18 },
   fieldLabel: { color: colors.ink, fontSize: 13, fontWeight: '600', marginBottom: 9 },
   optional: { color: colors.muted, fontWeight: '500' },

@@ -24,9 +24,9 @@ function NewMemoryContent() {
     <AppShell hideNav>
       <div className="page-stack">
         <header className="page-header">
-          <Link href="/memories" className="note-back-link" aria-label="Back to Files">
+          <Link href="/memories" className="note-back-link" aria-label="Back to Library">
             <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
-            <span>Files</span>
+            <span>Library</span>
           </Link>
         </header>
         <MarkdownEditor
@@ -37,7 +37,7 @@ function NewMemoryContent() {
           initialKind="note"
           folders={folders}
           memories={memories}
-          submitLabel="Create file"
+          submitLabel="Create memory"
           onSave={save}
           onCancel={() => router.push('/memories')}
         />

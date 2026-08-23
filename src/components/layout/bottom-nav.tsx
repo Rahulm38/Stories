@@ -7,7 +7,7 @@ import { BookOpen, House, Settings } from 'lucide-react';
 
 const navItems = [
   { label: 'Today', href: '/today', icon: House },
-  { label: 'Files', href: '/memories', icon: BookOpen },
+  { label: 'Library', href: '/memories', icon: BookOpen },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 

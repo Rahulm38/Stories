@@ -1,19 +1,21 @@
 'use client';
 
 import React, { FormEvent, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Folder, FolderPlus, Search } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronDown, ChevronRight, Folder, FolderPlus, PenLine, Search } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
 import { FileRow } from '@/components/shared/file-row';
 import { DEFAULT_FOLDERS, memoryKindLabel, useMemoryStore } from '@/components/shared/memory-store';
 
 export default function MemoriesPage() {
-  const { memories, folders, addFolder } = useMemoryStore();
+  const { memories, folders, hydrated, addFolder } = useMemoryStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({ Inbox: true });
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolder, setNewFolder] = useState('');
 
   const query = searchQuery.trim().toLowerCase();
+  const isEmpty = memories.length === 0;
   const availableFolders = useMemo(
     () => {
       const noteFolders = memories.map((memory) => memory.folderPath || 'Inbox');
@@ -53,24 +55,37 @@ export default function MemoriesPage() {
       <div className="page-stack">
         <header className="page-header">
           <div>
-            <p className="eyebrow">Markdown vault</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em] text-foreground">Files</h1>
+            <p className="eyebrow">Your memories</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em] text-foreground">Library</h1>
           </div>
-          <span className="count-label">{memories.length} files</span>
+          {!isEmpty && <span className="count-label">{memories.length} {memories.length === 1 ? 'memory' : 'memories'}</span>}
         </header>
 
-        <div className="search-field">
+        {!hydrated ? (
+          <div className="note-loading" role="status">Opening Library…</div>
+        ) : isEmpty ? (
+          <section className="library-empty" aria-labelledby="library-empty-title">
+            <span className="native-leading-icon"><PenLine aria-hidden="true" /></span>
+            <div>
+              <h2 id="library-empty-title">Your saved memories will appear here.</h2>
+              <p>Capture one thought now. Stories will bring it back when it is time to remember.</p>
+            </div>
+            <Link href="/memories/new" className="native-primary-button">New memory</Link>
+          </section>
+        ) : (
+          <>
+            <div className="search-field">
           <Search className="h-[18px] w-[18px] text-text-dim" aria-hidden="true" />
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search files"
-            aria-label="Search files"
+            placeholder="Search memories"
+            aria-label="Search memories"
           />
-        </div>
+            </div>
 
-        <section className="folder-tree" aria-labelledby="folders-heading">
+            <section className="folder-tree" aria-labelledby="folders-heading">
           <div className="section-heading">
             <div>
               <p className="eyebrow">Your structure</p>
@@ -129,7 +144,7 @@ export default function MemoriesPage() {
                       {folderMemories.length > 0 ? (
                         folderMemories.map((memory) => <FileRow key={memory.id} memory={memory} />)
                       ) : (
-                        <p className="folder-empty">No Markdown files here yet.</p>
+                        <p className="folder-empty">No memories here yet.</p>
                       )}
                     </div>
                   )}
@@ -137,13 +152,15 @@ export default function MemoriesPage() {
               );
             })}
           </div>
-        </section>
+            </section>
 
-        {matchingMemories.length === 0 && (
-          <div className="empty-state">
-            <p className="text-base font-semibold text-foreground">No files found</p>
-            <p className="mt-1 text-sm text-muted-foreground">Try another word or add a new note.</p>
-          </div>
+            {matchingMemories.length === 0 && (
+              <div className="empty-state">
+                <p className="text-base font-semibold text-foreground">No memories found</p>
+                <p className="mt-1 text-sm text-muted-foreground">Try another word.</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </AppShell>

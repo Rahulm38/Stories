@@ -388,6 +388,24 @@ test('recall scheduling is deterministic and cue order is earliest first', () =>
   assert.equal(deferred.source, 'Deep Work by Cal Newport');
 });
 
+test('recall outcomes preserve the existing one, four, and fourteen day schedule', () => {
+  const now = new Date('2026-08-23T10:00:00.000Z');
+  const memory = note('memory', 'A useful idea', 'Inbox/a-useful-idea.md', 'Inbox');
+
+  const outcomes = [
+    ['forgot', '2026-08-24T10:00:00.000Z'],
+    ['partial', '2026-08-27T10:00:00.000Z'],
+    ['remembered', '2026-09-06T10:00:00.000Z'],
+  ] as const;
+
+  for (const [status, nextRecallAt] of outcomes) {
+    const graded = gradeRecall(memory, status, now);
+    assert.equal(graded.recallStatus, status);
+    assert.equal(graded.lastRecalledAt, '2026-08-23T10:00:00.000Z');
+    assert.equal(graded.nextRecallAt, nextRecallAt);
+  }
+});
+
 test('recall timestamps reject impossible calendar dates and tie-break equal due times', () => {
   assert.equal(normalizeRecallTimestamp('2026-02-31T09:00:00.000Z'), undefined);
 
