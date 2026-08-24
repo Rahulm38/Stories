@@ -5,6 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MemoryNote } from '@core/model';
 import { matchesLibrarySearch } from '@/src/navigation/library-search';
+import { cleanSnippet } from '@/src/navigation/snippet';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles } from '@/src/ui/theme';
 
@@ -132,6 +133,7 @@ export default function FilesScreen() {
   const router = useRouter();
   const { hydrated, notes, openError } = useVault();
   const [query, setQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'folders' | 'all'>('folders');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -145,10 +147,26 @@ export default function FilesScreen() {
     const matchingNotes = normalizedQuery
       ? notes.filter((note) => matchesLibrarySearch(note, normalizedQuery))
       : notes;
+
+    if (viewMode === 'all') {
+      const sorted = [...matchingNotes].sort((a, b) => {
+        const timeA = new Date(a.updatedAt).getTime() || 0;
+        const timeB = new Date(b.updatedAt).getTime() || 0;
+        return timeB - timeA || a.title.localeCompare(b.title);
+      });
+      return sorted.map<LibraryRow>((note, index) => ({
+        type: 'note',
+        key: `note:${note.id}`,
+        note,
+        depth: 0,
+        first: index === 0,
+      }));
+    }
+
     const folderTree = buildFolderTree(matchingNotes, !normalizedQuery);
     const defaultExpandedRootPath = folderTree.find((folder) => folder.count > 0)?.path;
     return folderTree.flatMap((folder) => flattenFolder(folder, 0, expandedFolders, Boolean(normalizedQuery), defaultExpandedRootPath));
-  }, [expandedFolders, normalizedQuery, notes]);
+  }, [expandedFolders, normalizedQuery, notes, viewMode]);
 
   const hasSearchResults = !normalizedQuery || rows.some((row) => row.type === 'note');
 
@@ -214,9 +232,30 @@ export default function FilesScreen() {
               />
             </View>
 
-            <Text style={styles.sectionLabel}>{normalizedQuery ? 'Results' : 'Folders'}</Text>
+            <View style={styles.toggleSection}>
+              <View style={styles.viewToggle}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: viewMode === 'folders' }}
+                  onPress={() => setViewMode('folders')}
+                  style={[styles.viewToggleBtn, viewMode === 'folders' && styles.viewToggleBtnSelected]}
+                >
+                  <Text style={[styles.viewToggleText, viewMode === 'folders' && styles.viewToggleTextSelected]}>By folder</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: viewMode === 'all' }}
+                  onPress={() => setViewMode('all')}
+                  style={[styles.viewToggleBtn, viewMode === 'all' && styles.viewToggleBtnSelected]}
+                >
+                  <Text style={[styles.viewToggleText, viewMode === 'all' && styles.viewToggleTextSelected]}>All memories</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.sectionLabel}>{normalizedQuery ? 'Results' : viewMode === 'folders' ? 'Folders' : 'All memories'}</Text>
+            </View>
           </>
         )}
+
         ListFooterComponent={!hasSearchResults ? (
           <View style={styles.noResults}>
             <Text style={styles.noResultsTitle}>Nothing matches</Text>
@@ -263,6 +302,7 @@ export default function FilesScreen() {
           }
 
           const showPath = duplicateTitles.has(item.note.title.toLowerCase());
+          const snippet = cleanSnippet(item.note.body, item.note.title);
           return (
             <Pressable
               accessibilityLabel={`${item.note.title}, ${showPath ? item.note.path : item.note.folder}`}
@@ -274,7 +314,8 @@ export default function FilesScreen() {
                 <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={17} tintColor={colors.accent} />
               </View>
               <View style={styles.fileCopy}>
-                <Text numberOfLines={2} style={styles.fileTitle}>{item.note.title}</Text>
+                <Text numberOfLines={1} style={styles.fileTitle}>{item.note.title}</Text>
+                {snippet ? <Text numberOfLines={1} style={styles.fileSnippet}>{snippet}</Text> : null}
                 {showPath ? <Text numberOfLines={1} style={styles.filePath}>{item.note.path}</Text> : null}
               </View>
               <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.muted} />
@@ -300,7 +341,13 @@ const styles = StyleSheet.create({
   pressedButton: { opacity: 0.65 },
   searchField: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, minHeight: 48, paddingHorizontal: 14 },
   searchInput: { color: colors.ink, flex: 1, fontSize: 16, paddingVertical: 0 },
-  sectionLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', letterSpacing: 0.2, marginBottom: 6, marginTop: 28 },
+  toggleSection: { marginTop: 22 },
+  viewToggle: { backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flexDirection: 'row', padding: 3 },
+  viewToggleBtn: { alignItems: 'center', borderRadius: 8, flex: 1, justifyContent: 'center', minHeight: 36, paddingHorizontal: 12 },
+  viewToggleBtnSelected: { backgroundColor: colors.accentSoft },
+  viewToggleText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  viewToggleTextSelected: { color: colors.accent },
+  sectionLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', letterSpacing: 0.2, marginBottom: 6, marginTop: 18 },
   folderRow: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, minHeight: 56 },
   folderRowDisabled: { opacity: 0.58 },
   pressedRow: { opacity: 0.72 },
@@ -312,8 +359,9 @@ const styles = StyleSheet.create({
   fileRowFirst: { borderTopWidth: 0 },
   fileIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 8, height: 32, justifyContent: 'center', marginRight: 11, width: 32 },
   fileCopy: { flex: 1, paddingRight: 10 },
-  fileTitle: { color: colors.ink, fontSize: 15, lineHeight: 21 },
-  filePath: { color: colors.muted, fontSize: 12, marginTop: 3 },
+  fileTitle: { color: colors.ink, fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  fileSnippet: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  filePath: { color: colors.muted, fontSize: 11, marginTop: 2 },
   noResults: { alignItems: 'flex-start', paddingBottom: 24, paddingTop: 36 },
   noResultsTitle: { color: colors.ink, fontSize: 18, fontWeight: '600', marginBottom: 7 },
   clearButton: { alignItems: 'center', borderColor: colors.accent, borderRadius: 10, borderWidth: 1, justifyContent: 'center', marginTop: 16, minHeight: 44, paddingHorizontal: 14 },

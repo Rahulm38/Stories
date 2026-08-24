@@ -1,78 +1,62 @@
 ---
 title: Product Brief
-document_type: strategy
 status: approved
 last_reviewed: 2026-08-24
 ---
 
-# Product brief
+# Product Brief
 
-## Problem
+## The Problem
 
-People save ideas from books and lessons from lived experience, but retrieval fails at the moment those ideas would be useful. Existing notes products optimize capture, organization, or search. They generally wait for the user to remember what to look for. Spaced-repetition tools can improve memory, but often require card authoring, rigid study sessions, and a school-like workflow.
+People save ideas from books and lessons from lived experience, but retrieval fails at the moment those ideas would actually be useful. Existing note apps optimize capture, organization, or search—waiting passively for you to remember what to search for. Spaced-repetition tools improve memory, but require tedious card authoring, rigid study decks, and feel like homework.
 
-Stories closes the gap between a private note and an active memory. It lets a person save a thought in ordinary language, return to it through a cue, attempt recall before seeing the answer, and optionally connect the memory to a new reflection or another note.
+Stories closes the gap between a private note and an active memory. It lets you capture a thought in ordinary words, prompts you with a contextual cue before revealing the answer, and schedules intelligent, non-judgmental return intervals.
 
-## Product promise
+## Product Promise
 
-**Keep what mattered. Remember it when it can matter again.**
+> **Keep what mattered. Remember it when it can matter again.**
 
-Stories must be:
+Stories is designed to be:
+- **Fast**: Capture an unplanned thought in under 20 seconds with zero friction.
+- **Calm**: A daily surface designed to feel restorative, not demanding. No streaks, badges, or backlogs.
+- **Reliable & Private**: 100% offline, local-only UTF-8 Markdown files, no account required.
+- **Durable**: Clean Markdown storage with simple 1-click export so you truly own your data.
 
-- fast enough for an unplanned thought;
-- calm enough to revisit daily without becoming a task manager;
-- reliable offline and across app restarts;
-- private by default, without an account;
-- portable because the durable record is Markdown;
-- opinionated about recall, but permissive about note structure.
+## Target Outcome
 
-## Target outcome
+Within four weeks, a user can name concrete ideas and lessons they would have otherwise forgotten, easily retrieve the underlying memories, and trust that their thoughts are private and safe.
 
-After four weeks, a successful user can name ideas or lessons they would otherwise have forgotten, can find the underlying notes, and trusts that saving or practicing never silently loses data.
+## Positioning: Memory Companion
 
-## Positioning
+Stories is a **local-first memory companion**. It is explicitly not:
+- A general knowledge base or wiki
+- An Anki/flashcard deck manager
+- A to-do list, habit tracker, or productivity dashboard
+- An AI chat surface or summarizer
+- A cloud sync or social publishing tool
 
-Stories is a local-first recall companion. It is not:
+## The Core Loop
 
-- a general-purpose knowledge base;
-- an Obsidian clone or plugin host;
-- a flashcard deck manager;
-- a to-do list, calendar, or habit tracker;
-- an AI chat surface;
-- a social, collaborative, or publishing product.
+$$\text{Capture} \longrightarrow \text{Cue} \longrightarrow \text{Attempt} \longrightarrow \text{Reveal} \longrightarrow \text{Rate} \longrightarrow \text{Reuse}$$
 
-## Wedge
+1. **Capture**: Save a single worthwhile thought in plain language.
+2. **Cue**: Contextual cue triggers retrieval ("What was the key lesson from *Thinking, Fast and Slow*?").
+3. **Attempt**: You attempt active recall in your own mind before seeing the stored text.
+4. **Reveal & Rate**: Reveal the original memory and rate your recall: *Not yet* (1d), *Partly* (4d), or *Got it* (14d).
+5. **Reuse & Reflect**: Optionally append a dated reflection or link to another memory.
 
-The initial wedge is people who already notice the pain of forgotten reading and experience-based learning. The first two structured memory types are Book learning and Experience. A plain Note remains available because classification must never block capture.
+## Onboarding & Activation Strategy (Aha Moment)
 
-## Core loop
+- **The Day 1 Gap**: The biggest churn risk is saving a memory and waiting 3 days in silence.
+- **First-Session Loop**: On saving the very first memory, users are invited to do an immediate 1-tap practice recall or choose a 1-day initial interval.
+- **Warmth Over Jargon**: Prompts use human memory language ("memory", "recall", "returns on [Date]") rather than file-system abstractions ("Inbox", "UTF-8 parse").
 
-1. Capture one worthwhile thought.
-2. Optionally add a source, cue, and return timing.
-3. Encounter a cue when the memory is due.
-4. Attempt recall while the original remains hidden.
-5. Reveal and rate the attempt.
-6. Add a reflection or connection when useful.
-7. Return later according to a deterministic interval.
+## Strategic Bets
 
-## Strategic bets
-
-| Bet | Why it matters | How to falsify it |
-| --- | --- | --- |
-| Cue-first recall is more valuable than passive rereading. | This is the differentiation. | Users repeatedly reveal without attempting, ignore due items, or report no retrieval benefit. |
-| Optional structure preserves capture speed. | Complex schemas kill spontaneous capture. | Median capture exceeds 20 seconds or users abandon details. |
-| Local Markdown increases trust. | Users are sensitive to losing private thoughts. | Users cannot understand storage/recovery or demand sync before trusting the app. |
-| A quiet daily surface improves return behavior. | The product should feel restorative, not demanding. | Users miss due work because hierarchy is too subtle, or interpret it as an empty notes app. |
-
-## Product risks
-
-- Recall may feel like homework rather than help.
-- A default three-day return may be wrong for different content types.
-- App-private storage can be trustworthy but hard to back up or move.
-- No account reduces friction but makes uninstall/device loss unrecoverable until backup exists.
-- Markdown interoperability can be overstated if users cannot export the app-private vault.
-- Local-only telemetry limits quantitative learning; research must not compromise privacy.
-
-## Release thesis
-
-The first credible release is not “a notes app with folders.” It is a device-tested, loss-resistant Capture → Recall loop with a usable Library. Native notifications, backup/restore, and accessibility validation are release-quality capabilities, not decorative follow-ons. See [[04 Delivery/01 Release Plan and Acceptance]].
+| Bet | Why It Matters | How to Validate / Falsify |
+|---|---|---|
+| **Cue-first recall > passive rereading** | Core product wedge and differentiator. | Users attempt recall before Reveal; report retrieval in real life. |
+| **Optional structure preserves capture speed** | Mandatory forms kill spontaneous capture. | Median capture remains under 20 seconds. |
+| **First-session practice drives retention** | Experiencing the full loop on Day 1 creates instant comprehension. | Higher Day 7 retention for users completing Day 1 practice. |
+| **Calm UI improves daily habit** | Users avoid apps that induce guilt or pile up overdue tasks. | Users return regularly without coercive push notifications or red badges. |
+| **Local Markdown builds deep trust** | Users are sensitive about deeply personal thoughts. | Users trust the app with real book learnings and experiences. |

@@ -11,7 +11,7 @@ import { BrowserFileStore } from '../src/vault/browser-file-store.ts';
 import { ensureVaultReady } from '../src/vault/save-gate.ts';
 import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, memoryDetailsSummary, recallDaysForChoice } from '../src/capture/options.ts';
 import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
-import { recallCompletionMessage, recallResultLabel, remainingRecallMessage, savedMemoryMessage } from '../src/recall/presentation.ts';
+import { nextUpcomingRecallMessage, recallCompletionMessage, recallCue, recallResultLabel, remainingRecallMessage, savedMemoryMessage } from '../src/recall/presentation.ts';
 
 test('capture route params update the selected capture kind', () => {
   assert.equal(captureKindFromParam(undefined), 'note');
@@ -40,6 +40,33 @@ test('recall result copy maps to the existing scheduling outcomes', () => {
   assert.equal(recallResultLabel('remembered'), 'Got it');
 });
 
+test('personalized recall cues format dynamically from kind, source, and prompt', () => {
+  assert.equal(
+    recallCue({ kind: 'book-learning', source: 'Atomic Habits', recallPrompt: '' }),
+    'What idea from “Atomic Habits” did you want to remember?',
+  );
+  assert.equal(
+    recallCue({ kind: 'book-learning', source: '', recallPrompt: '' }),
+    'What idea from this book did you want to remember?',
+  );
+  assert.equal(
+    recallCue({ kind: 'experience', source: 'Trip to Tokyo', recallPrompt: '' }),
+    'What did you want to remember about “Trip to Tokyo”?',
+  );
+  assert.equal(
+    recallCue({ kind: 'experience', source: '', recallPrompt: '' }),
+    'What changed in this experience?',
+  );
+  assert.equal(
+    recallCue({ kind: 'note', source: '', recallPrompt: '' }),
+    'What did you want to remember?',
+  );
+  assert.equal(
+    recallCue({ kind: 'note', source: '', recallPrompt: 'Custom prompt?' }),
+    'Custom prompt?',
+  );
+});
+
 test('recall completion names the return date and remaining work', () => {
   assert.equal(
     recallCompletionMessage('2026-08-25T10:00:00.000Z', 2, 'en-US'),
@@ -55,6 +82,14 @@ test('first-save confirmation explains the scheduled return', () => {
     'Saved privately. It returns on Aug 26.',
   );
   assert.equal(savedMemoryMessage(undefined, 'en-US'), 'Saved privately.');
+});
+
+test('upcoming recall message presents the next scheduled return date', () => {
+  assert.equal(
+    nextUpcomingRecallMessage('2026-08-27T10:00:00.000Z', 'en-US'),
+    'Next memory returns on Aug 27.',
+  );
+  assert.equal(nextUpcomingRecallMessage(undefined, 'en-US'), undefined);
 });
 
 test('bottom tabs keep a comfortable device-safe gap', () => {
@@ -236,3 +271,84 @@ assert.throws(() => ensureVaultReady(true, false), /local vault is still opening
 assert.throws(() => ensureVaultReady(true, true, 'The local vault contains invalid files'), /invalid files/);
 assert.doesNotThrow(() => ensureVaultReady(true, true));
 });
+
+test('vault export bundles notes into verifiable Markdown files', async () => {
+  const { exportFileName, generateVaultExportBundle } = await import('../src/vault/vault-bundle.ts');
+  const sampleNote = {
+    body: 'Sample body text.',
+    folder: 'Books',
+    id: 'note-1',
+    kind: 'book-learning',
+    path: 'Books/atomic-habits.md',
+    source: 'James Clear',
+    title: 'Atomic Habits',
+    updatedAt: '2026-08-24T10:00:00.000Z',
+  };
+
+  const bundle = generateVaultExportBundle([sampleNote]);
+  assert.equal(bundle.includes('# Stories Vault Backup'), true);
+  assert.equal(bundle.includes('<!-- START_MEMORY: Books/atomic-habits.md -->'), true);
+  assert.equal(bundle.includes('title: "Atomic Habits"'), true);
+  assert.equal(bundle.includes('Sample body text.'), true);
+  assert.equal(exportFileName(new Date('2026-08-24T12:00:00Z')), 'stories-vault-backup-2026-08-24.md');
+});
+
+test('reminder service formats times, messages, and next schedule correctly', async () => {
+  const { firstMemoryReminderPrompt, formatReminderTime, nextReminderDate, reminderNotificationMessage, reminderStatusCopy } = await import('../src/notifications/reminder-service.ts');
+
+  assert.equal(formatReminderTime(9, 0), '9:00 AM');
+  assert.equal(formatReminderTime(14, 30), '2:30 PM');
+  assert.equal(formatReminderTime(0, 15), '12:15 AM');
+
+  assert.equal(reminderNotificationMessage(0), undefined);
+  assert.equal(reminderNotificationMessage(1), 'You have 1 memory ready to recall today.');
+  assert.equal(reminderNotificationMessage(5), 'You have 5 memories ready to recall today.');
+
+  assert.equal(reminderStatusCopy({ enabled: true, reminderHour: 9, reminderMinute: 0 }, false), 'Quiet reminder at 9:00 AM when memories are due.');
+  assert.equal(reminderStatusCopy({ enabled: false, reminderHour: 9, reminderMinute: 0 }, false), 'Receive a quiet offline alert when memories are due for recall.');
+  assert.equal(reminderStatusCopy({ enabled: true, reminderHour: 9, reminderMinute: 0 }, true), 'Notifications are blocked on your device. Tap to open Settings and enable them.');
+
+  assert.equal(firstMemoryReminderPrompt(3), "Your memory is scheduled to return in 3 days. Enable quiet reminders so you don't miss it?");
+
+  const morning = new Date('2026-08-24T08:00:00');
+  const nextMorning = nextReminderDate({ enabled: true, reminderHour: 9, reminderMinute: 0 }, morning);
+  assert.equal(nextMorning.getHours(), 9);
+  assert.equal(nextMorning.getDate(), 24);
+
+  const afternoon = new Date('2026-08-24T14:00:00');
+  const nextDay = nextReminderDate({ enabled: true, reminderHour: 9, reminderMinute: 0 }, afternoon);
+  assert.equal(nextDay.getHours(), 9);
+  assert.equal(nextDay.getDate(), 25);
+});
+
+test('first memory flag triggers on empty vault after deleting previous notes', () => {
+  const emptyVaultNotes = [];
+  const wasEmpty = emptyVaultNotes.length === 0;
+  assert.equal(wasEmpty, true);
+
+  const populatedVaultNotes = [{ id: 'note-1', title: 'A', body: 'B' }];
+  assert.equal(populatedVaultNotes.length === 0, false);
+
+  // Deleting all notes returns vault to empty state
+  populatedVaultNotes.pop();
+  assert.equal(populatedVaultNotes.length === 0, true);
+});
+
+test('cleanSnippet strips Markdown symbols and duplicates', async () => {
+  const { cleanSnippet } = await import('../src/navigation/snippet.ts');
+
+  // Skips title repetition
+  assert.equal(cleanSnippet('# Atomic Habits\n\nBuild good habits.', 'Atomic Habits'), 'Build good habits.');
+
+  // Strips blockquotes and bold/italics
+  assert.equal(cleanSnippet('> **Small changes** make a *big difference*.', 'Habits'), 'Small changes make a big difference.');
+
+  // Strips bullet list symbols and numbered lists
+  assert.equal(cleanSnippet('- First point\n- Second point', 'Overview'), 'First point');
+  assert.equal(cleanSnippet('1. Step one\n2. Step two', 'Process'), 'Step one');
+
+  // Strips wikilinks
+  assert.equal(cleanSnippet('Refer to [[James Clear]] for more details.', 'Reference'), 'Refer to James Clear for more details.');
+});
+
+

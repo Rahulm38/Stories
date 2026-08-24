@@ -15,7 +15,7 @@ export default function CaptureScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ kind?: string | string[] }>();
   const kind = captureKindFromParam(params.kind);
-  const { hydrated, openError, saveNote } = useVault();
+  const { hydrated, notes, openError, saveNote } = useVault();
   const [draft, setDraft] = useState('');
   const [source, setSource] = useState('');
   const [recallChoice, setRecallChoice] = useState<RecallChoice>(DEFAULT_RECALL_CHOICE);
@@ -40,12 +40,13 @@ export default function CaptureScreen() {
     const body = draft;
     if (!hydrated || !body.trim() || savingRef.current) return;
     savingRef.current = true;
+    const wasEmptyVault = notes.length === 0;
     const recallDays = recallDaysForChoice(recallChoice);
     const nextRecallAt = recallDays ? scheduleFirstRecall(new Date(), recallDays) : undefined;
     setSaving(true);
     setSaveError('');
     try {
-      await saveNote({
+      const created = await saveNote({
         body,
         kind,
         folder: kind === 'book-learning' ? 'Books' : kind === 'experience' ? 'Experiences' : 'Inbox',
@@ -57,7 +58,11 @@ export default function CaptureScreen() {
         allowNextNavigation();
         router.replace({
           pathname: '/(tabs)',
-          params: { saved: '1', ...(nextRecallAt ? { nextRecallAt } : {}) },
+          params: {
+            saved: '1',
+            ...(nextRecallAt ? { nextRecallAt } : {}),
+            ...(wasEmptyVault ? { first: '1', noteId: created.id } : {}),
+          },
         });
       }
     } catch (error) {
@@ -208,7 +213,7 @@ export default function CaptureScreen() {
 
           <View style={styles.storageHintRow}>
             <SymbolView name={{ android: 'lock', ios: 'lock', web: 'lock' }} size={16} tintColor={colors.green} />
-            <Text style={styles.storageHint}>Saved privately as Markdown on this device.</Text>
+            <Text style={styles.storageHint}>Stored privately on this device.</Text>
           </View>
           {saveError ? <Text accessibilityRole="alert" style={styles.error}>{saveError}</Text> : null}
         </ScrollView>

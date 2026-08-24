@@ -8,7 +8,8 @@ import type { MemoryKind, MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles } from '@/src/ui/theme';
 import { noteKindLabel } from '@/src/ui/MarkdownBody';
-import { recallCompletionMessage, recallResultLabel, remainingRecallMessage, savedMemoryMessage, shortDateLabel } from '@/src/recall/presentation';
+import { nextUpcomingRecallMessage, recallCompletionMessage, recallCue, recallResultLabel, remainingRecallMessage, savedMemoryMessage, shortDateLabel } from '@/src/recall/presentation';
+import { checkNotificationPermission, requestNotificationPermission, type PermissionStatus } from '@/src/notifications/device-permissions';
 
 type RecallStage = 'cue' | 'attempt' | 'revealed';
 type AppSymbol = {
@@ -45,7 +46,7 @@ function kindIcon(kind: MemoryKind): AppSymbol {
 
 export default function TodayScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ nextRecallAt?: string | string[]; saved?: string | string[] }>();
+  const params = useLocalSearchParams<{ nextRecallAt?: string | string[]; saved?: string | string[]; first?: string | string[]; noteId?: string | string[] }>();
   const { hydrated, notes, openError, saveNote } = useVault();
   const [now, setNow] = useState(() => new Date());
   const [recallStage, setRecallStage] = useState<RecallStage>('cue');
@@ -55,14 +56,24 @@ export default function TodayScreen() {
   const [statusMessage, setStatusMessage] = useState('');
   const [recallError, setRecallError] = useState('');
   const [savingRecall, setSavingRecall] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<PermissionStatus>('denied');
   const mountedRef = useRef(true);
   const savingRecallRef = useRef(false);
 
   useEffect(() => () => { mountedRef.current = false; }, []);
 
+  const firstParam = Array.isArray(params.first) ? params.first[0] : params.first;
+  const noteIdParam = Array.isArray(params.noteId) ? params.noteId[0] : params.noteId;
+
+  useEffect(() => {
+    void checkNotificationPermission().then((res) => {
+      if (mountedRef.current) setNotifStatus(res);
+    });
+  }, []);
+
   useEffect(() => {
     const saved = Array.isArray(params.saved) ? params.saved[0] : params.saved;
-    if (saved !== '1') return;
+    if (saved !== '1' || firstParam === '1') return;
 
     const nextRecallAt = Array.isArray(params.nextRecallAt) ? params.nextRecallAt[0] : params.nextRecallAt;
     const timer = setTimeout(() => {
@@ -70,7 +81,7 @@ export default function TodayScreen() {
       router.setParams({ nextRecallAt: undefined, saved: undefined });
     }, 0);
     return () => clearTimeout(timer);
-  }, [params.nextRecallAt, params.saved, router]);
+  }, [firstParam, params.nextRecallAt, params.saved, router]);
 
   useEffect(() => {
     if (!statusMessage) return;
@@ -82,7 +93,12 @@ export default function TodayScreen() {
     setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 60_000);
     const appStateSubscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') setNow(new Date());
+      if (state === 'active') {
+        setNow(new Date());
+        void checkNotificationPermission().then((res) => {
+          if (mountedRef.current) setNotifStatus(res);
+        });
+      }
     });
     return () => {
       clearInterval(timer);
@@ -91,12 +107,27 @@ export default function TodayScreen() {
   }, []));
 
   const healthyNotes = useMemo(() => notes.filter((note) => note.parseStatus !== 'quarantine'), [notes]);
+  const firstMemoryPromptNote = firstParam === '1' && noteIdParam ? healthyNotes.find((n) => n.id === noteIdParam) : undefined;
   const dueNotes = useMemo(() => dueRecalls(healthyNotes, now), [healthyNotes, now]);
-  const activeCandidate = dueNotes.find((note) => note.id === activeRecallId);
+  const activeCandidate = dueNotes.find((note) => note.id === activeRecallId) || (firstMemoryPromptNote && firstMemoryPromptNote.id === activeRecallId ? firstMemoryPromptNote : undefined);
   const activeDueNote = activeCandidate && activeCandidate.updatedAt === activeRecallVersion ? activeCandidate : undefined;
   const dueNote = activeDueNote || dueNotes[0];
   const visibleRecallStage = activeDueNote ? recallStage : 'cue';
   const recentNotes = healthyNotes.filter((note) => note.id !== dueNote?.id).slice(0, 3);
+
+  const upcomingRecallNote = useMemo(() => {
+    if (dueNotes.length > 0) return undefined;
+    const futureNotes = healthyNotes
+      .filter((note) => {
+        if (!note.nextRecallAt) return false;
+        const time = new Date(note.nextRecallAt).getTime();
+        return Number.isFinite(time) && time > now.getTime();
+      })
+      .sort((a, b) => new Date(a.nextRecallAt!).getTime() - new Date(b.nextRecallAt!).getTime());
+    return futureNotes[0];
+  }, [dueNotes.length, healthyNotes, now]);
+
+  const upcomingMessage = upcomingRecallNote?.nextRecallAt ? nextUpcomingRecallMessage(upcomingRecallNote.nextRecallAt) : undefined;
 
   const startRecall = (note: MemoryNote) => {
     setActiveRecallId(note.id);
@@ -183,14 +214,74 @@ export default function TodayScreen() {
             </View>
           </View>
 
-          {statusMessage ? (
+          {firstMemoryPromptNote && visibleRecallStage === 'cue' ? (
+            <View accessibilityLiveRegion="polite" style={styles.firstMemoryCard}>
+              <View style={styles.firstMemoryHeader}>
+                <View style={styles.firstMemoryIcon}><Icon name={icons.lightbulb} size={22} /></View>
+                <View style={styles.firstMemoryCopy}>
+                  <Text style={styles.firstMemoryTitle}>Your first memory is saved!</Text>
+                  <Text style={styles.firstMemorySubtitle}>
+                    {savedMemoryMessage(firstMemoryPromptNote.nextRecallAt)}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.firstMemoryBody}>
+                Want to try a quick practice recall now to see how Stories brings it back?
+              </Text>
+              <View style={styles.firstMemoryActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    startRecall(firstMemoryPromptNote);
+                    router.setParams({ first: undefined, noteId: undefined, saved: undefined, nextRecallAt: undefined });
+                  }}
+                  style={styles.firstMemoryPrimaryButton}
+                >
+                  <Text style={styles.firstMemoryPrimaryText}>Try practice recall</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.setParams({ first: undefined, noteId: undefined, saved: undefined, nextRecallAt: undefined })}
+                  style={styles.firstMemoryDismissButton}
+                >
+                  <Text style={styles.firstMemoryDismissText}>Maybe later</Text>
+                </Pressable>
+              </View>
+
+              {notifStatus === 'denied' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    const res = await requestNotificationPermission();
+                    setNotifStatus(res);
+                  }}
+                  style={styles.firstMemoryNotifButton}
+                >
+                  <SymbolView name={{ ios: 'bell', android: 'notifications', web: 'notifications' }} size={15} tintColor={colors.accent} />
+                  <Text style={styles.firstMemoryNotifText}>Allow quiet device reminders</Text>
+                </Pressable>
+              ) : notifStatus === 'granted' ? (
+                <View style={styles.firstMemoryNotifGranted}>
+                  <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} size={14} tintColor={colors.green} />
+                  <Text style={styles.firstMemoryNotifGrantedText}>Quiet recall reminders enabled</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : statusMessage ? (
             <View accessibilityLiveRegion="polite" style={styles.successMessage}>
               <Icon color={colors.green} name={icons.check} size={18} />
               <Text style={styles.successText}>{statusMessage}</Text>
             </View>
           ) : null}
 
-          {!dueNote ? <CaptureEntry isEmpty={notes.length === 0} onPress={() => router.navigate('/capture')} /> : null}
+          {!dueNote && !firstMemoryPromptNote ? <CaptureEntry isEmpty={notes.length === 0} onPress={() => router.navigate('/capture')} /> : null}
+
+          {!dueNote && upcomingMessage && !firstMemoryPromptNote ? (
+            <View style={styles.upcomingSection}>
+              <Icon color={colors.accent} name={icons.later} size={16} />
+              <Text style={styles.upcomingText}>{upcomingMessage}</Text>
+            </View>
+          ) : null}
 
           {dueNote ? (
             <View style={styles.section}>
@@ -221,7 +312,7 @@ export default function TodayScreen() {
                 ) : visibleRecallStage === 'attempt' ? (
                   <View accessibilityLiveRegion="polite" style={styles.attemptBlock}>
                     <Icon name={icons.lightbulb} size={21} />
-                    <Text style={styles.attemptText}>Say the idea in your own words. The note is still hidden.</Text>
+                    <Text style={styles.attemptText}>Say the idea in your own words. The memory is still hidden.</Text>
                     <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => setRecallStage('revealed')} style={[styles.primaryButton, savingRecall && styles.buttonDisabled]}>
                       <Text style={styles.primaryButtonText}>Reveal memory</Text>
                     </Pressable>
@@ -308,13 +399,6 @@ function CaptureEntry({ isEmpty, onPress }: { isEmpty: boolean; onPress: () => v
   );
 }
 
-function recallCue(note: MemoryNote): string {
-  if (note.recallPrompt) return note.recallPrompt;
-  if (note.kind === 'book-learning') return 'What idea from this book did you want to remember?';
-  if (note.kind === 'experience') return 'What changed in this experience?';
-  return 'What did you want to remember?';
-}
-
 const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 36, paddingHorizontal: 20, paddingTop: 18 },
   center: { alignItems: 'center', justifyContent: 'center' },
@@ -327,7 +411,22 @@ const styles = StyleSheet.create({
   captureRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 13, minHeight: 64, paddingHorizontal: 15 },
   captureTitle: { color: colors.muted, flex: 1, fontSize: 17 },
   emptyPromise: { color: colors.muted, fontSize: 15, lineHeight: 22, marginBottom: 12, marginTop: -1, maxWidth: 330 },
-  section: { marginTop: 29 },
+  firstMemoryCard: { backgroundColor: colors.surface, borderColor: colors.accent, borderRadius: 16, borderWidth: 1.5, marginTop: 16, padding: 18 },
+  firstMemoryHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
+  firstMemoryIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
+  firstMemoryCopy: { flex: 1 },
+  firstMemoryTitle: { color: colors.ink, fontSize: 17, fontWeight: '700', lineHeight: 22 },
+  firstMemorySubtitle: { color: colors.muted, fontSize: 13, marginTop: 3 },
+  firstMemoryBody: { color: colors.ink, fontSize: 15, lineHeight: 22, marginTop: 14 },
+  firstMemoryActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  firstMemoryPrimaryButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 10, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
+  firstMemoryPrimaryText: { color: colors.onAction, fontSize: 14, fontWeight: '600' },
+  firstMemoryDismissButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
+  firstMemoryDismissText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  firstMemoryNotifButton: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 10, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 42, marginTop: 12, paddingHorizontal: 12 },
+  firstMemoryNotifText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  firstMemoryNotifGranted: { alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 12, paddingVertical: 4 },
+  firstMemoryNotifGrantedText: { color: colors.green, fontSize: 12, fontWeight: '600' },
   successMessage: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 14 },
   successText: { color: colors.green, flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 20 },
   recallCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, padding: 16 },
@@ -354,6 +453,8 @@ const styles = StyleSheet.create({
   ratingText: { color: colors.ink, fontSize: 13, fontWeight: '600' },
   savingStatus: { color: colors.muted, fontSize: 13, lineHeight: 18 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20, marginTop: 10 },
+  upcomingSection: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 22 },
+  upcomingText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
   recentList: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth },
   recentRow: { alignItems: 'center', flexDirection: 'row', minHeight: 68, paddingVertical: 10 },
   recentRowBorder: { borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth },

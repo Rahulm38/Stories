@@ -101,13 +101,6 @@ export interface AskAnswer {
   sources: { title: string; id: string }[];
 }
 
-export interface NavigationItem {
-  label: string;
-  href: string;
-  icon: string; // lucide icon name
-  isCenter?: boolean;
-}
-
 export interface ImplementationIntention {
   id: string;
   text: string;

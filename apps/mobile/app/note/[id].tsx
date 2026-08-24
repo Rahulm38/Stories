@@ -4,7 +4,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { activeWikilinkAtCursor, draftForMissingLink, insertWikilink } from '@core/links';
-import type { MemoryKind, MemoryNote } from '@core/model';
+import { appendRecallReflection, gradeRecall } from '@core/recall';
+import type { MemoryKind, MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
 import { MarkdownBody, noteKindLabel } from '@/src/ui/MarkdownBody';
 import { MarkdownEditor } from '@/src/ui/MarkdownEditor';
@@ -15,6 +16,7 @@ import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { colors, sharedStyles } from '@/src/ui/theme';
 import { RecallDatePicker } from '@/src/ui/RecallDatePicker';
 import { MEMORY_KIND_OPTIONS } from '@/src/capture/options';
+import { recallCue, recallResultLabel, shortDateLabel } from '@/src/recall/presentation';
 
 type EditorDraft = {
   id?: string;
@@ -79,6 +81,9 @@ export default function NoteScreen() {
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [practiceStage, setPracticeStage] = useState<'idle' | 'attempt' | 'revealed'>('idle');
+  const [practiceReflection, setPracticeReflection] = useState('');
+  const [practiceSuccess, setPracticeSuccess] = useState('');
   const [now, setNow] = useState(() => new Date());
   const bodyRef = useRef<TextInput>(null);
   const openingLinkRef = useRef(false);
@@ -90,6 +95,14 @@ export default function NoteScreen() {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  useEffect(() => {
+    if (!practiceSuccess) return;
+    const timer = setTimeout(() => {
+      if (mountedRef.current) setPracticeSuccess('');
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [practiceSuccess]);
 
   const draft = note && draftState.id === note.id ? draftState : editorDraftFor(note);
   const dirty = Boolean(note && editing && draftState.id === note.id && (
@@ -118,6 +131,9 @@ export default function NoteScreen() {
 
   const beginEditing = () => {
     if (!note) return;
+    setPracticeStage('idle');
+    setPracticeReflection('');
+    setPracticeSuccess('');
     const initialDraft = editorDraftFor(note);
     setDraftState(initialDraft);
     setDetailsExpanded(false);
@@ -223,6 +239,31 @@ export default function NoteScreen() {
     } finally {
       deletingRef.current = false;
       if (mountedRef.current) setDeleting(false);
+    }
+  };
+
+  const submitPracticeRecall = async (status: RecallStatus) => {
+    if (!note || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setSaveError('');
+    const recalledAt = new Date();
+    const graded = gradeRecall(note, status, recalledAt);
+    try {
+      await saveNote({
+        ...graded,
+        body: appendRecallReflection(graded.body, practiceReflection, recalledAt),
+      });
+      if (!mountedRef.current) return;
+      setPracticeStage('idle');
+      setPracticeReflection('');
+      const returnDate = shortDateLabel(graded.nextRecallAt!);
+      setPracticeSuccess(`Practiced.${returnDate ? ` Returns on ${returnDate}.` : ''}`);
+    } catch (error) {
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'Recall could not be saved');
+    } finally {
+      savingRef.current = false;
+      if (mountedRef.current) setSaving(false);
     }
   };
 
@@ -451,33 +492,98 @@ export default function NoteScreen() {
         </KeyboardAvoidingView>
       ) : (
         <ScrollView contentContainerStyle={styles.readingContent}>
-          <Text accessibilityRole="header" style={styles.noteTitle}>{note.title}</Text>
-          <Text style={styles.noteMeta}>{noteKindLabel(note)} · {note.folder}</Text>
-
-          {note.source ? (
-            <View style={styles.infoRow}>
-              <SymbolView name={{ ios: 'book.closed', android: 'menu_book', web: 'menu_book' }} size={16} tintColor={colors.muted} />
-              <Text style={styles.infoText}>{note.source}</Text>
+          {practiceSuccess ? (
+            <View accessibilityLiveRegion="polite" style={styles.practiceSuccessRow}>
+              <SymbolView name={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }} size={16} tintColor={colors.green} />
+              <Text style={styles.practiceSuccessText}>{practiceSuccess}</Text>
             </View>
           ) : null}
 
-          {dueLabel ? (
-            <View style={styles.recallRow}>
-              <SymbolView name={{ ios: 'calendar', android: 'calendar_today', web: 'calendar_today' }} size={15} tintColor={colors.accent} />
-              <Text style={styles.recallText}>{dueLabel}</Text>
-            </View>
-          ) : null}
+          {practiceStage === 'idle' ? (
+            <>
+              <Text accessibilityRole="header" style={styles.noteTitle}>{note.title}</Text>
 
-          <View style={styles.divider} />
-          <MarkdownBody
-            body={note.body}
-            onLinkError={() => setSaveError('This link could not be opened safely.')}
-            onOpenLink={(target) => { void openLink(target); }}
-          />
-          <View style={styles.pathRow}>
-            <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={14} tintColor={colors.muted} />
-            <Text accessibilityLabel={`Stored as ${note.path}`} style={styles.pathText}>{note.path}</Text>
-          </View>
+              <View style={styles.metaHeader}>
+                <Text style={styles.noteMeta}>{noteKindLabel(note)}{note.source ? ` · ${note.source}` : ''}</Text>
+                <View style={styles.metaActions}>
+                  {dueLabel ? (
+                    <View style={styles.recallBadge}>
+                      <SymbolView name={{ ios: 'calendar', android: 'calendar_today', web: 'calendar_today' }} size={13} tintColor={colors.accent} />
+                      <Text style={styles.recallBadgeText}>{dueLabel}</Text>
+                    </View>
+                  ) : null}
+                  <Pressable
+                    accessibilityLabel="Practice recall now"
+                    accessibilityRole="button"
+                    onPress={() => { setPracticeStage('attempt'); setPracticeReflection(''); }}
+                    style={styles.practiceNowButton}
+                  >
+                    <SymbolView name={{ ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' }} size={12} tintColor={colors.onAction} />
+                    <Text style={styles.practiceNowText}>Practice</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+              <MarkdownBody
+                body={note.body}
+                onLinkError={() => setSaveError('This link could not be opened safely.')}
+                onOpenLink={(target) => { void openLink(target); }}
+              />
+              <View style={styles.pathRow}>
+                <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={14} tintColor={colors.muted} />
+                <Text accessibilityLabel={`Stored as ${note.path}`} style={styles.pathText}>Stored locally · {note.path}</Text>
+              </View>
+            </>
+          ) : practiceStage === 'attempt' ? (
+            <View style={styles.practiceCard}>
+              <View style={styles.practiceHeader}>
+                <SymbolView name={{ ios: 'lightbulb', android: 'lightbulb', web: 'lightbulb' }} size={22} tintColor={colors.accent} />
+                <Text accessibilityRole="header" style={styles.practiceCueTitle}>{recallCue(note)}</Text>
+              </View>
+              <Text style={styles.practiceAttemptSupport}>Say the idea in your own words. The memory is still hidden.</Text>
+              <View style={styles.practiceActions}>
+                <Pressable accessibilityRole="button" onPress={() => setPracticeStage('revealed')} style={styles.practicePrimaryButton}>
+                  <Text style={styles.practicePrimaryText}>Reveal memory</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => setPracticeStage('idle')} style={styles.practiceSecondaryButton}>
+                  <Text style={styles.practiceSecondaryText}>Close</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.practiceCard}>
+              <Text accessibilityRole="header" style={styles.practiceCueTitle}>{recallCue(note)}</Text>
+              <View style={styles.divider} />
+              <Text style={styles.revealedBody}>{note.body}</Text>
+              <TextInput
+                accessibilityLabel="Optional recall reflection"
+                editable={!saving}
+                onChangeText={setPracticeReflection}
+                placeholder="Add a reflection (optional)"
+                placeholderTextColor={colors.muted}
+                style={styles.reflectionInput}
+                value={practiceReflection}
+              />
+              <Text style={styles.ratingPrompt}>How well did you remember it?</Text>
+              <View style={styles.ratingRow}>
+                {(['forgot', 'partial', 'remembered'] as const).map((status) => (
+                  <Pressable
+                    key={status}
+                    accessibilityRole="button"
+                    disabled={saving}
+                    onPress={() => { void submitPracticeRecall(status); }}
+                    style={[styles.ratingButton, saving && styles.disabled]}
+                  >
+                    <Text style={styles.ratingText}>{recallResultLabel(status)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => setPracticeStage('idle')} style={styles.practiceCancelRow}>
+                <Text style={styles.practiceCancelText}>Cancel practice</Text>
+              </Pressable>
+            </View>
+          )}
         </ScrollView>
       )}
       {saveError ? <Text accessibilityRole="alert" style={styles.error}>{saveError}</Text> : null}
@@ -520,14 +626,35 @@ const styles = StyleSheet.create({
   suggestionTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   suggestionPath: { color: colors.muted, fontSize: 12, marginTop: 2 },
   readingContent: { paddingBottom: 40, paddingHorizontal: 20, paddingTop: 22 },
+  metaHeader: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', marginTop: 8 },
+  noteMeta: { color: colors.muted, fontSize: 14, fontWeight: '500' },
+  metaActions: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  recallBadge: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 8, flexDirection: 'row', gap: 5, paddingHorizontal: 8, paddingVertical: 4 },
+  recallBadgeText: { color: colors.accent, fontSize: 12, fontWeight: '600' },
+  practiceNowButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 8, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
+  practiceNowText: { color: colors.onAction, fontSize: 12, fontWeight: '600' },
+  practiceSuccessRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.green, borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 8, marginBottom: 14, paddingHorizontal: 12, paddingVertical: 8 },
+  practiceSuccessText: { color: colors.green, fontSize: 13, fontWeight: '600' },
+  practiceCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, padding: 18 },
+  practiceHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 10 },
+  practiceCueTitle: { color: colors.ink, flex: 1, fontSize: 18, fontWeight: '600', lineHeight: 24 },
+  practiceAttemptSupport: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 12 },
+  practiceActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
+  practicePrimaryButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 10, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
+  practicePrimaryText: { color: colors.onAction, fontSize: 15, fontWeight: '600' },
+  practiceSecondaryButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
+  practiceSecondaryText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
+  revealedBody: { color: colors.ink, fontSize: 16, lineHeight: 25 },
+  reflectionInput: { borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, color: colors.ink, fontSize: 15, lineHeight: 21, minHeight: 46, marginTop: 16, paddingHorizontal: 12, paddingVertical: 10 },
+  ratingPrompt: { color: colors.muted, fontSize: 13, fontWeight: '600', marginTop: 16 },
+  ratingRow: { flexDirection: 'row', gap: 7, marginTop: 10 },
+  ratingButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 6 },
+  ratingText: { color: colors.ink, fontSize: 13, fontWeight: '600' },
+  practiceCancelRow: { alignItems: 'center', justifyContent: 'center', marginTop: 14, paddingVertical: 6 },
+  practiceCancelText: { color: colors.muted, fontSize: 13, fontWeight: '500' },
   pathRow: { alignItems: 'center', borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, marginTop: 28, paddingTop: 14 },
   pathText: { color: colors.muted, flex: 1, fontSize: 12, lineHeight: 17 },
   noteTitle: { color: colors.ink, fontSize: 27, fontWeight: '600', letterSpacing: -0.35, lineHeight: 34 },
-  noteMeta: { color: colors.muted, fontSize: 13, marginTop: 7 },
-  infoRow: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 14 },
-  infoText: { color: colors.muted, flex: 1, fontSize: 14, lineHeight: 20 },
-  recallRow: { alignItems: 'center', flexDirection: 'row', gap: 7, marginTop: 13 },
-  recallText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   divider: { backgroundColor: colors.line, height: StyleSheet.hairlineWidth, marginBottom: 23, marginTop: 20 },
   disabled: { opacity: 0.35 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20, paddingHorizontal: 20, paddingVertical: 10 },
