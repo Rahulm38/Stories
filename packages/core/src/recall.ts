@@ -42,6 +42,7 @@ export function dueRecalls(notes: MemoryNote[], now = new Date()): MemoryNote[] 
   const nowTime = now.getTime();
   return notes
     .filter((note) => {
+      if (note.parseStatus === 'quarantine') return false;
       if (!note.nextRecallAt) return false;
       const dueTime = parseRecallDate(note.nextRecallAt)?.getTime();
       return dueTime !== undefined && dueTime <= nowTime;

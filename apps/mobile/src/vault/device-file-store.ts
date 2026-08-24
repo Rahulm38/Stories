@@ -119,6 +119,13 @@ export class DeviceFileStore implements VaultFileStore {
     return new File(directory, name);
   }
 
+  private recoveryArtifacts(directory: Directory, targetName: string): File[] {
+    return directory.list().filter((entry): entry is File => {
+      if (!(entry instanceof File)) return false;
+      return recoveryArtifact(entry.name)?.targetName === targetName;
+    });
+  }
+
   async replace(previousPath: string | undefined, path: string, markdown: string): Promise<void> {
     const destination = this.fileAt(path, true);
     if (!destination) throw new Error('A Markdown file needs a name');
@@ -189,5 +196,18 @@ export class DeviceFileStore implements VaultFileStore {
     } catch {
       // The committed destination is healthy; startup recovery will remove the stale backup.
     }
+  }
+
+  async delete(path: string): Promise<void> {
+    const file = this.fileAt(path, false);
+    if (!file) throw new Error('The Markdown file could not be located');
+    await this.recoverArtifacts(file.parentDirectory);
+    if (!file.exists) throw new Error('This memory could not be found');
+
+    // Remove stale recovery copies before deleting the live file. If deletion is
+    // interrupted after this point, the source remains rather than being
+    // resurrected from an old backup on the next launch.
+    for (const artifact of this.recoveryArtifacts(file.parentDirectory, file.name)) artifact.delete();
+    file.delete();
   }
 }

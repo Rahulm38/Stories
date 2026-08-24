@@ -3,15 +3,19 @@ import test from 'node:test';
 import {
   activeWikilinkAtCursor,
   appendRecallReflection,
+  classifyLinkTarget,
+  classifyNoteFile,
   createMemoryVault,
   deferRecall,
   draftForMissingLink,
   dueRecalls,
   gradeRecall,
   insertWikilink,
+  migrateParsedNote,
   normalizeRecallTimestamp,
   parseNoteFile,
   scheduleFirstRecall,
+  SCHEMA_VERSION,
   serializeNote,
   type MemoryNote,
   type VaultFile,
@@ -381,6 +385,215 @@ test('Markdown frontmatter round-trips a note source', () => {
 
   assert.equal(parsed.source, 'Indistractable by Nir Eyal');
 });
+
+test('serialized notes lead with the current schema version and parse it back', () => {
+  const markdown = serializeNote(note('versioned-1', 'Versioned', 'Inbox/versioned.md', 'Inbox'));
+
+  assert.match(markdown, /^---\nschemaVersion: 1\nid: /);
+
+  const parsed = parseNoteFile({ path: 'Inbox/versioned.md', markdown });
+  assert.equal(parsed.schemaVersion, SCHEMA_VERSION);
+  assert.equal(parsed.parseStatus, 'healthy');
+});
+
+test('legacy files without frontmatter stay editable and migrate idempotently', () => {
+  const file = { path: 'Inbox/legacy.md', markdown: 'An old plain note' };
+
+  assert.equal(classifyNoteFile(file), 'legacy');
+
+  const first = migrateParsedNote(parseNoteFile(file));
+  const second = migrateParsedNote(first);
+
+  assert.equal(first.parseStatus, 'legacy');
+  assert.equal(first.schemaVersion, undefined);
+  assert.deepEqual(second, first);
+});
+
+test('frontmatter written by a future schema version still parses without crashing', () => {
+  const parsed = parseNoteFile({
+    path: 'Inbox/future.md',
+    markdown: '---\nschemaVersion: 99\nid: "future-1"\ntitle: "Future"\nfolder: "Inbox"\n---\nBody',
+  });
+
+  assert.equal(parsed.id, 'future-1');
+  assert.equal(parsed.schemaVersion, 99);
+  assert.equal(parsed.parseStatus, 'healthy');
+});
+
+test('future-schema notes remain read-only instead of being downgraded on save or delete', async () => {
+  const markdown = '---\nschemaVersion: 99\nid: "future-1"\ntitle: "Future"\nfolder: "Inbox"\n---\nBody';
+  const store = new MemoryFileStore();
+  store.files.set('Inbox/future.md', markdown);
+  const vault = createMemoryVault(store);
+  await vault.open();
+  const future = vault.list()[0];
+  assert.ok(future);
+
+  await assert.rejects(vault.save({ id: future.id, body: 'Changed' }), /newer schema version/);
+  await assert.rejects(vault.remove(future.id), /newer schema version/);
+  assert.equal(store.files.get('Inbox/future.md'), markdown);
+});
+
+test('malformed frontmatter is quarantined with raw content preserved', async () => {
+  const markdown = '---\ntitle: "No identity"\nfolder: "Books"\ncustom: |\n  nested: true\n---\nBody text';
+  const file = { path: 'Books/broken.md', markdown };
+
+  assert.equal(classifyNoteFile(file), 'quarantine');
+  assert.equal(classifyNoteFile({ path: 'Books/empty.md', markdown: '---\nid: ""\ntitle: "Empty"\n---\nBody' }), 'quarantine');
+
+  const store = new MemoryFileStore();
+  store.files.set('Books/broken.md', markdown);
+  const vault = createMemoryVault(store);
+  await vault.open();
+
+  const quarantined = vault.list().find((item) => item.path === 'Books/broken.md');
+  assert.ok(quarantined);
+  assert.equal(quarantined.parseStatus, 'quarantine');
+  assert.equal(quarantined.rawContent, markdown);
+  assert.ok(vault.read(quarantined.id));
+
+  await assert.rejects(vault.save({ id: quarantined.id, body: 'Do not replace the raw file' }), /quarantined/);
+  assert.equal(store.files.get('Books/broken.md'), markdown);
+
+  assert.equal(vault.resolveLink('broken').note, undefined);
+
+  const target = await vault.save({ title: 'Alpha', body: 'Target', folder: 'Books' });
+  const moved = await vault.save({ id: target.id, title: target.title, body: target.body, folder: 'Experiences' });
+
+  assert.equal(store.files.get('Books/broken.md'), markdown);
+  assert.match(moved.path, /^Experiences\/alpha\.md$/);
+});
+
+test('unterminated frontmatter is quarantined instead of treated as a legacy note', () => {
+  const markdown = '---\nid: "unfinished-1"\ntitle: "Unfinished"\nBody that never closes';
+  const parsed = parseNoteFile({ path: 'Inbox/unfinished.md', markdown });
+
+  assert.equal(parsed.parseStatus, 'quarantine');
+  assert.equal(parsed.rawContent, markdown);
+});
+
+test('quarantined notes are excluded from the core due queue', () => {
+  const healthy = { ...note('healthy-due', 'Healthy', 'Inbox/healthy.md', 'Inbox', '2026-08-01T00:00:00.000Z') };
+  const quarantined = { ...note('quarantined-due', 'Quarantined', 'Inbox/broken.md', 'Inbox', '2026-08-01T00:00:00.000Z'), parseStatus: 'quarantine' as const };
+
+  assert.deepEqual(dueRecalls([healthy, quarantined], new Date('2026-08-02T00:00:00.000Z')).map((item) => item.id), ['healthy-due']);
+});
+
+test('vault removal deletes the file, updates memory, and notifies subscribers', async () => {
+  class DeletableMemoryFileStore extends MemoryFileStore {
+    deletedPaths: string[] = [];
+
+    async delete(path: string): Promise<void> {
+      this.deletedPaths.push(path);
+      const nextFiles = new Map(this.files);
+      nextFiles.delete(path);
+      this.files = nextFiles;
+    }
+  }
+
+  const store = new DeletableMemoryFileStore();
+  const vault = createMemoryVault(store);
+  await vault.open();
+  const kept = await vault.save({ title: 'Kept', body: 'Kept body' });
+  const removed = await vault.save({ title: 'Removed', body: 'Removed body' });
+
+  const changes: unknown[] = [];
+  const unsubscribe = vault.subscribe((change) => changes.push(change));
+
+  await vault.remove(removed.id);
+  unsubscribe();
+
+  assert.deepEqual(store.deletedPaths, [removed.path]);
+  assert.equal(store.files.has(removed.path), false);
+  assert.equal(vault.read(removed.id), undefined);
+  assert.ok(vault.read(kept.id));
+  assert.deepEqual(changes, [{ type: 'removed', note: removed }]);
+
+  await assert.rejects(vault.remove(removed.id), /could not be found/);
+});
+
+test('vault removal rejects cleanly when the store cannot delete files', async () => {
+  const store = new MemoryFileStore();
+  const vault = createMemoryVault(store);
+  await vault.open();
+  const saved = await vault.save({ title: 'Stuck', body: 'Body' });
+
+  await assert.rejects(vault.remove(saved.id), /does not support deletion/);
+  assert.equal(store.files.has(saved.path), true);
+  assert.ok(vault.read(saved.id));
+});
+
+test('vault removal refuses to delete a file changed outside the open vault', async () => {
+  class DeletableMemoryFileStore extends MemoryFileStore {
+    async delete(path: string): Promise<void> {
+      this.files.delete(path);
+    }
+  }
+
+  const store = new DeletableMemoryFileStore();
+  const vault = createMemoryVault(store);
+  await vault.open();
+  const saved = await vault.save({ title: 'Changed elsewhere', body: 'Original' });
+  store.files.set(saved.path, `${store.files.get(saved.path)}\nExternal edit`);
+
+  await assert.rejects(vault.remove(saved.id), /changed outside Stories/);
+  assert.ok(store.files.has(saved.path));
+  assert.ok(vault.read(saved.id));
+});
+
+test('removal serializes behind an in-flight save', async () => {
+  class DeletablePausedStore extends PausedFirstWriteStore {
+    deletedPaths: string[] = [];
+
+    async delete(path: string): Promise<void> {
+      this.deletedPaths.push(path);
+      this.files.delete(path);
+    }
+  }
+
+  const store = new DeletablePausedStore();
+  store.files.set('Inbox/existing.md', '---\nid: "existing-one"\ntitle: "Existing"\nfolder: "Inbox"\n---\nExisting');
+  const vault = createMemoryVault(store);
+  await vault.open();
+
+  const inFlightSave = vault.save({ id: 'in-flight-one', title: 'In flight', body: 'In flight' });
+  await store.firstWriteStarted;
+  const removal = vault.remove('existing-one').then(() => 'removed');
+  store.releaseFirstWrite();
+  const [saved, outcome] = await Promise.all([inFlightSave, removal]);
+
+  assert.equal(outcome, 'removed');
+  assert.ok(vault.read(saved.id));
+  assert.equal(vault.read('existing-one'), undefined);
+  assert.deepEqual(store.deletedPaths, ['Inbox/existing.md']);
+});
+
+test('link targets are classified as local wikilinks, allowed or unsafe external URLs, or relative paths', () => {
+  assert.deepEqual(classifyLinkTarget('[[Books/alpha.md|alias]]'), { kind: 'wikilink-local' });
+  assert.deepEqual(classifyLinkTarget('[[' + 'Note' + ']]'), { kind: 'wikilink-local' });
+
+  for (const allowed of ['https://example.com/a?b=1', 'HTTP://EXAMPLE.COM', 'mailto:user@example.com', 'tel:+15550100', 'sms:+15550100']) {
+    const classified = classifyLinkTarget(`  ${allowed}  `);
+    assert.equal(classified.kind, 'external');
+    assert.equal(classified.allowed, true, allowed);
+  }
+
+  for (const unsafe of ['javascript:alert(1)', 'javascript:', 'FILE:///etc/passwd', 'custom-app://open', 'data:text/html,hi']) {
+    const classified = classifyLinkTarget(unsafe);
+    assert.equal(classified.kind, 'external');
+    if (classified.kind === 'external') {
+      assert.equal(classified.allowed, false, unsafe);
+      assert.match(classified.scheme, /^[a-z][a-z0-9+.-]*:/);
+    }
+  }
+
+  assert.deepEqual(classifyLinkTarget('Books/alpha.md'), { kind: 'relative' });
+  assert.deepEqual(classifyLinkTarget('   '), { kind: 'relative' });
+  assert.deepEqual(classifyLinkTarget(''), { kind: 'relative' });
+  assert.deepEqual(classifyLinkTarget('https:'), { kind: 'external', scheme: 'https:', allowed: false });
+  assert.deepEqual(classifyLinkTarget('note\u0000.md'), { kind: 'blocked', reason: 'control-character' });
+});
+
 
 test('editing a note preserves unknown and multiline frontmatter', async () => {
   const store = new MemoryFileStore();

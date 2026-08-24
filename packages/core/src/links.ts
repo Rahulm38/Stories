@@ -6,6 +6,38 @@ function normalizeTarget(value: string): string {
   return unwrapped.split('|', 1)[0].trim().replace(/\.md$/i, '').replace(/\\/g, '/').toLowerCase();
 }
 
+export type LinkTargetClassification =
+  | { kind: 'wikilink-local' }
+  | { kind: 'external'; scheme: string; allowed: boolean }
+  | { kind: 'relative' }
+  | { kind: 'blocked'; reason: 'control-character' };
+
+const ALLOWED_EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:', 'tel:', 'sms:']);
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/;
+
+export function classifyLinkTarget(target: string): LinkTargetClassification {
+  const value = target.trim();
+  if (CONTROL_CHARACTER_PATTERN.test(value)) return { kind: 'blocked', reason: 'control-character' };
+  if (/^\[\[[\s\S]*\]\]$/.test(value)) return { kind: 'wikilink-local' };
+
+  const schemeMatch = value.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  if (!schemeMatch) return { kind: 'relative' };
+
+  const scheme = `${schemeMatch[1].toLowerCase()}:`;
+  if (!ALLOWED_EXTERNAL_SCHEMES.has(scheme)) return { kind: 'external', scheme, allowed: false };
+
+  const payload = value.slice(scheme.length);
+  const hasWhitespace = /\s/.test(payload);
+  const validHttpUrl = (scheme === 'http:' || scheme === 'https:')
+    && !hasWhitespace
+    && new RegExp(`^${scheme.slice(0, -1)}://[^/\\s]+(?:[/?#].*)?$`, 'i').test(value);
+  const validNonHttpUrl = (scheme === 'mailto:' || scheme === 'tel:' || scheme === 'sms:')
+    && payload.length > 0
+    && !hasWhitespace;
+
+  return { kind: 'external', scheme, allowed: validHttpUrl || validNonHttpUrl };
+}
+
 function candidatesFor(note: MemoryNote): string[] {
   return [note.path, fileNameForNote(note), note.title].map(normalizeTarget);
 }

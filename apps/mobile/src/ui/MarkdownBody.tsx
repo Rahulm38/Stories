@@ -7,15 +7,16 @@ import { openMarkdownLink } from './markdown-links';
 type MarkdownBodyProps = {
   body: string;
   onOpenLink: (target: string) => void;
+  onLinkError?: (target: string) => void;
 };
 
-function openInlineLink(target: string, onOpenLink: (target: string) => void) {
-  void openMarkdownLink(target, (url) => Linking.openURL(url), onOpenLink);
+function openInlineLink(target: string, onOpenLink: (target: string) => void, onLinkError?: (target: string) => void) {
+  void openMarkdownLink(target, (url) => Linking.openURL(url), onOpenLink, onLinkError);
 }
 
 const INLINE_MARKDOWN = /(`[^`\n]+`|\*\*\*[^*\n]+\*\*\*|___[^_\n]+___|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|\[\[[^\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\))/g;
 
-function inlineParts(text: string, onOpenLink: (target: string) => void, keyPrefix = 'inline') {
+function inlineParts(text: string, onOpenLink: (target: string) => void, keyPrefix = 'inline', onLinkError?: (target: string) => void) {
   const parts = text.split(INLINE_MARKDOWN);
   return parts.map((part, index) => {
     const key = `${keyPrefix}-${index}`;
@@ -28,20 +29,20 @@ function inlineParts(text: string, onOpenLink: (target: string) => void, keyPref
 
     const markdownLink = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (markdownLink) {
-      return <Text key={key} accessibilityRole="link" onPress={() => openInlineLink(markdownLink[2], onOpenLink)} style={styles.link}>{markdownLink[1]}</Text>;
+      return <Text key={key} accessibilityRole="link" onPress={() => openInlineLink(markdownLink[2], onOpenLink, onLinkError)} style={styles.link}>{markdownLink[1]}</Text>;
     }
 
     if ((part.startsWith('***') && part.endsWith('***')) || (part.startsWith('___') && part.endsWith('___'))) {
-      return <Text key={key} style={[styles.strong, styles.emphasis]}>{inlineParts(part.slice(3, -3), onOpenLink, `${key}-strong-emphasis`)}</Text>;
+      return <Text key={key} style={[styles.strong, styles.emphasis]}>{inlineParts(part.slice(3, -3), onOpenLink, `${key}-strong-emphasis`, onLinkError)}</Text>;
     }
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <Text key={key} style={styles.strong}>{inlineParts(part.slice(2, -2), onOpenLink, `${key}-strong`)}</Text>;
+      return <Text key={key} style={styles.strong}>{inlineParts(part.slice(2, -2), onOpenLink, `${key}-strong`, onLinkError)}</Text>;
     }
     if (part.startsWith('__') && part.endsWith('__')) {
-      return <Text key={key} style={styles.strong}>{inlineParts(part.slice(2, -2), onOpenLink, `${key}-strong`)}</Text>;
+      return <Text key={key} style={styles.strong}>{inlineParts(part.slice(2, -2), onOpenLink, `${key}-strong`, onLinkError)}</Text>;
     }
     if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
-      return <Text key={key} style={styles.emphasis}>{inlineParts(part.slice(1, -1), onOpenLink, `${key}-emphasis`)}</Text>;
+      return <Text key={key} style={styles.emphasis}>{inlineParts(part.slice(1, -1), onOpenLink, `${key}-emphasis`, onLinkError)}</Text>;
     }
     if (part.startsWith('`') && part.endsWith('`')) {
       return <Text key={key} style={styles.code}>{part.slice(1, -1)}</Text>;
@@ -60,7 +61,7 @@ function indentationFor(line: string) {
   };
 }
 
-export function MarkdownBody({ body, onOpenLink }: MarkdownBodyProps) {
+export function MarkdownBody({ body, onOpenLink, onLinkError }: MarkdownBodyProps) {
   return (
     <View style={styles.body}>
       {body.split('\n').map((line, index) => {
@@ -77,13 +78,13 @@ export function MarkdownBody({ body, onOpenLink }: MarkdownBodyProps) {
               : level === 3
                 ? styles.headingThree
                 : styles.headingFour;
-          return <Text key={`heading-${index}`} accessibilityRole="header" style={[styles.heading, headingStyle, indented]}>{inlineParts(heading[2], onOpenLink)}</Text>;
+          return <Text key={`heading-${index}`} accessibilityRole="header" style={[styles.heading, headingStyle, indented]}>{inlineParts(heading[2], onOpenLink, 'inline', onLinkError)}</Text>;
         }
         const quote = content.match(/^>\s?(.*)$/);
         if (quote) {
           return (
             <View key={`quote-${index}`} style={[styles.quoteRow, indented]}>
-              <Text style={styles.quote}>{inlineParts(quote[1], onOpenLink)}</Text>
+              <Text style={styles.quote}>{inlineParts(quote[1], onOpenLink, 'inline', onLinkError)}</Text>
             </View>
           );
         }
@@ -92,7 +93,7 @@ export function MarkdownBody({ body, onOpenLink }: MarkdownBodyProps) {
           return (
             <View key={`task-${index}`} accessible accessibilityLabel={`${task[1].toLowerCase() === 'x' ? 'Completed' : 'Not completed'}: ${task[2]}`} style={[styles.listRow, indented]}>
               <Text style={styles.checkbox}>{task[1].toLowerCase() === 'x' ? '✓' : '□'}</Text>
-              <Text style={[styles.paragraph, task[1].toLowerCase() === 'x' && styles.done]}>{inlineParts(task[2], onOpenLink)}</Text>
+              <Text style={[styles.paragraph, task[1].toLowerCase() === 'x' && styles.done]}>{inlineParts(task[2], onOpenLink, 'inline', onLinkError)}</Text>
             </View>
           );
         }
@@ -101,7 +102,7 @@ export function MarkdownBody({ body, onOpenLink }: MarkdownBodyProps) {
           return (
             <View key={`bullet-${index}`} style={[styles.listRow, indented]}>
               <Text style={styles.bullet}>•</Text>
-              <Text style={styles.paragraph}>{inlineParts(bullet[1], onOpenLink)}</Text>
+              <Text style={styles.paragraph}>{inlineParts(bullet[1], onOpenLink, 'inline', onLinkError)}</Text>
             </View>
           );
         }
@@ -110,11 +111,11 @@ export function MarkdownBody({ body, onOpenLink }: MarkdownBodyProps) {
           return (
             <View key={`ordered-${index}`} style={[styles.listRow, indented]}>
               <Text style={styles.orderedMarker}>{ordered[1]}</Text>
-              <Text style={styles.paragraph}>{inlineParts(ordered[2], onOpenLink)}</Text>
+              <Text style={styles.paragraph}>{inlineParts(ordered[2], onOpenLink, 'inline', onLinkError)}</Text>
             </View>
           );
         }
-        return <Text key={`paragraph-${index}`} style={[styles.paragraph, indented]}>{inlineParts(content, onOpenLink)}</Text>;
+        return <Text key={`paragraph-${index}`} style={[styles.paragraph, indented]}>{inlineParts(content, onOpenLink, 'inline', onLinkError)}</Text>;
       })}
     </View>
   );

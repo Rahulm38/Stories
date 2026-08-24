@@ -12,6 +12,7 @@ type VaultContextValue = {
   openError: string | null;
   storageLocation: string;
   saveNote: (draft: NoteDraft) => Promise<MemoryNote>;
+  deleteNote: (id: string) => Promise<void>;
   suggestLinks: (query: string, fromId?: string) => MemoryNote[];
   resolveLink: (target: string, fromId?: string) => LinkResolution;
 };
@@ -60,6 +61,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return vault!.save(draft);
   }, [hydrated, openError]);
 
+  const deleteNote = useCallback(async (id: string) => {
+    const vault = vaultRef.current;
+    ensureVaultReady(hydrated, Boolean(vault), openError);
+    return vault!.remove(id);
+  }, [hydrated, openError]);
+
   const suggestLinks = useCallback((query: string, fromId?: string) => {
     return vaultRef.current?.suggestLinks(query, fromId) || [];
   }, []);
@@ -68,7 +75,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return vaultRef.current?.resolveLink(target, fromId) || { target, status: 'missing' as const };
   }, []);
 
-  const value = useMemo(() => ({ notes, hydrated, openError, storageLocation, saveNote, suggestLinks, resolveLink }), [hydrated, notes, openError, resolveLink, saveNote, storageLocation, suggestLinks]);
+  const value = useMemo(() => ({ notes, hydrated, openError, storageLocation, saveNote, deleteNote, suggestLinks, resolveLink }), [deleteNote, hydrated, notes, openError, resolveLink, saveNote, storageLocation, suggestLinks]);
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
 }
 

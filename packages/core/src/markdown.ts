@@ -1,8 +1,69 @@
-import type { MemoryKind, MemoryNote, NoteDraft, VaultFile } from './model.ts';
+import type { MemoryKind, MemoryNote, NoteDraft, ParseStatus, VaultFile } from './model.ts';
 import { normalizeRecallTimestamp } from './recall.ts';
 
 const FRONTMATTER_START = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-const KNOWN_FRONTMATTER_FIELDS = new Set(['id', 'title', 'kind', 'folder', 'date', 'updatedAt', 'source', 'nextRecallAt', 'recallPrompt', 'recallStatus', 'lastRecalledAt']);
+const FRONTMATTER_PREFIX = /^\uFEFF?---(?:\r?\n|$)/;
+const KNOWN_FRONTMATTER_FIELDS = new Set(['schemaVersion', 'id', 'title', 'kind', 'folder', 'date', 'updatedAt', 'source', 'nextRecallAt', 'recallPrompt', 'recallStatus', 'lastRecalledAt']);
+
+export const SCHEMA_VERSION = 1;
+
+function hasMalformedFrontmatterStructure(content: string): boolean {
+  const seenKeys = new Set<string>();
+  let inMultilineValue = false;
+
+  for (const line of content.split('\n')) {
+    if (/^\s/.test(line)) {
+      if (!inMultilineValue) return true;
+      continue;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const separator = line.indexOf(':');
+    if (separator === -1) return true;
+
+    const key = line.slice(0, separator).trim();
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(key)) return true;
+    if (seenKeys.has(key)) return true;
+    seenKeys.add(key);
+
+    const value = line.slice(separator + 1).trim();
+    if ((value.startsWith('"') && !value.endsWith('"')) || (value.startsWith("'") && !value.endsWith("'"))) return true;
+    inMultilineValue = /:\s*(?:[|>]\s*[-+]?\s*)?$/.test(line);
+  }
+
+  return false;
+}
+
+export function classifyNoteFile(file: VaultFile): ParseStatus {
+  const match = file.markdown.match(FRONTMATTER_START);
+  if (!match) return FRONTMATTER_PREFIX.test(file.markdown) ? 'quarantine' : 'legacy';
+  if (hasMalformedFrontmatterStructure(match[1])) return 'quarantine';
+
+  const hasIdentity = match[1].split('\n').some((line) => {
+    if (/^\s/.test(line)) return false;
+    const separator = line.indexOf(':');
+    if (separator === -1) return false;
+    if (line.slice(0, separator).trim() !== 'id') return false;
+    const rawValue = line.slice(separator + 1).trim();
+    if (/^(?:null|~)$/i.test(rawValue)) return false;
+    const value = parseValue(rawValue).replace(/^(['"])([\s\S]*)\1$/, '$2').trim();
+    return value.length > 0;
+  });
+  return hasIdentity ? 'healthy' : 'quarantine';
+}
+
+export function migrateParsedNote(note: MemoryNote): MemoryNote {
+  const now = new Date().toISOString();
+  return {
+    ...note,
+    kind: note.kind === 'experience' || note.kind === 'book-learning' ? note.kind : 'note',
+    folder: normalizeFolder(note.folder),
+    title: note.title || titleFromBody(note.body),
+    createdAt: note.createdAt || now,
+    updatedAt: note.updatedAt || note.createdAt || now,
+  };
+}
 
 export function normalizeFolder(value: string | undefined): string {
   return (value || 'Inbox')
@@ -52,6 +113,7 @@ function metadataValue(value: string): string {
 
 export function serializeNote(note: MemoryNote): string {
   const metadata = [
+    `schemaVersion: ${SCHEMA_VERSION}`,
     `id: ${metadataValue(note.id)}`,
     `title: ${metadataValue(note.title)}`,
     `kind: ${metadataValue(note.kind)}`,
@@ -113,8 +175,10 @@ export function parseNoteFile(file: VaultFile): MemoryNote {
   const kind: MemoryKind = fields.kind === 'experience' || fields.kind === 'book-learning'
     ? fields.kind
     : 'note';
+  const schemaVersionValue = Number(fields.schemaVersion);
+  const parseStatus = classifyNoteFile(file);
 
-  return {
+  return migrateParsedNote({
     id: fields.id || `legacy-${slugify(file.path)}`,
     title,
     body,
@@ -131,7 +195,10 @@ export function parseNoteFile(file: VaultFile): MemoryNote {
       : undefined,
     lastRecalledAt: fields.lastRecalledAt,
     frontmatter: extraFrontmatter.length ? extraFrontmatter : undefined,
-  };
+    schemaVersion: Number.isFinite(schemaVersionValue) && fields.schemaVersion !== undefined ? schemaVersionValue : undefined,
+    parseStatus,
+    ...(parseStatus === 'quarantine' ? { rawContent: file.markdown } : {}),
+  });
 }
 
 export function createNote(draft: NoteDraft, path: string): MemoryNote {

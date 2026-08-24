@@ -90,12 +90,13 @@ export default function TodayScreen() {
     };
   }, []));
 
-  const dueNotes = useMemo(() => dueRecalls(notes, now), [notes, now]);
+  const healthyNotes = useMemo(() => notes.filter((note) => note.parseStatus !== 'quarantine'), [notes]);
+  const dueNotes = useMemo(() => dueRecalls(healthyNotes, now), [healthyNotes, now]);
   const activeCandidate = dueNotes.find((note) => note.id === activeRecallId);
   const activeDueNote = activeCandidate && activeCandidate.updatedAt === activeRecallVersion ? activeCandidate : undefined;
   const dueNote = activeDueNote || dueNotes[0];
   const visibleRecallStage = activeDueNote ? recallStage : 'cue';
-  const recentNotes = notes.filter((note) => note.id !== dueNote?.id).slice(0, 3);
+  const recentNotes = healthyNotes.filter((note) => note.id !== dueNote?.id).slice(0, 3);
 
   const startRecall = (note: MemoryNote) => {
     setActiveRecallId(note.id);

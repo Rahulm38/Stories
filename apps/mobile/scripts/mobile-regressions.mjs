@@ -4,7 +4,7 @@ import test from 'node:test';
 import { captureKindFromParam, editingFromParam } from '../src/navigation/route-state.ts';
 import { matchesLibrarySearch } from '../src/navigation/library-search.ts';
 import { folderForKind } from '../src/navigation/note-folder.ts';
-import { localDateInputValue } from '../src/navigation/local-date.ts';
+import { dateInputFromDate, dateInputToDate, localDateInputValue } from '../src/navigation/local-date.ts';
 import { openMarkdownLink } from '../src/ui/markdown-links.ts';
 import { readBrowserValue, writeBrowserValue } from '../src/vault/browser-storage.ts';
 import { BrowserFileStore } from '../src/vault/browser-file-store.ts';
@@ -93,6 +93,23 @@ test('recall date input uses the device-local calendar date', () => {
   assert.equal(localDateInputValue(value), expected);
 });
 
+test('picker dates convert to the same YYYY-MM-DD input the save path parses', () => {
+  assert.equal(dateInputFromDate(new Date(2026, 7, 26)), '2026-08-26');
+  const parsed = dateInputToDate('2026-08-26');
+  assert.ok(parsed);
+  assert.deepEqual([parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()], [2026, 8, 26]);
+  assert.equal(localDateInputValue(parsed.toISOString()), '2026-08-26');
+});
+
+test('recall date parsing rejects malformed and impossible dates', () => {
+  assert.equal(dateInputToDate('26/08/2026'), null);
+  assert.equal(dateInputToDate('2026-13-01'), null);
+  assert.equal(dateInputToDate('2026-02-30'), null);
+  assert.equal(dateInputToDate(''), null);
+  assert.equal(localDateInputValue(' 2026-08-26 '), '2026-08-26');
+  assert.equal(localDateInputValue('2026-02-30'), '');
+});
+
 test('note route params opt into editing even when params are arrays', () => {
   assert.equal(editingFromParam(undefined), false);
   assert.equal(editingFromParam(['true']), true);
@@ -152,6 +169,43 @@ test('failed external links do not create local notes', async () => {
 
   await openMarkdownLink(' [[local-note.md]] ', async () => {}, (target) => localTargets.push(target));
   assert.deepEqual(localTargets, ['[[local-note.md]]']);
+});
+
+test('unsupported link schemes are rejected instead of becoming local notes', async () => {
+  const localTargets = [];
+  const externalTargets = [];
+  const errors = [];
+
+  await openMarkdownLink('javascript:alert(1)', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
+  await openMarkdownLink('javascript:', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
+  await openMarkdownLink('file:///etc/passwd', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
+  await openMarkdownLink('note\u0000.md', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
+
+  assert.deepEqual(externalTargets, []);
+  assert.deepEqual(localTargets, []);
+  assert.deepEqual(errors, ['javascript:alert(1)', 'javascript:', 'file:///etc/passwd', 'note\u0000.md']);
+});
+
+test('deleting a memory removes it from the browser vault and rejects unknown paths', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  try {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+    const store = new BrowserFileStore();
+    await store.replace(undefined, 'Inbox/idea.md', '---\nid: "idea-1"\n---\nBody');
+
+    await store.delete('Inbox/idea.md');
+    assert.deepEqual(await store.list(), []);
+
+    await assert.rejects(store.delete('Inbox/idea.md'), /could not be found/);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else delete globalThis.localStorage;
+  }
 });
 
 test('phone and SMS links are handed to the device instead of creating notes', async () => {

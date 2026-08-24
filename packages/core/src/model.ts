@@ -17,6 +17,9 @@ export type MemoryNote = {
   recallStatus?: RecallStatus;
   lastRecalledAt?: string;
   frontmatter?: string[];
+  schemaVersion?: number;
+  parseStatus?: ParseStatus;
+  rawContent?: string;
 };
 
 export type NoteDraft = {
@@ -60,9 +63,12 @@ export type VaultChange = {
   note?: MemoryNote;
 };
 
+export type ParseStatus = 'healthy' | 'legacy' | 'quarantine';
+
 export interface VaultFileStore {
   list(): Promise<VaultFile[]>;
   replace(previousPath: string | undefined, nextPath: string, markdown: string): Promise<void>;
+  delete?(path: string): Promise<void>;
 }
 
 export interface MemoryVault {
@@ -70,6 +76,7 @@ export interface MemoryVault {
   list(query?: VaultQuery): MemoryNote[];
   read(id: string): MemoryNote | undefined;
   save(draft: NoteDraft): Promise<MemoryNote>;
+  remove(id: string): Promise<void>;
   suggestLinks(query: string, fromId?: string): LinkCandidate[];
   resolveLink(target: string, fromId?: string): LinkResolution;
   subscribe(listener: (change: VaultChange) => void): () => void;

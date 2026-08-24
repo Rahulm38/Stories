@@ -10,9 +10,10 @@ import { MarkdownBody, noteKindLabel } from '@/src/ui/MarkdownBody';
 import { MarkdownEditor } from '@/src/ui/MarkdownEditor';
 import { editingFromParam } from '@/src/navigation/route-state';
 import { folderForKind } from '@/src/navigation/note-folder';
-import { localDateInputValue } from '@/src/navigation/local-date';
+import { dateInputToDate, localDateInputValue } from '@/src/navigation/local-date';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { colors, sharedStyles } from '@/src/ui/theme';
+import { RecallDatePicker } from '@/src/ui/RecallDatePicker';
 import { MEMORY_KIND_OPTIONS } from '@/src/capture/options';
 
 type EditorDraft = {
@@ -49,18 +50,8 @@ function nextRecallValue(date: string, previous: string | undefined): string {
   const trimmed = date.trim();
   if (!trimmed) return '';
   if (trimmed === localDateInputValue(previous)) return previous || '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) throw new Error('Use YYYY-MM-DD for the recall date');
-
-  const parsed = new Date(`${trimmed}T09:00:00`);
-  const [year, month, day] = trimmed.split('-').map(Number);
-  if (
-    Number.isNaN(parsed.getTime())
-    || parsed.getFullYear() !== year
-    || parsed.getMonth() + 1 !== month
-    || parsed.getDate() !== day
-  ) {
-    throw new Error('Enter a valid recall date');
-  }
+  const parsed = dateInputToDate(trimmed);
+  if (!parsed) throw new Error('Enter a valid recall date');
   return parsed.toISOString();
 }
 
@@ -69,8 +60,8 @@ function editorDetailsSummary(draft: EditorDraft): string {
   const value = draft.recallDate.trim();
   if (!value) return `${kind} · No recall set`;
 
-  const parsed = new Date(`${value}T09:00:00`);
-  if (Number.isNaN(parsed.getTime())) return `${kind} · Recall ${value}`;
+  const parsed = dateInputToDate(value);
+  if (!parsed) return `${kind} · Recall ${value}`;
   return `${kind} · Recall ${parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
 }
 
@@ -79,12 +70,13 @@ export default function NoteScreen() {
   const params = useLocalSearchParams<{ id?: string | string[]; edit?: string | string[] }>();
   const noteId = Array.isArray(params.id) ? params.id[0] : params.id;
   const editParam = params.edit;
-  const { hydrated, notes, openError, saveNote, suggestLinks, resolveLink } = useVault();
+  const { hydrated, notes, openError, saveNote, deleteNote, suggestLinks, resolveLink } = useVault();
   const note = notes.find((item) => item.id === noteId);
   const editing = editingFromParam(editParam);
   const [draftState, setDraftState] = useState<EditorDraft>(() => editorDraftFor(undefined));
   const [cursor, setCursor] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -92,6 +84,7 @@ export default function NoteScreen() {
   const openingLinkRef = useRef(false);
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
+  const deletingRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -107,7 +100,7 @@ export default function NoteScreen() {
     || draft.recallPrompt !== (note.recallPrompt || '')
     || draft.recallDate !== localDateInputValue(note.nextRecallAt)
   ));
-  useUnsavedChangesGuard(dirty, saving);
+  const allowNextNavigation = useUnsavedChangesGuard(dirty, saving);
   const activeLink = editing ? activeWikilinkAtCursor(draft.body, cursor) : null;
   const suggestions = activeLink ? suggestLinks(activeLink.query, note?.id) : [];
   const dueLabel = recallLabel(note?.nextRecallAt, now.getTime());
@@ -187,6 +180,10 @@ export default function NoteScreen() {
 
   const openLink = async (target: string) => {
     if (!note || openingLinkRef.current) return;
+    if (!target.trim()) {
+      setSaveError('This link has no target.');
+      return;
+    }
     openingLinkRef.current = true;
     setSaveError('');
     try {
@@ -209,6 +206,36 @@ export default function NoteScreen() {
     } finally {
       openingLinkRef.current = false;
     }
+  };
+
+  const performDelete = async (id: string) => {
+    if (deletingRef.current || savingRef.current) return;
+    deletingRef.current = true;
+    setDeleting(true);
+    setSaveError('');
+    try {
+      await deleteNote(id);
+      if (!mountedRef.current) return;
+      allowNextNavigation();
+      router.dismissTo('/(tabs)/files');
+    } catch (error) {
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be deleted');
+    } finally {
+      deletingRef.current = false;
+      if (mountedRef.current) setDeleting(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!note || savingRef.current || deletingRef.current) return;
+    Alert.alert(
+      `Delete “${note.title}”?`,
+      'This permanently removes this memory from this device. This can’t be undone.',
+      [
+        { text: 'Keep memory', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => { void performDelete(note.id); } },
+      ],
+    );
   };
 
   if (!hydrated) {
@@ -259,9 +286,26 @@ export default function NoteScreen() {
             <Text style={[styles.topBarActionText, saving && styles.disabled]}>{saving ? 'Saving…' : 'Save'}</Text>
           </Pressable>
         ) : (
-          <Pressable accessibilityLabel="Edit memory" accessibilityRole="button" onPress={beginEditing} style={styles.topBarIconButton}>
-            <SymbolView name={{ ios: 'square.and.pencil', android: 'edit', web: 'edit' }} size={20} tintColor={colors.accent} />
-          </Pressable>
+          <View style={styles.topBarActions}>
+            <Pressable
+              accessibilityLabel="Delete memory"
+              accessibilityRole="button"
+              disabled={deleting}
+              onPress={confirmDelete}
+              style={styles.topBarIconButton}
+            >
+              <SymbolView name={{ ios: 'trash', android: 'delete', web: 'delete' }} size={20} tintColor={colors.danger} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Edit memory"
+              accessibilityRole="button"
+              disabled={deleting || saving}
+              onPress={beginEditing}
+              style={styles.topBarIconButton}
+            >
+              <SymbolView name={{ ios: 'square.and.pencil', android: 'edit', web: 'edit' }} size={20} tintColor={colors.accent} />
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -365,16 +409,9 @@ export default function NoteScreen() {
                 />
 
                 <Text style={styles.fieldLabel}>Recall date (optional)</Text>
-                <TextInput
-                  accessibilityLabel="Recall date"
-                  autoCapitalize="none"
-                  editable={!saving}
-                  keyboardType="numbers-and-punctuation"
-                  maxLength={10}
-                  onChangeText={(recallDate) => updateDraft({ recallDate })}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.muted}
-                  style={styles.fieldInput}
+                <RecallDatePicker
+                  disabled={saving}
+                  onChange={(recallDate) => updateDraft({ recallDate })}
                   value={draft.recallDate}
                 />
             </View> : null}
@@ -432,7 +469,11 @@ export default function NoteScreen() {
           ) : null}
 
           <View style={styles.divider} />
-          <MarkdownBody body={note.body} onOpenLink={(target) => { void openLink(target); }} />
+          <MarkdownBody
+            body={note.body}
+            onLinkError={() => setSaveError('This link could not be opened safely.')}
+            onOpenLink={(target) => { void openLink(target); }}
+          />
           <View style={styles.pathRow}>
             <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={14} tintColor={colors.muted} />
             <Text accessibilityLabel={`Stored as ${note.path}`} style={styles.pathText}>{note.path}</Text>
@@ -454,6 +495,7 @@ const styles = StyleSheet.create({
   topBarAction: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 66, paddingHorizontal: 8 },
   topBarActionText: { color: colors.accent, fontSize: 15, fontWeight: '600' },
   topBarIconButton: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44 },
+  topBarActions: { flexDirection: 'row', gap: 2 },
   editorWrap: { flex: 1 },
   editorContent: { paddingBottom: 42, paddingHorizontal: 20, paddingTop: 14 },
   titleInput: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, color: colors.ink, fontSize: 23, fontWeight: '600', minHeight: 50, paddingBottom: 9 },

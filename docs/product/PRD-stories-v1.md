@@ -1,5 +1,9 @@
 # Stories v1 — Product Requirements
 
+> The detailed, living PRD is the tracked Obsidian vault at
+> [`product-vault/00 Product Home.md`](../../product-vault/00%20Product%20Home.md).
+> This document is retained as the concise original product brief.
+
 ## Product promise
 
 Stories helps people turn book learnings and lived experiences into memories they can retrieve and reuse. It is a local-first recall companion, not a general notes, tasks, or reminders app.

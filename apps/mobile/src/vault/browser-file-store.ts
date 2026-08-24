@@ -53,4 +53,12 @@ export class BrowserFileStore implements VaultFileStore {
     files[path] = markdown;
     this.writeAll(files);
   }
+
+  async delete(path: string): Promise<void> {
+    const files = this.read();
+    if (!(path in files)) throw new Error('This memory could not be found');
+    const nextFiles = { ...files };
+    delete nextFiles[path];
+    this.writeAll(nextFiles);
+  }
 }

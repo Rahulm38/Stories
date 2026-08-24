@@ -1,4 +1,4 @@
-import { createNote, fileNameForNote, normalizeFolder, parseNoteFile, pathForNote, serializeNote } from './markdown.ts';
+import { createNote, fileNameForNote, normalizeFolder, parseNoteFile, pathForNote, SCHEMA_VERSION, serializeNote } from './markdown.ts';
 import { resolveLink, rewriteMovedLink, suggestLinkTargets } from './links.ts';
 import type { MemoryNote, MemoryVault, NoteDraft, VaultChange, VaultFileStore, VaultSnapshot } from './model.ts';
 
@@ -95,9 +95,16 @@ export function createMemoryVault(fileStore: VaultFileStore): MemoryVault {
 
   const notify = (change: VaultChange) => listeners.forEach((listener) => listener(change));
   const snapshot = (): VaultSnapshot => ({ notes: sortNotes(notes) });
+  const linkableNotes = (): MemoryNote[] => notes.filter((note) => note.parseStatus !== 'quarantine');
 
   const saveDraft = async (draft: NoteDraft): Promise<MemoryNote> => {
     const previous = draft.id ? notes.find((note) => note.id === draft.id) : undefined;
+    if (previous?.parseStatus === 'quarantine') {
+      throw new Error('This memory is quarantined and cannot be rewritten automatically');
+    }
+    if (previous?.schemaVersion !== undefined && previous.schemaVersion > SCHEMA_VERSION) {
+      throw new Error('This memory uses a newer schema version and cannot be modified by this app');
+    }
     const folder = normalizeFolder(draft.folder || previous?.folder);
     const hasDraftField = (field: keyof NoteDraft) => Object.prototype.hasOwnProperty.call(draft, field);
     const candidate = createNote({
@@ -121,7 +128,7 @@ export function createMemoryVault(fileStore: VaultFileStore): MemoryVault {
       const previousFileName = previous.path.split('/').pop() || previous.path;
       const filenameChanged = previousFileName.toLowerCase() !== candidate.path.split('/').pop()?.toLowerCase();
       const rewriteBasename = filenameChanged
-        && resolveLink(previousFileName, notes, previous.id).note?.id === previous.id;
+        && resolveLink(previousFileName, linkableNotes(), previous.id).note?.id === previous.id;
       candidate.body = rewriteMovedLink(candidate.body, previous.path, candidate.path, rewriteBasename);
     }
 
@@ -141,10 +148,11 @@ export function createMemoryVault(fileStore: VaultFileStore): MemoryVault {
     const rewrittenNotes: Array<{ note: MemoryNote; rewritten: MemoryNote }> = [];
     if (previous && previous.path !== candidate.path) {
       for (const note of nextNotes) {
+        if (note.parseStatus === 'quarantine') continue;
         const previousFileName = previous.path.split('/').pop() || previous.path;
         const filenameChanged = previousFileName.toLowerCase() !== candidate.path.split('/').pop()?.toLowerCase();
         const basenameResolvesToMovedNote = filenameChanged
-          && resolveLink(previousFileName, notes, note.id).note?.id === previous.id;
+          && resolveLink(previousFileName, linkableNotes(), note.id).note?.id === previous.id;
         const body = rewriteMovedLink(note.body, previous.path, candidate.path, basenameResolvesToMovedNote);
         if (body === note.body) continue;
         const rewritten = { ...note, body, updatedAt: candidate.updatedAt };
@@ -176,6 +184,28 @@ export function createMemoryVault(fileStore: VaultFileStore): MemoryVault {
     return candidate;
   };
 
+  const removeNote = async (id: string): Promise<void> => {
+    const previous = notes.find((note) => note.id === id);
+    if (!previous) throw new Error('This memory could not be found');
+    if (previous.schemaVersion !== undefined && previous.schemaVersion > SCHEMA_VERSION) {
+      throw new Error('This memory uses a newer schema version and cannot be modified by this app');
+    }
+    if (!fileStore.delete) throw new Error('This vault does not support deletion');
+
+    const currentFile = (await fileStore.list()).find((file) => file.path === previous.path);
+    const expectedContent = fileContents.get(previous.path);
+    if (!currentFile) throw new Error('This memory could not be found');
+    if (expectedContent !== undefined && currentFile.markdown !== expectedContent) {
+      throw new Error('This memory changed outside Stories and was not deleted');
+    }
+
+    await fileStore.delete(previous.path);
+
+    notes = notes.filter((note) => note.id !== id);
+    fileContents.delete(previous.path);
+    notify({ type: 'removed', note: previous });
+  };
+
   return {
     async open() {
       const files = await fileStore.list();
@@ -205,12 +235,18 @@ export function createMemoryVault(fileStore: VaultFileStore): MemoryVault {
       return operation;
     },
 
+    async remove(id: string) {
+      const operation = saveQueue.then(() => removeNote(id));
+      saveQueue = operation.then(() => undefined, () => undefined);
+      return operation;
+    },
+
     suggestLinks(query, fromId) {
-      return suggestLinkTargets(query, notes, fromId);
+      return suggestLinkTargets(query, linkableNotes(), fromId);
     },
 
     resolveLink(target, fromId) {
-      return resolveLink(target, notes, fromId);
+      return resolveLink(target, linkableNotes(), fromId);
     },
 
     subscribe(listener) {
