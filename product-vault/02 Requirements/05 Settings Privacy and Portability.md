@@ -1,14 +1,14 @@
 ---
-title: Settings, Privacy, and Portability
+title: Settings and Privacy
 status: active
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 ---
 
-# Settings, Privacy, and Portability
+# Settings and Privacy
 
 ## Overview & Screen Layout
 
-Settings gives users **direct, honest control** over their memory recall cadence, device reminders, and private local data.
+Settings gives users **direct, honest control** over recall behavior, quiet local reminders, and the privacy of their local data. It is deliberately not a progress dashboard.
 
 ```
 ┌────────────────────────────────────────┐
@@ -16,21 +16,16 @@ Settings gives users **direct, honest control** over their memory recall cadence
 │  Local by default. Recall on your      │
 │  terms.                                │
 │                                        │
-│  YOUR MEMORIES                         │
-│  12 total memories · 3 practiced       │
-│  Next recall returns 27 Aug            │
-│                                        │
 │  REMEMBERING                           │
-│  Default recall interval        3 days ›│
-│  Device reminders            [Enabled] ›│
+│  New memories return in 3 days         │
+│  Quiet reminder              [Enabled] │
 │                                        │
-│  STORAGE & PORTABILITY                 │
-│  Storage on this device         Local ✓│
-│  Export vault (.zip)           [Export]│
+│  STORAGE & PRIVACY                     │
+│  Stored on this device          Local  │
+│  Vault location        app-private path│
 │                                        │
-│  ABOUT & PRIVACY                       │
-│  Privacy policy                  Read ›│
-│  Stories v1.0 · Made with care         │
+│  ABOUT                                 │
+│  Privacy policy                  Read  │
 └────────────────────────────────────────┘
 ```
 
@@ -39,18 +34,22 @@ Settings gives users **direct, honest control** over their memory recall cadence
 ## Functional Specifications
 
 ### 1. Memory Management & Defaults
-- **Default Recall Timing**: Configurable default for new memories (1 day, 3 days, 1 week, or Off).
-- **Device Reminders & Android Permissions**:
-  - Toggle to schedule local device alarms at the user's preferred time (e.g. 9:00 AM).
-  - Contextually requests Android 13+ `POST_NOTIFICATIONS` permission upon toggle.
-  - If permissions are blocked/denied at the OS level, provides clear feedback (*"Notifications are blocked on your device"*) with a direct action to open Android App Settings (`Linking.openSettings()`).
-  - Listens to `AppState` changes to seamlessly update permission status when returning from device settings.
+- **Default Recall Timing**: New memories return in 3 days by default. Capture can choose 1 week or Off for an individual memory.
+- **Quiet Device Reminders & Android Permissions**:
+  - Toggle schedules a local notification at the reminder time when a memory is ready to return.
+  - Reminder preference persists locally across app restarts.
+  - Requests Android 13+ `POST_NOTIFICATIONS` permission only when the user enables reminders.
+  - If permissions are blocked at the OS level, provides clear feedback and a direct action to Android App Settings.
+  - Returning from device settings refreshes permission state and reconciles the next local reminder.
+  - Lock-screen copy never includes memory contents.
 
-### 2. Privacy Guarantees (100% Local)
-- **Zero Cloud Transmission**: All notes, search queries, cues, and reflections are strictly stored in local device storage (`stories-vault/`).
-- **No Third-Party Trackers**: No advertising, analytics, or background tracking SDKs.
-- **Privacy-Safe Previews**: Lock-screen notifications never display private note contents by default.
+### 2. Privacy Guarantees (Local Memory Content)
+- **Local Memory Content**: Notes, search queries, cues, and reflections remain in app-private device storage (`stories-vault/`).
+- **No Account Required**: Stories does not require sign-in or a cloud identity.
+- **No Third-Party Trackers**: No advertising or analytics SDKs are part of the v1 memory experience.
+- **Local Reminders**: Reminder scheduling is performed on-device and notification copy is generic.
 
-### 3. Portability & 1-Click Backup
-- **1-Click Vault Export**: Packages all Markdown files and metadata into a clean standard timestamped Markdown backup (`stories-vault-backup-YYYY-MM-DD.md`) with automatic browser file downloads on web and local document creation on mobile.
-- **Single Memory Share**: Option to export individual Markdown notes as `.md` or plain text.
+### 3. Storage Transparency
+- Settings identifies the vault as local and app-private and shows its device location for transparency.
+- Stories must never imply that an in-app private file is an external backup.
+- If a Markdown file cannot be read, Stories leaves it unchanged, continues opening healthy memories, and surfaces the affected path in Library.
