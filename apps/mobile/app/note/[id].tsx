@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,10 +13,21 @@ import { editingFromParam } from '@/src/navigation/route-state';
 import { folderForKind } from '@/src/navigation/note-folder';
 import { dateInputToDate, localDateInputValue } from '@/src/navigation/local-date';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
-import { colors, sharedStyles } from '@/src/ui/theme';
+import { colors, radii, sharedStyles, sizes, spacing, typography } from '@/src/ui/theme';
 import { RecallDatePicker } from '@/src/ui/RecallDatePicker';
 import { MEMORY_KIND_OPTIONS } from '@/src/capture/options';
-import { recallCue, recallResultLabel, shortDateLabel } from '@/src/recall/presentation';
+import { recallCue, shortDateLabel } from '@/src/recall/presentation';
+import { AppText } from '@/src/ui/components/AppText';
+import { Button } from '@/src/ui/components/Button';
+import { Card } from '@/src/ui/components/Card';
+import { DisclosureRow } from '@/src/ui/components/DisclosureRow';
+import { ErrorState } from '@/src/ui/components/ErrorState';
+import { IconButton } from '@/src/ui/components/IconButton';
+import { LoadingState } from '@/src/ui/components/LoadingState';
+import { SegmentedControl } from '@/src/ui/components/SegmentedControl';
+import { StatusMessage } from '@/src/ui/components/StatusMessage';
+import { TextField } from '@/src/ui/components/TextField';
+import { TopAppBar } from '@/src/ui/components/TopAppBar';
 
 type EditorDraft = {
   id?: string;
@@ -61,20 +72,24 @@ function editorDetailsSummary(draft: EditorDraft): string {
   const kind = noteKindLabel({ kind: draft.kind });
   const value = draft.recallDate.trim();
   if (!value) return `${kind} · No recall set`;
-
   const parsed = dateInputToDate(value);
   if (!parsed) return `${kind} · Recall ${value}`;
   return `${kind} · Recall ${parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+}
+
+function ratingLabel(status: RecallStatus) {
+  if (status === 'forgot') return 'Forgot';
+  if (status === 'partial') return 'Almost';
+  return 'Got it';
 }
 
 export default function NoteScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[]; edit?: string | string[] }>();
   const noteId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const editParam = params.edit;
   const { hydrated, notes, openError, saveNote, deleteNote, suggestLinks, resolveLink } = useVault();
   const note = notes.find((item) => item.id === noteId);
-  const editing = editingFromParam(editParam);
+  const editing = editingFromParam(params.edit);
   const [draftState, setDraftState] = useState<EditorDraft>(() => editorDraftFor(undefined));
   const [cursor, setCursor] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -97,7 +112,7 @@ export default function NoteScreen() {
   }, []);
 
   useEffect(() => {
-    if (!practiceSuccess) return;
+    if (!practiceSuccess) return undefined;
     const timer = setTimeout(() => {
       if (mountedRef.current) setPracticeSuccess('');
     }, 6000);
@@ -134,8 +149,7 @@ export default function NoteScreen() {
     setPracticeStage('idle');
     setPracticeReflection('');
     setPracticeSuccess('');
-    const initialDraft = editorDraftFor(note);
-    setDraftState(initialDraft);
+    setDraftState(editorDraftFor(note));
     setDetailsExpanded(false);
     setSaveError('');
     router.setParams({ edit: 'true' });
@@ -208,12 +222,10 @@ export default function NoteScreen() {
         router.push({ pathname: '/note/[id]', params: { id: resolution.note.id } });
         return;
       }
-
       if (resolution.status === 'ambiguous') {
         setSaveError(`More than one file matches “${target}”. Use a folder-qualified link.`);
         return;
       }
-
       const created = await saveNote(draftForMissingLink(target, note.folder));
       if (!mountedRef.current) return;
       router.push({ pathname: '/note/[id]', params: { id: created.id, edit: 'true' } });
@@ -250,10 +262,7 @@ export default function NoteScreen() {
     const recalledAt = new Date();
     const graded = gradeRecall(note, status, recalledAt);
     try {
-      await saveNote({
-        ...graded,
-        body: appendRecallReflection(graded.body, practiceReflection, recalledAt),
-      });
+      await saveNote({ ...graded, body: appendRecallReflection(graded.body, practiceReflection, recalledAt) });
       if (!mountedRef.current) return;
       setPracticeStage('idle');
       setPracticeReflection('');
@@ -279,102 +288,74 @@ export default function NoteScreen() {
     );
   };
 
+  const openActions = () => {
+    if (!note || saving || deleting) return;
+    Alert.alert('Memory actions', undefined, [
+      { text: 'Share', onPress: () => { void Share.share({ title: note.title, message: `${note.title}\n\n${note.body}` }); } },
+      { text: 'Delete memory', style: 'destructive', onPress: confirmDelete },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   if (!hydrated) {
-    return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}><Text style={styles.muted}>Opening note…</Text></SafeAreaView>;
+    return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><LoadingState label="Opening memory…" /></SafeAreaView>;
   }
 
   if (openError) {
     return (
-      <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}>
-        <Text accessibilityRole="header" style={styles.missingTitle}>Your vault could not be opened</Text>
-        <Text accessibilityRole="alert" style={styles.error}>{openError}</Text>
-        <Pressable accessibilityRole="button" onPress={leaveNote} style={sharedStyles.quietButton}>
-          <Text style={sharedStyles.quietButtonText}>Go back</Text>
-        </Pressable>
+      <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
+        <ErrorState title="Couldn't open your memories" body={openError} action={<Button label="Go back" variant="text" onPress={leaveNote} />} />
       </SafeAreaView>
     );
   }
 
   if (!note) {
     return (
-      <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top', 'bottom']}>
-        <Text accessibilityRole="header" style={styles.missingTitle}>This memory isn’t available</Text>
-        <Text style={styles.missingCopy}>It may have been moved or deleted.</Text>
-        <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/(tabs)/files')} style={sharedStyles.quietButton}>
-          <Text style={sharedStyles.quietButtonText}>Back to Library</Text>
-        </Pressable>
+      <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
+        <ErrorState title="This memory isn't available" body="It may have been moved or deleted." action={<Button label="Back to Library" variant="text" onPress={() => router.dismissTo('/(tabs)/files')} />} />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
-      <View style={styles.topBar}>
-        {editing ? (
-          <Pressable accessibilityRole="button" disabled={saving} onPress={cancelEditing} style={styles.topBarAction}>
-            <Text style={[styles.topBarActionText, saving && styles.disabled]}>Cancel</Text>
-          </Pressable>
-        ) : (
-          <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={leaveNote} style={styles.topBarIconButton}>
-            <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={21} tintColor={colors.accent} />
-          </Pressable>
-        )}
-
-        <Text numberOfLines={1} style={styles.topBarTitle}>{editing ? 'Edit memory' : 'Memory'}</Text>
-
-        {editing ? (
-          <Pressable accessibilityRole="button" disabled={saving} onPress={() => { void save(); }} style={styles.topBarAction}>
-            <Text style={[styles.topBarActionText, saving && styles.disabled]}>{saving ? 'Saving…' : 'Save'}</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.topBarActions}>
-            <Pressable
-              accessibilityLabel="Share memory"
-              accessibilityRole="button"
-              disabled={deleting || saving}
-              onPress={() => {
-                void Share.share({
-                  title: note.title,
-                  message: `${note.title}\n\n${note.body}`,
-                });
-              }}
-              style={styles.topBarIconButton}
-            >
-              <SymbolView name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }} size={20} tintColor={colors.accent} />
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Delete memory"
-              accessibilityRole="button"
-              disabled={deleting}
-              onPress={confirmDelete}
-              style={styles.topBarIconButton}
-            >
-              <SymbolView name={{ ios: 'trash', android: 'delete', web: 'delete' }} size={20} tintColor={colors.danger} />
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Edit memory"
-              accessibilityRole="button"
-              disabled={deleting || saving}
-              onPress={beginEditing}
-              style={styles.topBarIconButton}
-            >
-              <SymbolView name={{ ios: 'square.and.pencil', android: 'edit', web: 'edit' }} size={20} tintColor={colors.accent} />
-            </Pressable>
-          </View>
-        )}
-      </View>
+      {editing ? (
+        <TopAppBar
+          title="Edit memory"
+          left={<Button disabled={saving} label="Cancel" variant="text" onPress={cancelEditing} />}
+          right={<Button disabled={saving} label={saving ? 'Saving…' : 'Save'} variant="text" onPress={() => { void save(); }} />}
+        />
+      ) : (
+        <TopAppBar
+          title="Memory"
+          left={(
+            <IconButton accessibilityLabel="Go back" onPress={leaveNote}>
+              <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={sizes.standardIcon} tintColor={colors.action} />
+            </IconButton>
+          )}
+          right={(
+            <View style={styles.topActions}>
+              <Button disabled={deleting || saving} label="Edit" variant="text" onPress={beginEditing} />
+              <IconButton accessibilityLabel="More memory actions" disabled={deleting || saving} onPress={openActions}>
+                <SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.action} />
+              </IconButton>
+            </View>
+          )}
+        />
+      )}
 
       {editing ? (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.editorWrap}>
           <ScrollView contentContainerStyle={styles.editorContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
             <TextInput
               accessibilityLabel="Memory title"
+              editable={!saving}
               onChangeText={(title) => updateDraft({ title })}
               placeholder="Title"
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={colors.textSecondary}
+              selectionColor={colors.action}
               style={styles.titleInput}
               value={draft.title}
-              editable={!saving}
             />
 
             <View style={styles.editorCanvas}>
@@ -391,85 +372,41 @@ export default function NoteScreen() {
               />
             </View>
 
-            <Pressable
-              accessibilityHint={detailsExpanded ? 'Hides optional memory settings' : 'Shows memory type, source, recall cue, and recall date'}
-              accessibilityLabel={`Memory details, ${editorDetailsSummary(draft)}`}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: detailsExpanded }}
-              disabled={saving}
-              onPress={() => setDetailsExpanded((expanded) => !expanded)}
-              style={({ pressed }) => [styles.detailsToggle, pressed && styles.detailsTogglePressed]}
-            >
-              <SymbolView name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }} size={19} tintColor={colors.muted} />
-              <View style={styles.detailsToggleCopy}>
-                <Text style={styles.detailsToggleTitle}>Memory details</Text>
-                <Text numberOfLines={1} style={styles.detailsToggleSummary}>
-                  {editorDetailsSummary(draft)}
-                </Text>
-              </View>
-              <SymbolView
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                name={{
-                  android: detailsExpanded ? 'expand_less' : 'expand_more',
-                  ios: detailsExpanded ? 'chevron.up' : 'chevron.down',
-                  web: detailsExpanded ? 'expand_less' : 'expand_more',
-                }}
-                size={20}
-                tintColor={colors.accent}
+            <View style={styles.detailsFrame}>
+              <DisclosureRow
+                accessibilityHint={detailsExpanded ? 'Hides optional memory settings' : 'Shows memory type, source, recall cue, and recall date'}
+                accessibilityLabel={`Memory details, ${editorDetailsSummary(draft)}`}
+                accessibilityState={{ expanded: detailsExpanded }}
+                disabled={saving}
+                onPress={() => setDetailsExpanded((expanded) => !expanded)}
+                title="Memory details"
+                summary={editorDetailsSummary(draft)}
+                leading={<SymbolView name={{ ios: 'slider.horizontal.3', android: 'tune', web: 'tune' }} size={sizes.compactIcon} tintColor={colors.action} />}
+                trailing={<SymbolView name={{ android: detailsExpanded ? 'expand_less' : 'expand_more', ios: detailsExpanded ? 'chevron.up' : 'chevron.down', web: detailsExpanded ? 'expand_less' : 'expand_more' }} size={sizes.compactIcon} tintColor={colors.action} />}
               />
-            </Pressable>
 
-            {detailsExpanded ? <View style={styles.detailsPanel}>
-                <Text style={styles.fieldLabel}>Kind</Text>
-                <View accessibilityRole="radiogroup" style={styles.kindRow}>
-                  {MEMORY_KIND_OPTIONS.map((option) => {
-                    const selected = draft.kind === option.value;
-                    return (
-                      <Pressable
-                        key={option.value}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        disabled={saving}
-                        onPress={() => updateDraft({ kind: option.value })}
-                        style={[styles.kindButton, selected && styles.kindButtonSelected]}
-                      >
-                        <Text style={[styles.kindButtonText, selected && styles.kindButtonTextSelected]}>{option.label}</Text>
-                      </Pressable>
-                    );
-                  })}
+              {detailsExpanded ? (
+                <View style={styles.detailsPanel}>
+                  <FieldLabel>Kind</FieldLabel>
+                  <SegmentedControl accessibilityLabel="Memory kind" disabled={saving} onChange={(kind) => updateDraft({ kind })} options={MEMORY_KIND_OPTIONS} value={draft.kind} />
+
+                  <View style={styles.detailField}>
+                    <FieldLabel optional>Source</FieldLabel>
+                    <TextField accessibilityLabel="Source" editable={!saving} onChangeText={(source) => updateDraft({ source })} placeholder="Book, author, conversation…" value={draft.source} />
+                  </View>
+
+                  <View style={styles.detailField}>
+                    <FieldLabel optional>Recall cue</FieldLabel>
+                    <TextField accessibilityLabel="Recall cue" editable={!saving} multiline onChangeText={(recallPrompt) => updateDraft({ recallPrompt })} placeholder="What should bring this idea back?" style={styles.cueInput} value={draft.recallPrompt} />
+                  </View>
+
+                  <View style={styles.detailField}>
+                    <FieldLabel optional>Recall date</FieldLabel>
+                    <RecallDatePicker disabled={saving} onChange={(recallDate) => updateDraft({ recallDate })} value={draft.recallDate} />
+                  </View>
                 </View>
-
-                <Text style={styles.fieldLabel}>Source (optional)</Text>
-                <TextInput
-                  accessibilityLabel="Source"
-                  editable={!saving}
-                  onChangeText={(source) => updateDraft({ source })}
-                  placeholder="Book, author, conversation…"
-                  placeholderTextColor={colors.muted}
-                  style={styles.fieldInput}
-                  value={draft.source}
-                />
-
-                <Text style={styles.fieldLabel}>Recall cue (optional)</Text>
-                <TextInput
-                  accessibilityLabel="Recall cue"
-                  editable={!saving}
-                  multiline
-                  onChangeText={(recallPrompt) => updateDraft({ recallPrompt })}
-                  placeholder="What should bring this idea back?"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.fieldInput, styles.cueInput]}
-                  value={draft.recallPrompt}
-                />
-
-                <Text style={styles.fieldLabel}>Recall date (optional)</Text>
-                <RecallDatePicker
-                  disabled={saving}
-                  onChange={(recallDate) => updateDraft({ recallDate })}
-                  value={draft.recallDate}
-                />
-            </View> : null}
+              ) : null}
+            </View>
           </ScrollView>
 
           {suggestions.length > 0 ? (
@@ -478,6 +415,7 @@ export default function NoteScreen() {
                 <Pressable
                   key={candidate.id}
                   accessibilityRole="button"
+                  android_ripple={{ color: colors.actionMuted }}
                   disabled={saving}
                   onPress={() => {
                     if (!activeLink) return;
@@ -497,8 +435,8 @@ export default function NoteScreen() {
                   }}
                   style={styles.suggestionRow}
                 >
-                  <Text style={styles.suggestionTitle}>{candidate.title}</Text>
-                  <Text numberOfLines={1} style={styles.suggestionPath}>{candidate.path}</Text>
+                  <AppText variant="action">{candidate.title}</AppText>
+                  <AppText numberOfLines={1} variant="metadata" tone="secondary" style={styles.suggestionPath}>{candidate.path}</AppText>
                 </Pressable>
               ))}
             </View>
@@ -506,170 +444,123 @@ export default function NoteScreen() {
         </KeyboardAvoidingView>
       ) : (
         <ScrollView contentContainerStyle={styles.readingContent}>
-          {practiceSuccess ? (
-            <View accessibilityLiveRegion="polite" style={styles.practiceSuccessRow}>
-              <SymbolView name={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }} size={16} tintColor={colors.green} />
-              <Text style={styles.practiceSuccessText}>{practiceSuccess}</Text>
-            </View>
-          ) : null}
+          {practiceSuccess ? <StatusMessage message={practiceSuccess} tone="success" /> : null}
 
           {practiceStage === 'idle' ? (
             <>
-              <Text accessibilityRole="header" style={styles.noteTitle}>{note.title}</Text>
-
+              <AppText accessibilityRole="header" variant="title" style={styles.noteTitle}>{note.title}</AppText>
               <View style={styles.metaHeader}>
-                <Text style={styles.noteMeta}>{noteKindLabel(note)}{note.source ? ` · ${note.source}` : ''}</Text>
-                <View style={styles.metaActions}>
-                  {dueLabel ? (
-                    <View style={styles.recallBadge}>
-                      <SymbolView name={{ ios: 'calendar', android: 'calendar_today', web: 'calendar_today' }} size={13} tintColor={colors.accent} />
-                      <Text style={styles.recallBadgeText}>{dueLabel}</Text>
-                    </View>
-                  ) : null}
-                  <Pressable
-                    accessibilityLabel="Practice recall now"
-                    accessibilityRole="button"
-                    onPress={() => { setPracticeStage('attempt'); setPracticeReflection(''); }}
-                    style={styles.practiceNowButton}
-                  >
-                    <SymbolView name={{ ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' }} size={12} tintColor={colors.onAction} />
-                    <Text style={styles.practiceNowText}>Practice</Text>
-                  </Pressable>
+                <View style={styles.metaCopy}>
+                  <AppText variant="supporting" tone="secondary">{noteKindLabel(note)}{note.source ? ` · ${note.source}` : ''}</AppText>
+                  {dueLabel ? <AppText variant="metadata" tone="action" style={styles.dueLabel}>{dueLabel}</AppText> : null}
                 </View>
+                <Button label="Practice" variant="secondary" onPress={() => { setPracticeStage('attempt'); setPracticeReflection(''); }} />
               </View>
 
               <View style={styles.divider} />
-              <MarkdownBody
-                body={note.body}
-                onLinkError={() => setSaveError('This link could not be opened safely.')}
-                onOpenLink={(target) => { void openLink(target); }}
-              />
+              <MarkdownBody body={note.body} onLinkError={() => setSaveError('This link could not be opened safely.')} onOpenLink={(target) => { void openLink(target); }} />
               <View style={styles.pathRow}>
-                <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={14} tintColor={colors.muted} />
-                <Text accessibilityLabel={`Stored as ${note.path}`} style={styles.pathText}>Stored locally · {note.path}</Text>
+                <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={18} tintColor={colors.textSecondary} />
+                <AppText accessibilityLabel={`Stored as ${note.path}`} variant="metadata" tone="secondary" style={styles.pathText}>Stored locally · {note.path}</AppText>
               </View>
             </>
           ) : practiceStage === 'attempt' ? (
-            <View style={styles.practiceCard}>
+            <Card>
               <View style={styles.practiceHeader}>
-                <SymbolView name={{ ios: 'lightbulb', android: 'lightbulb', web: 'lightbulb' }} size={22} tintColor={colors.accent} />
-                <Text accessibilityRole="header" style={styles.practiceCueTitle}>{recallCue(note)}</Text>
+                <SymbolView name={{ ios: 'lightbulb', android: 'lightbulb', web: 'lightbulb' }} size={sizes.standardIcon} tintColor={colors.action} />
+                <AppText accessibilityRole="header" variant="section" style={styles.practiceTitle}>{recallCue(note)}</AppText>
               </View>
-              <Text style={styles.practiceAttemptSupport}>Say the idea in your own words. The memory is still hidden.</Text>
+              <AppText variant="supporting" tone="secondary" style={styles.practiceSupport}>Try saying it in your own words. The memory is still hidden.</AppText>
               <View style={styles.practiceActions}>
-                <Pressable accessibilityRole="button" onPress={() => setPracticeStage('revealed')} style={styles.practicePrimaryButton}>
-                  <Text style={styles.practicePrimaryText}>Reveal memory</Text>
-                </Pressable>
-                <Pressable accessibilityRole="button" onPress={() => setPracticeStage('idle')} style={styles.practiceSecondaryButton}>
-                  <Text style={styles.practiceSecondaryText}>Close</Text>
-                </Pressable>
+                <Button label="Reveal memory" onPress={() => setPracticeStage('revealed')} style={styles.flexButton} />
+                <Button label="Close" variant="text" onPress={() => setPracticeStage('idle')} />
               </View>
-            </View>
+            </Card>
           ) : (
-            <View style={styles.practiceCard}>
-              <Text accessibilityRole="header" style={styles.practiceCueTitle}>{recallCue(note)}</Text>
+            <Card>
+              <AppText accessibilityRole="header" variant="section">{recallCue(note)}</AppText>
               <View style={styles.divider} />
-              <Text style={styles.revealedBody}>{note.body}</Text>
-              <TextInput
-                accessibilityLabel="Optional recall reflection"
-                editable={!saving}
-                onChangeText={setPracticeReflection}
-                placeholder="Add a reflection (optional)"
-                placeholderTextColor={colors.muted}
-                style={styles.reflectionInput}
-                value={practiceReflection}
-              />
-              <Text style={styles.ratingPrompt}>How well did you remember it?</Text>
+              <AppText variant="body">{note.body}</AppText>
+              <TextField accessibilityLabel="Optional recall reflection" editable={!saving} multiline onChangeText={setPracticeReflection} placeholder="Add a reflection (optional)" style={styles.reflectionInput} value={practiceReflection} />
+              <AppText variant="supporting" style={styles.ratingPrompt}>How well did you remember it?</AppText>
               <View style={styles.ratingRow}>
                 {(['forgot', 'partial', 'remembered'] as const).map((status) => (
-                  <Pressable
-                    key={status}
-                    accessibilityRole="button"
-                    disabled={saving}
-                    onPress={() => { void submitPracticeRecall(status); }}
-                    style={[styles.ratingButton, saving && styles.disabled]}
-                  >
-                    <Text style={styles.ratingText}>{recallResultLabel(status)}</Text>
-                  </Pressable>
+                  <Button key={status} disabled={saving} label={ratingLabel(status)} onPress={() => { void submitPracticeRecall(status); }} style={styles.ratingButton} variant="secondary" />
                 ))}
               </View>
-              <Pressable accessibilityRole="button" onPress={() => setPracticeStage('idle')} style={styles.practiceCancelRow}>
-                <Text style={styles.practiceCancelText}>Cancel practice</Text>
-              </Pressable>
-            </View>
+              <Button label="Cancel practice" variant="text" onPress={() => setPracticeStage('idle')} style={styles.cancelPractice} />
+            </Card>
           )}
         </ScrollView>
       )}
-      {saveError ? <Text accessibilityRole="alert" style={styles.error}>{saveError}</Text> : null}
+      {saveError ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{saveError}</AppText> : null}
     </SafeAreaView>
   );
 }
 
+function FieldLabel({ children, optional = false }: { children: string; optional?: boolean }) {
+  return (
+    <AppText variant="metadata" style={styles.fieldLabel}>
+      {children}{optional ? <AppText variant="metadata" tone="secondary"> · Optional</AppText> : null}
+    </AppText>
+  );
+}
+
 const styles = StyleSheet.create({
-  center: { alignItems: 'center', justifyContent: 'center' },
-  muted: { color: colors.muted, fontSize: 16 },
-  missingTitle: { color: colors.ink, fontSize: 20, fontWeight: '600', marginBottom: 10 },
-  missingCopy: { color: colors.muted, fontSize: 15, lineHeight: 21, marginBottom: 8, textAlign: 'center' },
-  topBar: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', minHeight: 54, paddingHorizontal: 12 },
-  topBarTitle: { color: colors.ink, flex: 1, fontSize: 16, fontWeight: '600', paddingHorizontal: 5, textAlign: 'center' },
-  topBarAction: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 66, paddingHorizontal: 8 },
-  topBarActionText: { color: colors.accent, fontSize: 15, fontWeight: '600' },
-  topBarIconButton: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44 },
-  topBarActions: { flexDirection: 'row', gap: 2 },
+  topActions: { alignItems: 'center', flexDirection: 'row' },
   editorWrap: { flex: 1 },
-  editorContent: { paddingBottom: 42, paddingHorizontal: 20, paddingTop: 14 },
-  titleInput: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, color: colors.ink, fontSize: 23, fontWeight: '600', minHeight: 50, paddingBottom: 9 },
-  editorCanvas: { marginTop: 12 },
-  detailsToggle: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, minHeight: 58 },
-  detailsTogglePressed: { opacity: 0.62 },
-  detailsToggleCopy: { flex: 1 },
-  detailsToggleTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  detailsToggleSummary: { color: colors.muted, fontSize: 12, marginTop: 3 },
-  detailsToggleIcon: { color: colors.accent, fontSize: 23, fontWeight: '400', lineHeight: 28, marginLeft: 8, textAlign: 'center', width: 28 },
-  detailsPanel: { paddingBottom: 12 },
-  fieldLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', letterSpacing: 0.2, marginBottom: 8, marginTop: 18 },
-  kindRow: { flexDirection: 'row', gap: 8 },
-  kindButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 9, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
-  kindButtonSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  kindButtonText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  kindButtonTextSelected: { color: colors.accent },
-  fieldInput: { backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, color: colors.ink, fontSize: 16, minHeight: 48, paddingHorizontal: 13, paddingVertical: 10 },
-  cueInput: { minHeight: 76, textAlignVertical: 'top' },
-  suggestionList: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 11, borderWidth: 1, bottom: 14, left: 20, maxHeight: 224, overflow: 'hidden', position: 'absolute', right: 20 },
-  suggestionRow: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, minHeight: 53, paddingHorizontal: 14, paddingVertical: 8 },
-  suggestionTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  suggestionPath: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  readingContent: { paddingBottom: 40, paddingHorizontal: 20, paddingTop: 22 },
-  metaHeader: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', marginTop: 8 },
-  noteMeta: { color: colors.muted, fontSize: 14, fontWeight: '500' },
-  metaActions: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  recallBadge: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 8, flexDirection: 'row', gap: 5, paddingHorizontal: 8, paddingVertical: 4 },
-  recallBadgeText: { color: colors.accent, fontSize: 12, fontWeight: '600' },
-  practiceNowButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 8, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
-  practiceNowText: { color: colors.onAction, fontSize: 12, fontWeight: '600' },
-  practiceSuccessRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.green, borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 8, marginBottom: 14, paddingHorizontal: 12, paddingVertical: 8 },
-  practiceSuccessText: { color: colors.green, fontSize: 13, fontWeight: '600' },
-  practiceCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, padding: 18 },
-  practiceHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 10 },
-  practiceCueTitle: { color: colors.ink, flex: 1, fontSize: 18, fontWeight: '600', lineHeight: 24 },
-  practiceAttemptSupport: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 12 },
-  practiceActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
-  practicePrimaryButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 10, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
-  practicePrimaryText: { color: colors.onAction, fontSize: 15, fontWeight: '600' },
-  practiceSecondaryButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
-  practiceSecondaryText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
-  revealedBody: { color: colors.ink, fontSize: 16, lineHeight: 25 },
-  reflectionInput: { borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, color: colors.ink, fontSize: 15, lineHeight: 21, minHeight: 46, marginTop: 16, paddingHorizontal: 12, paddingVertical: 10 },
-  ratingPrompt: { color: colors.muted, fontSize: 13, fontWeight: '600', marginTop: 16 },
-  ratingRow: { flexDirection: 'row', gap: 7, marginTop: 10 },
-  ratingButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 6 },
-  ratingText: { color: colors.ink, fontSize: 13, fontWeight: '600' },
-  practiceCancelRow: { alignItems: 'center', justifyContent: 'center', marginTop: 14, paddingVertical: 6 },
-  practiceCancelText: { color: colors.muted, fontSize: 13, fontWeight: '500' },
-  pathRow: { alignItems: 'center', borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, marginTop: 28, paddingTop: 14 },
-  pathText: { color: colors.muted, flex: 1, fontSize: 12, lineHeight: 17 },
-  noteTitle: { color: colors.ink, fontSize: 27, fontWeight: '600', letterSpacing: -0.35, lineHeight: 34 },
-  divider: { backgroundColor: colors.line, height: StyleSheet.hairlineWidth, marginBottom: 23, marginTop: 20 },
-  disabled: { opacity: 0.35 },
-  error: { color: colors.danger, fontSize: 14, lineHeight: 20, paddingHorizontal: 20, paddingVertical: 10 },
+  editorContent: { paddingBottom: spacing.xxxl, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  titleInput: {
+    borderBottomColor: colors.divider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    color: colors.textPrimary,
+    minHeight: 56,
+    paddingBottom: spacing.xs,
+    ...typography.title,
+  },
+  editorCanvas: { marginTop: spacing.sm },
+  detailsFrame: {
+    borderBottomColor: colors.divider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: spacing.xl,
+  },
+  detailsPanel: { paddingBottom: spacing.lg, paddingTop: spacing.xs },
+  detailField: { marginTop: spacing.lg },
+  fieldLabel: { fontWeight: '600', marginBottom: spacing.xs },
+  cueInput: { minHeight: 88, textAlignVertical: 'top' },
+  suggestionList: {
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    bottom: spacing.md,
+    left: spacing.lg,
+    maxHeight: 224,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: spacing.lg,
+  },
+  suggestionRow: { borderBottomColor: colors.divider, borderBottomWidth: StyleSheet.hairlineWidth, minHeight: sizes.rowMinimum, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  suggestionPath: { marginTop: spacing.xxs },
+  readingContent: { paddingBottom: spacing.xxxl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
+  noteTitle: { marginTop: spacing.xs },
+  metaHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', marginTop: spacing.sm },
+  metaCopy: { flex: 1 },
+  dueLabel: { fontWeight: '600', marginTop: spacing.xxs },
+  divider: { backgroundColor: colors.divider, height: StyleSheet.hairlineWidth, marginBottom: spacing.xl, marginTop: spacing.lg },
+  pathRow: { alignItems: 'center', borderTopColor: colors.divider, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xxl, paddingTop: spacing.md },
+  pathText: { flex: 1 },
+  practiceHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
+  practiceTitle: { flex: 1 },
+  practiceSupport: { marginTop: spacing.sm },
+  practiceActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.lg },
+  flexButton: { flex: 1 },
+  reflectionInput: { marginTop: spacing.md, minHeight: 88, textAlignVertical: 'top' },
+  ratingPrompt: { fontWeight: '600', marginTop: spacing.md },
+  ratingRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  ratingButton: { flex: 1, paddingHorizontal: spacing.xs },
+  cancelPractice: { marginTop: spacing.xs },
+  error: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
 });
