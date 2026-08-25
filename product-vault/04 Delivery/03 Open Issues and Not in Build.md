@@ -1,50 +1,45 @@
 ---
 title: Open Issues and Product Gaps
 status: active
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 ---
 
 # Open Issues and Product Gaps
 
-This register tracks missing, partial, and planned capabilities across release milestones.
+This is the short list of work that is still genuinely open after the hardening pass.
 
----
+## P0 — Before wider Android release
 
-## 🔴 P0 — Trust, Data Safety, & Launch Blockers
- 
-| Area | Current Gap | Required Action | Status |
-|---|---|---|---|
-| **Physical Device Verification** | Automated tests pass (79/79), but physical Android verification is required. | Verify on physical device: TalkBack, 200% font scaling, keyboard interaction, safe areas. | Scheduled for M4 |
-| **Play Store Listing Assets** | Store presence required for distribution. | Prepare store listing screenshots, icon assets, and Data Safety form. | Scheduled for M4 |
-
----
-
-## 🟡 P1 — Implemented in v1 Foundation
-
-| Area | Feature Delivered | File Location |
+| Area | What is still unproven | Next action |
 |---|---|---|
-| **Onboarding Aha Moment** | 1-tap practice recall prompt on Day 1 (and on zero notes) eliminates the 3-day silent churn gap. | `apps/mobile/app/capture.tsx` & `(tabs)/index.tsx` |
-| **Vault Backup & Export** | 1-click Markdown vault export with automatic web/native file creation. | `apps/mobile/src/vault/vault-bundle.ts` & `vault-export.ts` |
-| **Native Device Reminders** | Offline local reminder service with Android 13+ permission handling and deep link recovery. | `apps/mobile/src/notifications/reminder-service.ts` & `device-permissions.ts` |
-| **Personalized Recall Cues** | Dynamic questions formatted from book author/title or experience context. | `apps/mobile/src/recall/presentation.ts` |
-| **On-Demand Practice** | 3-stage active recall practice accessible directly from any memory reader view. | `apps/mobile/app/note/[id].tsx` |
-| **Library View Toggle** | Segmented view toggle between *By folder* tree and *All memories* list with clean snippets. | `apps/mobile/app/(tabs)/files.tsx` & `src/navigation/snippet.ts` |
-| **Vocabulary & Privacy Audit** | Standardized copy to "memory", "Library", and "Stored privately on this device". | All screens & `settings.tsx` |
+| **Physical Android QA** | CI cannot prove TalkBack, 200% font scaling, keyboard resize, hardware Back, safe areas, force-stop recovery, or real notification delivery. | Run the release checklist on at least one physical Android device. |
+| **Reminder delivery** | Scheduling code is implemented, but cold-device delivery still needs OS-level validation. | Schedule a near-term test reminder, kill the app, lock the phone, verify delivery and tap-through. |
+| **Play Store readiness** | Store screenshots, listing copy, Data Safety answers, and final release evidence still need sign-off. | Complete the Play release checklist before production rollout. |
 
----
+## P1 — Product decisions, not bugs
 
-## 🟢 P2 — Post-Launch Opportunities
+These should not be built automatically. Decide after beta evidence:
 
-- **Related Memory Prompts**: Suggest connected insights after completing a recall reflection.
-- **Progress Summary**: Factual "Your memories" overview (memories saved, practiced, next due).
-- **Dark Mode**: System-aware theme toggle.
-- **One-Note Share**: Export individual Markdown memories as plain text or `.md`.
+- Progressive recall scheduling
+- Related-memory prompt after recall
+- Android Share-to-Stories capture
+- Reflection history / stronger reuse loop
+- Local-only product diagnostics
 
----
+See [[05 Future Product Decisions]] for the hypothesis and recommended implementation for each.
 
-## ⛔ Explicitly Deferred (Not in Scope)
+## P2 — Useful, lower urgency
 
-- **AI Chat / Summarization**: Contradicts personal reflection wedge and increases privacy surface.
-- **Cloud Sync & Social Accounts**: Introduces cloud security liabilities and network lock-in.
-- **Tasks, Calendars, & Streaks**: Destroys calm, restorative product character.
-- **Global Graph Visualizations**: High complexity with unproven recall value for v1.
+- Dark mode
+- Launcher shortcut / widget for fast capture
+- Optional richer Library filters if real retrieval pain appears
+
+## Explicitly deferred
+
+- AI chat / summarization
+- Cloud sync and accounts
+- Tasks, calendars, streaks, badges
+- Global graph visualization
+- Broad “save everything” content ingestion
+
+These remain deferred unless a clear user problem—not competitor parity—justifies reopening them.
