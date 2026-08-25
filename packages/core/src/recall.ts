@@ -69,6 +69,9 @@ export function appendRecallReflection(body: string, reflection: string, now = n
 }
 
 export function gradeRecall(note: MemoryNote, status: RecallStatus, now = new Date()): NoteDraft {
+  const today = localDateStamp(now);
+  const scheduledDay = recallCalendarDay(note.nextRecallAt);
+  const isEarlyPractice = Boolean(note.nextRecallAt && scheduledDay && scheduledDay > today);
   return {
     id: note.id,
     title: note.title,
@@ -79,7 +82,7 @@ export function gradeRecall(note: MemoryNote, status: RecallStatus, now = new Da
     recallPrompt: note.recallPrompt,
     recallStatus: status,
     lastRecalledAt: now.toISOString(),
-    nextRecallAt: addDays(now.toISOString(), RECALL_INTERVAL_DAYS[status]),
+    nextRecallAt: isEarlyPractice ? note.nextRecallAt : addDays(now.toISOString(), RECALL_INTERVAL_DAYS[status]),
   };
 }
 
