@@ -16,6 +16,11 @@
 # local QA / visual review evidence
 /audit/
 
+# agent/editor generated files
+AGENTS.md
+CLAUDE.md
+.claude/
+
 # next.js
 /.next/
 /out/

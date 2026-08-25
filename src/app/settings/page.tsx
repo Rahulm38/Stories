@@ -2,26 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bell, FileText, Shield, Download } from 'lucide-react';
+import { ArrowLeft, Bell, FileText, Shield } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
-import { useMemoryStore } from '@/components/shared/memory-store';
 
 export default function SettingsPage() {
-  const { memories } = useMemoryStore();
-
-  const handleExport = () => {
-    const content = memories.map(m => `# ${m.title}\n\n${m.originalCapture}`).join('\n\n---\n\n');
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'stories-vault-backup.md';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <AppShell>
       <div className="page-stack">
@@ -74,13 +58,6 @@ export default function SettingsPage() {
             <FileText className="mt-1 h-4 w-4 text-text-dim" aria-hidden="true" />
           </div>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">Notes are stored as Markdown documents with a rebuildable local index. The native build can map this vault to app storage without changing the files.</p>
-          
-          <div className="mt-6">
-            <button className="button-secondary flex items-center justify-center w-full gap-2 py-3" onClick={handleExport}>
-              <Download className="h-4 w-4" />
-              Export vault
-            </button>
-          </div>
         </section>
       </div>
     </AppShell>
