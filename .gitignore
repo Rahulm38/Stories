@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# local QA / visual review evidence
+/audit/
+
 # next.js
 /.next/
 /out/
