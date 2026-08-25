@@ -1,18 +1,18 @@
 import { forwardRef, useCallback, useRef, useState, type MutableRefObject } from 'react';
 import {
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   View,
-  ScrollView,
-  Text,
-  Pressable,
   type NativeSyntheticEvent,
-  type TextStyle,
   type TextInputSelectionChangeEventData,
+  type TextStyle,
 } from 'react-native';
 
-import { colors } from './theme';
+import { colors, radii, sizes, spacing, typography } from './theme';
 
 export type MarkdownSelection = {
   start: number;
@@ -93,6 +93,7 @@ export const MarkdownEditor = forwardRef<TextInput, MarkdownEditorProps>(functio
             <Pressable
               accessibilityLabel={buttonLabel}
               accessibilityRole="button"
+              android_ripple={{ color: colors.actionMuted }}
               disabled={!editable}
               key={label}
               onPress={() => applyFormat(prefix, suffix)}
@@ -115,9 +116,9 @@ export const MarkdownEditor = forwardRef<TextInput, MarkdownEditorProps>(functio
         onFocus={() => setFocused(true)}
         onSelectionChange={handleSelectionChange}
         placeholder={placeholder}
-        placeholderTextColor={colors.muted}
+        placeholderTextColor={colors.textSecondary}
         ref={assignInputRef}
-        selectionColor={colors.accent}
+        selectionColor={colors.action}
         spellCheck
         style={[styles.input, focused && styles.inputFocused, !editable && styles.inputDisabled, { minHeight }, webInputStyle]}
         textAlignVertical="top"
@@ -130,12 +131,37 @@ export const MarkdownEditor = forwardRef<TextInput, MarkdownEditorProps>(functio
 MarkdownEditor.displayName = 'MarkdownEditor';
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: colors.paper },
-  input: { backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 12, borderWidth: 1, color: colors.ink, fontSize: 17, lineHeight: 27, paddingHorizontal: 14, paddingVertical: 16 },
-  inputFocused: { borderColor: colors.accent },
+  container: { backgroundColor: colors.canvas },
+  input: {
+    backgroundColor: colors.surface,
+    borderColor: colors.controlBorder,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    ...typography.body,
+  },
+  inputFocused: { borderColor: colors.action },
   inputDisabled: { opacity: 0.65 },
-  toolbar: { flexDirection: 'row', marginBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.controlLine, paddingBottom: 8 },
-  formatButton: { alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 44, backgroundColor: colors.surface, borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: colors.controlLine },
-  formatButtonPressed: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  formatButtonText: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  toolbar: {
+    borderBottomColor: colors.controlBorder,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    marginBottom: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  formatButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.controlBorder,
+    borderRadius: radii.compact,
+    borderWidth: 1,
+    height: sizes.touchMinimum,
+    justifyContent: 'center',
+    marginRight: spacing.xs,
+    minWidth: sizes.touchMinimum,
+  },
+  formatButtonPressed: { backgroundColor: colors.actionMuted, borderColor: colors.action },
+  formatButtonText: { color: colors.textPrimary, ...typography.action },
 });
