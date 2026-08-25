@@ -407,6 +407,7 @@ const styles = StyleSheet.create({
   errorCopy: { marginTop: 10, maxWidth: 310, textAlign: 'center' },
   errorHint: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 8, maxWidth: 310, textAlign: 'center' },
   header: { marginBottom: 0 },
+  section: { marginTop: 29 },
   captureSection: { marginTop: 29 },
   captureRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 13, minHeight: 64, paddingHorizontal: 15 },
   captureTitle: { color: colors.muted, flex: 1, fontSize: 17 },

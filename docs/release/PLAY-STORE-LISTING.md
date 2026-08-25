@@ -71,7 +71,7 @@ Do not claim encryption at rest unless the release adds encrypted local storage.
 
 ### Privacy policy
 
-- Store-listing privacy URL placeholder: `https://YOUR-DOMAIN.example/stories/privacy`
+- Store-listing privacy URL: `https://rahulm38.github.io/Stories/privacy/`
 - Publish the contents of [`PRIVACY.md`](../../PRIVACY.md) at a stable HTTPS URL before submission.
 - Keep the in-app policy screen and hosted policy synchronized. Replace the current “support contact shown on the listing” wording with the real support email once chosen.
 
