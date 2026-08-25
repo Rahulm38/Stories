@@ -29,10 +29,14 @@ export default function CaptureScreen() {
   const [draftLoaded, setDraftLoaded] = useState(false);
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
+  const restoreAttemptedRef = useRef(false);
+  const initialKindRef = useRef(kind);
 
   useEffect(() => () => { mountedRef.current = false; }, []);
 
   useEffect(() => {
+    if (restoreAttemptedRef.current) return undefined;
+    restoreAttemptedRef.current = true;
     let active = true;
     void readCaptureDraft().then((saved) => {
       if (!active || !saved) {
@@ -43,18 +47,18 @@ export default function CaptureScreen() {
       setSource(saved.source);
       setRecallPrompt(saved.recallPrompt);
       setRecallChoice(saved.recallChoice);
-      if (saved.kind !== kind) router.setParams({ kind: saved.kind });
+      if (saved.kind !== initialKindRef.current) router.setParams({ kind: saved.kind });
       setRecovered(Boolean(saved.body.trim() || saved.source.trim() || saved.recallPrompt.trim()));
       setDraftLoaded(true);
     });
     return () => { active = false; };
-  }, []); // restore only once on entry
+  }, [router]);
 
   const dirty = Boolean(draft.trim() || source.trim() || recallPrompt.trim() || kind !== 'note' || recallChoice !== DEFAULT_RECALL_CHOICE);
   const allowNextNavigation = useUnsavedChangesGuard(dirty, saving);
 
   useEffect(() => {
-    if (!draftLoaded || !dirty || saving) return;
+    if (!draftLoaded || !dirty || saving) return undefined;
     const timer = setTimeout(() => {
       void writeCaptureDraft({ body: draft, source, recallPrompt, kind, recallChoice, savedAt: new Date().toISOString() });
     }, 700);
