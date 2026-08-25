@@ -1,7 +1,7 @@
 ---
 title: Users and Jobs
 status: approved
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 ---
 
 # Users and Jobs
@@ -24,7 +24,7 @@ They value **privacy**, **low cognitive load**, and **simplicity** over complex 
 ### 1. Capture: "Preserve the thought before it slips away"
 - **Context**: I just read an insightful page or had a breakthrough in a meeting.
 - **Job**: Help me record the idea in under 20 seconds without forcing me to categorize, tag, or format.
-- **Success Signal**: One sentence in plain text is enough to save.
+- **Success Signal**: One sentence in plain text is enough to save, and an unfinished capture can be recovered after interruption.
 
 ### 2. Recall: "Re-engage my mind before showing me the answer"
 - **Context**: A memory from last week is due to return.
@@ -36,10 +36,10 @@ They value **privacy**, **low cognitive load**, and **simplicity** over complex 
 - **Job**: Let me quickly add what changed (a reflection) or link it to another memory.
 - **Success Signal**: Reflection is appended cleanly without overwriting the original memory.
 
-### 4. Trust: "My private thoughts are completely mine"
+### 4. Trust: "My private thoughts stay on my device"
 - **Context**: I write personal, candid reflections.
-- **Job**: Ensure my data stays 100% on my device, works offline, and is easily exportable.
-- **Success Signal**: No account, no cloud telemetry, simple 1-click backup.
+- **Job**: Keep memory content local, offline, and readable as ordinary Markdown without requiring an account.
+- **Success Signal**: No account, no cloud telemetry, verified local writes, and explicit warnings if a local Markdown file cannot be read.
 
 ---
 
@@ -47,8 +47,8 @@ They value **privacy**, **low cognitive load**, and **simplicity** over complex 
 
 | User Anxiety | How Stories Solves It |
 |---|---|
-| *"Will I lose my thought if I switch apps?"* | Auto-guard on unsaved drafts; single-flight atomic writes. |
-| *"Why is this memory returning? Can I stop it?"* | Transparent scheduling with a clear "Bring this back" picker and "Off" option. |
-| *"Where are my actual files? Can I export them?"* | Stored as standard Markdown files; 1-click export in Settings. |
+| *"Will I lose my thought if I switch apps or Android closes it?"* | Unsaved-change guard plus a recoverable local capture draft. |
+| *"Why is this memory returning? Can I stop it?"* | Transparent calendar-day scheduling with a clear "Bring this back" picker and "Off" option. |
+| *"Did Stories silently lose one of my files?"* | Healthy files continue opening while unreadable Markdown files are reported explicitly and left unchanged. |
 | *"Am I falling behind if I miss a few days?"* | No overdue badges, no streak penalties, no red counts. Calm catch-up. |
-| *"Is this app reading my private notes?"* | Zero network calls, zero analytics SDKs, transparent offline policy. |
+| *"Is this app reading or uploading my private notes?"* | Memory content stays on-device; reminders are scheduled locally. |
