@@ -1,6 +1,7 @@
 'use client';
 
 import React, { FormEvent, useMemo, useRef, useState } from 'react';
+import { Heading, Bold, Italic, Quote, List, CheckSquare, Code, Link as LinkIcon } from 'lucide-react';
 import { Memory, MemoryKind } from '@/types';
 import { DEFAULT_FOLDERS, memoryFilePath, memoryKindHint, NOTE_KINDS } from './memory-store';
 import { activeWikilinkAtCursor, insertWikilink, wikilinkSuggestions } from '@/lib/memory-links';
@@ -84,6 +85,22 @@ export function MarkdownEditor({
     });
   };
 
+  const insertFormatting = (prefix: string, suffix: string = '') => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selectedText = body.substring(start, end);
+    const newText = body.substring(0, start) + prefix + selectedText + suffix + body.substring(end);
+    setBody(newText);
+    const newCursor = start + prefix.length + selectedText.length;
+    setCursorPosition(newCursor);
+    window.requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(newCursor, newCursor);
+    });
+  };
+
   return (
     <form className="markdown-editor" onSubmit={submit}>
       <div className="markdown-editor-toolbar">
@@ -109,6 +126,16 @@ export function MarkdownEditor({
         placeholder="Untitled note"
         autoFocus={!currentMemoryId}
       />
+      <div className="flex flex-wrap gap-1 mb-2 px-1">
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('## ', '')} aria-label="Heading"><Heading className="h-4 w-4" /></button>
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('**', '**')} aria-label="Bold"><Bold className="h-4 w-4" /></button>
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('*', '*')} aria-label="Italic"><Italic className="h-4 w-4" /></button>
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('> ', '')} aria-label="Quote"><Quote className="h-4 w-4" /></button>
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('- ', '')} aria-label="Bullet List"><List className="h-4 w-4" /></button>
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('- [ ] ', '')} aria-label="Checklist"><CheckSquare className="h-4 w-4" /></button>
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('`', '`')} aria-label="Code"><Code className="h-4 w-4" /></button>
+        <button type="button" className="p-1.5 text-muted-foreground hover:bg-muted rounded" onClick={() => insertFormatting('[[', ']]')} aria-label="Wikilink"><LinkIcon className="h-4 w-4" /></button>
+      </div>
       <label className="sr-only" htmlFor="editor-body">Markdown body</label>
       <textarea
         id="editor-body"

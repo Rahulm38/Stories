@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ColorValue } from 'react-native';
+import { Animated, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ColorValue } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import type { MemoryKind, MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles } from '@/src/ui/theme';
 import { noteKindLabel } from '@/src/ui/MarkdownBody';
-import { nextUpcomingRecallMessage, recallCompletionMessage, recallCue, recallResultLabel, remainingRecallMessage, savedMemoryMessage, shortDateLabel } from '@/src/recall/presentation';
+import { nextUpcomingRecallMessage, recallCompletionMessage, recallCue, recallResultLabel, reflectionPrompt, remainingRecallMessage, savedMemoryMessage, shortDateLabel, timeGreeting } from '@/src/recall/presentation';
 import { checkNotificationPermission, requestNotificationPermission, type PermissionStatus } from '@/src/notifications/device-permissions';
 
 type RecallStage = 'cue' | 'attempt' | 'revealed';
@@ -36,9 +36,6 @@ function displayDate(date: string) {
   return shortDateLabel(date) || 'Unknown date';
 }
 
-function todayDate() {
-  return new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-}
 
 function kindIcon(kind: MemoryKind): AppSymbol {
   return kind === 'book-learning' ? icons.book : kind === 'experience' ? icons.experience : icons.edit;
@@ -59,6 +56,7 @@ export default function TodayScreen() {
   const [notifStatus, setNotifStatus] = useState<PermissionStatus>('denied');
   const mountedRef = useRef(true);
   const savingRecallRef = useRef(false);
+  const [stageFade] = useState(() => new Animated.Value(1));
 
   useEffect(() => () => { mountedRef.current = false; }, []);
 
@@ -130,6 +128,10 @@ export default function TodayScreen() {
   const upcomingMessage = upcomingRecallNote?.nextRecallAt ? nextUpcomingRecallMessage(upcomingRecallNote.nextRecallAt) : undefined;
 
   const startRecall = (note: MemoryNote) => {
+    Animated.sequence([
+      Animated.timing(stageFade, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(stageFade, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
     setActiveRecallId(note.id);
     setActiveRecallVersion(note.updatedAt);
     setRecallStage('attempt');
@@ -209,8 +211,10 @@ export default function TodayScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <View>
-              <Text accessibilityRole="header" style={sharedStyles.title}>Today</Text>
-              <Text style={sharedStyles.subtitle}>{todayDate()}</Text>
+              <Text accessibilityRole="header" style={sharedStyles.title}>
+                {timeGreeting()}
+              </Text>
+              <Text style={sharedStyles.subtitle}>Here&apos;s what returns today</Text>
             </View>
           </View>
 
@@ -285,8 +289,13 @@ export default function TodayScreen() {
 
           {dueNote ? (
             <View style={styles.section}>
-              <Text style={sharedStyles.sectionLabel}>Due recall</Text>
-              <View style={styles.recallCard}>
+              <View style={styles.recallSectionHeader}>
+                <Text style={sharedStyles.sectionLabel}>Due recall</Text>
+                <View style={styles.progressPill}>
+                  <Text style={styles.progressText}>{Math.max(0, dueNotes.length - (visibleRecallStage !== 'cue' ? 0 : 0))} due</Text>
+                </View>
+              </View>
+              <Animated.View style={[styles.recallCard, { opacity: stageFade }]}>
                 <View style={styles.recallHeader}>
                   <View style={styles.recallIcon}><Icon name={kindIcon(dueNote.kind)} size={23} /></View>
                   <View style={styles.recallCopy}>
@@ -313,7 +322,7 @@ export default function TodayScreen() {
                   <View accessibilityLiveRegion="polite" style={styles.attemptBlock}>
                     <Icon name={icons.lightbulb} size={21} />
                     <Text style={styles.attemptText}>Say the idea in your own words. The memory is still hidden.</Text>
-                    <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => setRecallStage('revealed')} style={[styles.primaryButton, savingRecall && styles.buttonDisabled]}>
+                    <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => { Animated.sequence([Animated.timing(stageFade, { toValue: 0, duration: 120, useNativeDriver: true }), Animated.timing(stageFade, { toValue: 1, duration: 200, useNativeDriver: true })]).start(); setRecallStage('revealed'); }} style={[styles.primaryButton, savingRecall && styles.buttonDisabled]}>
                       <Text style={styles.primaryButtonText}>Reveal memory</Text>
                     </Pressable>
                   </View>
@@ -324,7 +333,7 @@ export default function TodayScreen() {
                       accessibilityLabel="Optional recall reflection"
                       editable={!savingRecall}
                       onChangeText={setReflection}
-                      placeholder="Add a reflection (optional)"
+                      placeholder={reflectionPrompt(dueNote.kind)}
                       placeholderTextColor={colors.muted}
                       style={styles.reflectionInput}
                       value={reflection}
@@ -349,7 +358,7 @@ export default function TodayScreen() {
                     {savingRecall ? <Text accessibilityLiveRegion="polite" style={styles.savingStatus}>Saving recall…</Text> : null}
                   </View>
                 )}
-              </View>
+              </Animated.View>
               {recallError ? <Text accessibilityRole="alert" style={styles.error}>{recallError}</Text> : null}
             </View>
           ) : null}
@@ -381,6 +390,14 @@ export default function TodayScreen() {
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      <Pressable
+        accessibilityLabel="New memory"
+        accessibilityRole="button"
+        onPress={() => router.navigate('/capture')}
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+      >
+        <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={24} tintColor={colors.onAction} />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -408,6 +425,9 @@ const styles = StyleSheet.create({
   errorHint: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 8, maxWidth: 310, textAlign: 'center' },
   header: { marginBottom: 0 },
   section: { marginTop: 29 },
+  recallSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  progressPill: { backgroundColor: colors.accentSoft, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
+  progressText: { color: colors.accent, fontSize: 12, fontWeight: '600' },
   captureSection: { marginTop: 29 },
   captureRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 13, minHeight: 64, paddingHorizontal: 15 },
   captureTitle: { color: colors.muted, flex: 1, fontSize: 17 },
@@ -430,7 +450,7 @@ const styles = StyleSheet.create({
   firstMemoryNotifGrantedText: { color: colors.green, fontSize: 12, fontWeight: '600' },
   successMessage: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 14 },
   successText: { color: colors.green, flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 20 },
-  recallCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, padding: 16 },
+  recallCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, borderLeftWidth: 3, borderLeftColor: colors.accentWarm, padding: 16 },
   recallHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
   recallIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
   recallCopy: { flex: 1 },
@@ -463,4 +483,6 @@ const styles = StyleSheet.create({
   recentCopy: { flex: 1, paddingRight: 10 },
   recentTitle: { color: colors.ink, fontSize: 16, fontWeight: '600', lineHeight: 21 },
   recentSubtitle: { color: colors.muted, fontSize: 13, marginTop: 4 },
+  fab: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 28, bottom: 16, height: 56, justifyContent: 'center', position: 'absolute', right: 16, width: 56, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  fabPressed: { opacity: 0.8 },
 });

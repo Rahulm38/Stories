@@ -20,6 +20,7 @@ export const semanticColors = {
   success: '#245A4A',
   danger: '#A84848',
   onAction: '#FFFFFF',
+  accentWarm: '#D4A574',
 } as const;
 
 export const colors = {

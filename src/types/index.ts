@@ -46,67 +46,6 @@ export interface Memory {
   isTrip?: boolean;
   tripName?: string;
   photos?: string[];
-  storyDraft?: StoryDraft;
 }
 
-export interface StoryDraft {
-  shortVersion: string;
-  longVersion: string;
-  bizarreMoment?: string;
-  localInteraction?: string;
-  lesson?: string;
-  vividDetail?: string;
-}
 
-export interface BookIdea {
-  id: string;
-  sourceTitle: string;
-  author: string;
-  quote?: string;
-  meaning: string;
-  whyItMatters: string;
-  useItWhen: string;
-  connectedMemoryIds?: string[];
-  recallCardIds?: string[];
-  practiceStrength?: number;
-  coverColor?: string;
-}
-
-export interface RecallCard {
-  id: string;
-  question: string;
-  answer: string;
-  sourceMemoryId?: string;
-  sourceTitle: string;
-  type: MemoryType;
-  lastPracticed?: string;
-  strength?: number;
-}
-
-export interface InboxItem {
-  id: string;
-  memoryId: string;
-  memoryTitle: string;
-  type: 'confirm-type' | 'follow-up' | 'split' | 'approve-recall' | 'add-context' | 'confirm-connection' | 'story-detail';
-  prompt: string;
-  chips?: string[];
-  createdAt: string;
-}
-
-export interface AskAnswer {
-  directAnswer: string;
-  supportingMemories: Memory[];
-  uncertainty?: string;
-  suggestedAction?: string;
-  sources: { title: string; id: string }[];
-}
-
-export interface ImplementationIntention {
-  id: string;
-  text: string;
-  triggerTime?: string;
-  triggerContext?: string;
-  sourceMemoryId?: string;
-  completed: boolean;
-  createdAt: string;
-}

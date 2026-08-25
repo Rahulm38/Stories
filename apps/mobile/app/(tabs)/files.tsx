@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MemoryNote } from '@core/model';
+import { dueRecalls } from '@core/recall';
 import { matchesLibrarySearch } from '@/src/navigation/library-search';
 import { cleanSnippet } from '@/src/navigation/snippet';
 import { useVault } from '@/src/vault/provider';
@@ -143,6 +144,8 @@ export default function FilesScreen() {
     return new Set(Array.from(counts).filter(([, count]) => count > 1).map(([title]) => title));
   }, [notes]);
 
+  const recallDueIds = useMemo(() => new Set(dueRecalls(notes, new Date()).map((n) => n.id)), [notes]);
+
   const rows = useMemo<LibraryRow[]>(() => {
     const matchingNotes = normalizedQuery
       ? notes.filter((note) => matchesLibrarySearch(note, normalizedQuery))
@@ -231,6 +234,7 @@ export default function FilesScreen() {
                 value={query}
               />
             </View>
+            <Text style={styles.searchScopeIndicator}>Searching titles, body text, and sources</Text>
 
             <View style={styles.toggleSection}>
               <View style={styles.viewToggle}>
@@ -268,6 +272,13 @@ export default function FilesScreen() {
         renderItem={({ item }) => {
           if (item.type === 'folder') {
             const memoryLabel = `${item.folder.count} ${item.folder.count === 1 ? 'memory' : 'memories'}`;
+            let folderColor = 'transparent';
+            if (item.depth === 0) {
+              if (item.folder.name === 'Books') folderColor = '#D4A574';
+              else if (item.folder.name === 'Experiences') folderColor = '#2D7A5F';
+              else if (item.folder.name === 'Inbox' || item.folder.name === 'Notes') folderColor = '#3F5F83';
+            }
+
             return (
               <Pressable
                 accessibilityHint={normalizedQuery ? 'Folders stay expanded while searching' : undefined}
@@ -282,7 +293,7 @@ export default function FilesScreen() {
                   styles.folderRow,
                   normalizedQuery && styles.folderRowDisabled,
                   pressed && styles.pressedRow,
-                  { paddingLeft: item.depth * 18 },
+                  { paddingLeft: item.depth * 18, borderLeftWidth: 3, borderLeftColor: folderColor },
                 ]}
               >
                 <SymbolView
@@ -314,7 +325,10 @@ export default function FilesScreen() {
                 <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={17} tintColor={colors.accent} />
               </View>
               <View style={styles.fileCopy}>
-                <Text numberOfLines={1} style={styles.fileTitle}>{item.note.title}</Text>
+                <View style={styles.fileTitleRow}>
+                  <Text numberOfLines={1} style={styles.fileTitle}>{item.note.title}</Text>
+                  {recallDueIds.has(item.note.id) ? <View style={styles.recallDot} /> : null}
+                </View>
                 {snippet ? <Text numberOfLines={1} style={styles.fileSnippet}>{snippet}</Text> : null}
                 {showPath ? <Text numberOfLines={1} style={styles.filePath}>{item.note.path}</Text> : null}
               </View>
@@ -323,6 +337,14 @@ export default function FilesScreen() {
           );
         }}
       />
+      <Pressable
+        accessibilityLabel="New memory"
+        accessibilityRole="button"
+        onPress={() => router.navigate('/capture')}
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+      >
+        <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={24} tintColor={colors.onAction} />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -341,6 +363,7 @@ const styles = StyleSheet.create({
   pressedButton: { opacity: 0.65 },
   searchField: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, minHeight: 48, paddingHorizontal: 14 },
   searchInput: { color: colors.ink, flex: 1, fontSize: 16, paddingVertical: 0 },
+  searchScopeIndicator: { color: colors.muted, fontSize: 13, marginTop: 10, paddingHorizontal: 4 },
   toggleSection: { marginTop: 22 },
   viewToggle: { backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flexDirection: 'row', padding: 3 },
   viewToggleBtn: { alignItems: 'center', borderRadius: 8, flex: 1, justifyContent: 'center', minHeight: 36, paddingHorizontal: 12 },
@@ -359,11 +382,15 @@ const styles = StyleSheet.create({
   fileRowFirst: { borderTopWidth: 0 },
   fileIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 8, height: 32, justifyContent: 'center', marginRight: 11, width: 32 },
   fileCopy: { flex: 1, paddingRight: 10 },
-  fileTitle: { color: colors.ink, fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  fileTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  fileTitle: { color: colors.ink, flex: 1, fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  recallDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accentWarm, flexShrink: 0 },
   fileSnippet: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
   filePath: { color: colors.muted, fontSize: 11, marginTop: 2 },
   noResults: { alignItems: 'flex-start', paddingBottom: 24, paddingTop: 36 },
   noResultsTitle: { color: colors.ink, fontSize: 18, fontWeight: '600', marginBottom: 7 },
   clearButton: { alignItems: 'center', borderColor: colors.accent, borderRadius: 10, borderWidth: 1, justifyContent: 'center', marginTop: 16, minHeight: 44, paddingHorizontal: 14 },
   clearButtonText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
+  fab: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 28, bottom: 16, height: 56, justifyContent: 'center', position: 'absolute', right: 16, width: 56, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  fabPressed: { opacity: 0.8 },
 });

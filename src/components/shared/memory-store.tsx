@@ -39,6 +39,7 @@ type MemoryStoreValue = {
   hydrated: boolean;
   addMemory: (input: NewMemoryInput) => Memory;
   updateMemory: (id: string, patch: Partial<Memory>) => void;
+  deleteMemory: (id: string) => void;
   addFolder: (name: string) => string | null;
 };
 
@@ -339,6 +340,11 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const deleteMemory = useCallback((id: string) => {
+    pendingMemoriesRef.current = pendingMemoriesRef.current.filter((memory) => memory.id !== id);
+    setMemories((current) => current.filter((memory) => memory.id !== id));
+  }, []);
+
   const addFolder = useCallback((name: string) => {
     const folder = name.trim().replace(/\s+/g, ' ');
     if (!folder) return null;
@@ -352,8 +358,8 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ memories, folders, hydrated, addMemory, updateMemory, addFolder }),
-    [addFolder, addMemory, folders, hydrated, memories, updateMemory],
+    () => ({ memories, folders, hydrated, addMemory, updateMemory, deleteMemory, addFolder }),
+    [addFolder, addMemory, folders, hydrated, memories, updateMemory, deleteMemory],
   );
 
   return <MemoryStoreContext.Provider value={value}>{children}</MemoryStoreContext.Provider>;

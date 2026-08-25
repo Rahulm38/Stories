@@ -62,13 +62,24 @@ function indentationFor(line: string) {
 }
 
 export function MarkdownBody({ body, onOpenLink, onLinkError }: MarkdownBodyProps) {
+  const sections = body.split(/(?=^## Recall reflection)/im);
+
   return (
     <View style={styles.body}>
-      {body.split('\n').map((line, index) => {
-        const { content, marginLeft } = indentationFor(line);
-        if (!content) return <View key={`blank-${index}`} style={styles.blankLine} />;
-        const indented = marginLeft ? { marginLeft } : null;
-        const heading = content.match(/^(#{1,6})\s+(.+)$/);
+      {sections.map((section, sectionIndex) => {
+        const isRecallSection = /^## Recall reflection/i.test(section.trim());
+        return (
+          <View key={`section-${sectionIndex}`} style={isRecallSection ? styles.recallSection : null}>
+            {section.split('\n').map((line, index) => {
+              const { content, marginLeft } = indentationFor(line);
+              if (!content) return <View key={`blank-${index}`} style={styles.blankLine} />;
+              const indented = marginLeft ? { marginLeft } : null;
+
+              if (isRecallSection && index < 4 && content.match(/^[*_](.+)[*_]$/)) {
+                return <Text key={`date-${index}`} style={[styles.paragraph, styles.recallDate, indented]}>{content.replace(/[*_]/g, '')}</Text>;
+              }
+
+              const heading = content.match(/^(#{1,6})\s+(.+)$/);
         if (heading) {
           const level = heading[1].length;
           const headingStyle = level === 1
@@ -115,7 +126,10 @@ export function MarkdownBody({ body, onOpenLink, onLinkError }: MarkdownBodyProp
             </View>
           );
         }
-        return <Text key={`paragraph-${index}`} style={[styles.paragraph, indented]}>{inlineParts(content, onOpenLink, 'inline', onLinkError)}</Text>;
+              return <Text key={`paragraph-${index}`} style={[styles.paragraph, indented]}>{inlineParts(content, onOpenLink, 'inline', onLinkError)}</Text>;
+            })}
+          </View>
+        );
       })}
     </View>
   );
@@ -147,4 +161,6 @@ const styles = StyleSheet.create({
   emphasis: { fontStyle: 'italic' },
   code: { backgroundColor: colors.accentSoft, color: colors.ink, fontFamily: 'monospace' },
   link: { color: colors.accent, fontWeight: '500', textDecorationLine: 'underline' },
+  recallSection: { borderLeftWidth: 2, borderLeftColor: colors.divider, paddingLeft: 12, marginTop: 12 },
+  recallDate: { color: colors.muted, fontSize: 13, marginBottom: 8, fontStyle: 'italic' },
 });

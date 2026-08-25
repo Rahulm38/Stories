@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -328,6 +328,20 @@ export default function NoteScreen() {
           </Pressable>
         ) : (
           <View style={styles.topBarActions}>
+            <Pressable
+              accessibilityLabel="Share memory"
+              accessibilityRole="button"
+              disabled={deleting || saving}
+              onPress={() => {
+                void Share.share({
+                  title: note.title,
+                  message: `${note.title}\n\n${note.body}`,
+                });
+              }}
+              style={styles.topBarIconButton}
+            >
+              <SymbolView name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }} size={20} tintColor={colors.accent} />
+            </Pressable>
             <Pressable
               accessibilityLabel="Delete memory"
               accessibilityRole="button"

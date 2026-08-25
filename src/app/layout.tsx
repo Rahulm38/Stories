@@ -1,6 +1,19 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { MemoryProvider } from '@/components/shared/memory-store';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const lora = Lora({
+  subsets: ['latin'],
+  variable: '--font-lora',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: "Stories — Your Markdown vault.",
@@ -21,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${lora.variable}`}>
       <body className="antialiased">
         <MemoryProvider>{children}</MemoryProvider>
       </body>

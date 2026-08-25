@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:core": "node --experimental-strip-types --test packages/core/src/*.test.ts",
-    "test:web": "node --experimental-strip-types --test src/lib/*.test.ts",
-    "test:mobile": "node --experimental-strip-types --test apps/mobile/scripts/mobile-regressions.mjs",
-    "test": "node --experimental-strip-types --test packages/core/src/*.test.ts src/lib/*.test.ts apps/mobile/scripts/mobile-regressions.mjs",
+    "test:core": "npx tsx packages/core/src/*.test.ts",
+    "test:web": "npx tsx src/lib/*.test.ts",
+    "test:mobile": "npx tsx apps/mobile/scripts/mobile-regressions.mjs",
+    "test": "npx tsx packages/core/src/*.test.ts src/lib/*.test.ts apps/mobile/scripts/mobile-regressions.mjs",
     "mobile:start": "npm --prefix apps/mobile run start",
     "mobile:android": "npm --prefix apps/mobile run android",
     "mobile:ios": "npm --prefix apps/mobile run ios"
@@ -29,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.3.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

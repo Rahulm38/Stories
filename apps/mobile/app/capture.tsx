@@ -10,6 +10,7 @@ import { captureKindFromParam } from '@/src/navigation/route-state';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles } from '@/src/ui/theme';
+import { shortDateLabel } from '@/src/recall/presentation';
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -30,6 +31,19 @@ export default function CaptureScreen() {
 
   const dirty = Boolean(draft.trim() || source.trim() || recallPrompt.trim() || kind !== 'note' || recallChoice !== DEFAULT_RECALL_CHOICE);
   const allowNextNavigation = useUnsavedChangesGuard(dirty, saving);
+
+  const getPlaceholder = () => {
+    if (kind === 'book-learning') return 'What insight would Future You thank you for writing down?';
+    if (kind === 'experience') return 'Paint the moment — sights, sounds, feelings, what changed in you…';
+    return "What's worth remembering?";
+  };
+  const placeholder = getPlaceholder();
+
+  const recallDaysDisplay = recallDaysForChoice(recallChoice);
+  const nextRecallAtDisplay = recallDaysDisplay ? scheduleFirstRecall(new Date(), recallDaysDisplay) : undefined;
+  const formattedReturnDate = nextRecallAtDisplay ? shortDateLabel(nextRecallAtDisplay) : '';
+
+  const saveButtonText = saving ? 'Saving…' : (!hydrated ? 'Opening…' : (formattedReturnDate ? `Save · returns ${formattedReturnDate}` : 'Save memory'));
 
   const leaveCapture = useCallback(() => {
     if (Platform.OS !== 'web' && router.canGoBack()) router.back();
@@ -99,11 +113,14 @@ export default function CaptureScreen() {
             value={draft}
             onChangeText={(value) => { if (!savingRef.current) setDraft(value); }}
             accessibilityLabel="What do you want to remember?"
-            placeholder="Write what you want to remember…"
+            placeholder={placeholder}
             autoFocus
             editable={!saving}
             minHeight={260}
           />
+          {draft.length > 100 && (
+            <Text style={styles.charCount}>{draft.length} characters</Text>
+          )}
 
           <View style={styles.detailsPanel}>
             <Pressable
@@ -228,7 +245,7 @@ export default function CaptureScreen() {
             onPress={() => { void save(); }}
             style={[styles.saveButton, (!hydrated || !draft.trim() || saving) && styles.buttonDisabled]}
           >
-            <Text style={styles.saveButtonText}>{saving ? 'Saving…' : hydrated ? 'Save memory' : 'Opening…'}</Text>
+            <Text style={styles.saveButtonText}>{saveButtonText}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -276,4 +293,5 @@ const styles = StyleSheet.create({
   saveButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 12, flex: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 18 },
   saveButtonText: { color: colors.onAction, fontSize: 16, fontWeight: '600' },
   buttonDisabled: { opacity: 0.35 },
+  charCount: { color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 4, marginRight: 4 },
 });

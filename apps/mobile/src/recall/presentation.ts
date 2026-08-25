@@ -1,10 +1,23 @@
-import type { MemoryNote, RecallStatus } from '@core/model';
+import type { MemoryKind, MemoryNote, RecallStatus } from '@core/model';
 
 const RESULT_LABELS: Readonly<Record<RecallStatus, string>> = {
   forgot: 'Not yet',
   partial: 'Partly',
   remembered: 'Got it',
 };
+
+export function timeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+export function reflectionPrompt(kind: MemoryKind): string {
+  if (kind === 'book-learning') return 'How does this idea connect to your life today?';
+  if (kind === 'experience') return 'What would you do differently now?';
+  return 'Any new thoughts since last time?';
+}
 
 export function shortDateLabel(value: string, locale?: string): string | undefined {
   const date = new Date(value);

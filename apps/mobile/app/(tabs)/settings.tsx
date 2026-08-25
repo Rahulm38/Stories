@@ -20,6 +20,11 @@ export default function SettingsScreen() {
 
   const practicedCount = useMemo(() => notes.filter((n) => Boolean(n.lastRecalledAt)).length, [notes]);
   const dueCount = useMemo(() => dueRecalls(notes, now).length, [notes, now]);
+  const thisWeekCount = useMemo(() => notes.filter((n) => {
+    if (!n.nextRecallAt) return false;
+    const time = new Date(n.nextRecallAt).getTime();
+    return time > now.getTime() && time < now.getTime() + 7 * 24 * 60 * 60 * 1000;
+  }).length, [notes, now]);
 
   useFocusEffect(
     useCallback(() => {
@@ -120,6 +125,10 @@ export default function SettingsScreen() {
             <View style={styles.statBox}>
               <Text style={styles.statNumber}>{dueCount}</Text>
               <Text style={styles.statLabel}>Due today</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{thisWeekCount}</Text>
+              <Text style={styles.statLabel}>This week</Text>
             </View>
           </View>
         </View>
