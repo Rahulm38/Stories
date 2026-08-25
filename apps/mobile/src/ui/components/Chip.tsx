@@ -7,14 +7,15 @@ type ChipProps = Omit<PressableProps, 'style'> & {
   selected?: boolean;
 };
 
-export function Chip({ label, selected = false, ...props }: ChipProps) {
+export function Chip({ disabled, label, selected = false, ...props }: ChipProps) {
   return (
     <Pressable
       {...props}
       accessibilityRole="radio"
-      accessibilityState={{ selected, ...props.accessibilityState }}
+      accessibilityState={{ disabled, selected }}
       android_ripple={{ color: colors.actionMuted }}
-      style={({ pressed }) => [styles.base, selected && styles.selected, pressed && styles.pressed]}
+      disabled={disabled}
+      style={({ pressed }) => [styles.base, selected && styles.selected, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <AppText variant="metadata" tone={selected ? 'action' : 'secondary'} style={styles.label}>{label}</AppText>
     </Pressable>
@@ -29,6 +30,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     minHeight: sizes.touchMinimum,
+    overflow: 'hidden',
     paddingHorizontal: spacing.md,
   },
   selected: {
@@ -36,5 +38,6 @@ const styles = StyleSheet.create({
     borderColor: colors.action,
   },
   pressed: { opacity: 0.76 },
+  disabled: { opacity: 0.45 },
   label: { fontWeight: '600' },
 });
