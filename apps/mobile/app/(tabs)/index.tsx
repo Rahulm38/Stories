@@ -1,29 +1,38 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ColorValue } from 'react-native';
+import { AppState, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ColorValue } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appendRecallReflection, deferRecall, dueRecalls, gradeRecall, practiceRecall } from '@core/recall';
 import type { MemoryKind, MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
-import { colors, sharedStyles } from '@/src/ui/theme';
+import { colors, radii, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { noteKindLabel } from '@/src/ui/MarkdownBody';
-import { nextUpcomingRecallMessage, practiceCompletionMessage, recallCompletionMessage, recallCue, recallResultLabel, reflectionPrompt, remainingRecallMessage, savedMemoryMessage, shortDateLabel, timeGreeting } from '@/src/recall/presentation';
+import { tabBarMetrics } from '@/src/navigation/tab-bar';
+import { nextUpcomingRecallMessage, practiceCompletionMessage, recallCompletionMessage, recallCue, reflectionPrompt, remainingRecallMessage, savedMemoryMessage, shortDateLabel, timeGreeting } from '@/src/recall/presentation';
+import { AppText } from '@/src/ui/components/AppText';
+import { Button } from '@/src/ui/components/Button';
+import { Card } from '@/src/ui/components/Card';
+import { ErrorState } from '@/src/ui/components/ErrorState';
+import { ListRow } from '@/src/ui/components/ListRow';
+import { LoadingState } from '@/src/ui/components/LoadingState';
+import { SectionHeader } from '@/src/ui/components/SectionHeader';
+import { Snackbar } from '@/src/ui/components/Snackbar';
+import { TextField } from '@/src/ui/components/TextField';
 
 type RecallStage = 'cue' | 'attempt' | 'revealed';
 type AppSymbol = {
-  android: 'add' | 'book_2' | 'check_circle' | 'chevron_right' | 'edit_note' | 'lightbulb' | 'person' | 'schedule';
-  ios: 'book.closed' | 'checkmark.circle' | 'chevron.right' | 'clock' | 'lightbulb' | 'pencil' | 'person' | 'plus';
+  android: 'add' | 'book_2' | 'chevron_right' | 'edit_note' | 'lightbulb' | 'person' | 'schedule';
+  ios: 'book.closed' | 'chevron.right' | 'clock' | 'lightbulb' | 'pencil' | 'person' | 'plus';
 };
 
-function Icon({ color = colors.accent, name, size = 22 }: { color?: ColorValue; name: AppSymbol; size?: number }) {
+function Icon({ color = colors.action, name, size = sizes.standardIcon }: { color?: ColorValue; name: AppSymbol; size?: number }) {
   return <SymbolView name={{ android: name.android, ios: name.ios, web: name.android }} size={size} tintColor={color} />;
 }
 
 const icons = {
   add: { android: 'add', ios: 'plus' },
   book: { android: 'book_2', ios: 'book.closed' },
-  check: { android: 'check_circle', ios: 'checkmark.circle' },
   chevron: { android: 'chevron_right', ios: 'chevron.right' },
   edit: { android: 'edit_note', ios: 'pencil' },
   experience: { android: 'person', ios: 'person' },
@@ -35,8 +44,15 @@ function kindIcon(kind: MemoryKind): AppSymbol {
   return kind === 'book-learning' ? icons.book : kind === 'experience' ? icons.experience : icons.edit;
 }
 
+function ratingLabel(status: RecallStatus) {
+  if (status === 'forgot') return 'Forgot';
+  if (status === 'partial') return 'Almost';
+  return 'Got it';
+}
+
 export default function TodayScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ nextRecallAt?: string | string[]; saved?: string | string[]; first?: string | string[]; noteId?: string | string[] }>();
   const { hydrated, notes, openError, saveNote } = useVault();
   const [now, setNow] = useState(() => new Date());
@@ -161,148 +177,186 @@ export default function TodayScreen() {
     }
   };
 
-  if (!hydrated) return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top']}><Text style={styles.muted}>Opening your local vault…</Text></SafeAreaView>;
-  if (openError) return <SafeAreaView style={[sharedStyles.screen, styles.center]} edges={['top']}><Text accessibilityRole="header" style={styles.errorTitle}>Your vault could not be opened</Text><Text accessibilityRole="alert" style={[styles.muted, styles.errorCopy]}>{openError}</Text><Text style={styles.errorHint}>Your files were not replaced. Close and reopen Stories to try again.</Text></SafeAreaView>;
+  if (!hydrated) {
+    return <SafeAreaView style={sharedStyles.screen} edges={['top']}><LoadingState label="Opening your memories…" /></SafeAreaView>;
+  }
+  if (openError) {
+    return (
+      <SafeAreaView style={sharedStyles.screen} edges={['top']}>
+        <ErrorState title="Couldn't open your memories" body={openError} hint="Your files were not replaced. Close and reopen Stories to try again." />
+      </SafeAreaView>
+    );
+  }
 
   const isPractice = Boolean(dueNote && practiceNoteId === dueNote.id);
+  const tabBar = tabBarMetrics(insets.bottom, Platform.OS === 'ios');
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
       <KeyboardAvoidingView style={sharedStyles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text accessibilityRole="header" style={sharedStyles.title}>{timeGreeting()}</Text>
-            <Text style={sharedStyles.subtitle}>{dueNotes.length > 0 ? `${dueNotes.length} ${dueNotes.length === 1 ? 'memory is' : 'memories are'} ready.` : 'Nothing needs your attention right now.'}</Text>
+            <AppText accessibilityRole="header" variant="display">{timeGreeting()}</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.headerSubtitle}>
+              {dueNotes.length > 0
+                ? `${dueNotes.length} ${dueNotes.length === 1 ? 'memory is' : 'memories are'} ready.`
+                : "You're caught up."}
+            </AppText>
           </View>
 
           {firstMemoryPromptNote && !activeRecallId ? (
-            <View accessibilityLiveRegion="polite" style={styles.firstMemoryCard}>
-              <View style={styles.firstMemoryHeader}>
-                <View style={styles.firstMemoryIcon}><Icon name={icons.lightbulb} size={22} /></View>
-                <View style={styles.firstMemoryCopy}>
-                  <Text style={styles.firstMemoryTitle}>Your first memory is saved</Text>
-                  <Text style={styles.firstMemorySubtitle}>{savedMemoryMessage(firstMemoryPromptNote.nextRecallAt)}</Text>
+            <Card style={styles.firstMemoryCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.roundIcon}><Icon name={icons.lightbulb} /></View>
+                <View style={styles.cardCopy}>
+                  <AppText variant="section">Your first memory is saved</AppText>
+                  <AppText variant="metadata" tone="secondary" style={styles.metaTop}>{savedMemoryMessage(firstMemoryPromptNote.nextRecallAt)}</AppText>
                 </View>
               </View>
-              <Text style={styles.firstMemoryBody}>Try the recall flow once now. This practice will not change the date above.</Text>
+              <AppText variant="supporting" tone="secondary" style={styles.firstMemoryBody}>
+                Try the recall flow once now. Practice won't change its return date.
+              </AppText>
               <View style={styles.firstMemoryActions}>
-                <Pressable accessibilityRole="button" onPress={() => startRecall(firstMemoryPromptNote, true)} style={styles.firstMemoryPrimaryButton}><Text style={styles.firstMemoryPrimaryText}>Try practice recall</Text></Pressable>
-                <Pressable accessibilityRole="button" onPress={clearFirstMemoryParams} style={styles.firstMemoryDismissButton}><Text style={styles.firstMemoryDismissText}>Later</Text></Pressable>
+                <Button label="Try practice recall" onPress={() => startRecall(firstMemoryPromptNote, true)} style={styles.flexButton} />
+                <Button label="Later" variant="text" onPress={clearFirstMemoryParams} />
               </View>
-            </View>
-          ) : statusMessage ? (
-            <View accessibilityLiveRegion="polite" style={styles.successMessage}><Icon color={colors.green} name={icons.check} size={18} /><Text style={styles.successText}>{statusMessage}</Text></View>
+            </Card>
           ) : null}
 
           {dueNote ? (
             <View style={styles.section}>
-              <Text style={sharedStyles.sectionLabel}>{isPractice ? 'Practice recall' : 'Ready to recall'}</Text>
-              <View style={styles.recallCard}>
-                <View style={styles.recallHeader}>
-                  <View style={styles.recallIcon}><Icon name={kindIcon(dueNote.kind)} size={23} /></View>
-                  <View style={styles.recallCopy}>
-                    <Text accessibilityRole="header" style={styles.recallTitle}>{recallCue(dueNote)}</Text>
-                    <Text style={styles.recallMeta}>{dueNote.source || noteKindLabel(dueNote)}</Text>
+              <SectionHeader>{isPractice ? 'Practice recall' : 'Ready to recall'}</SectionHeader>
+              <Card accent>
+                <View style={styles.cardHeader}>
+                  <View style={styles.roundIcon}><Icon name={kindIcon(dueNote.kind)} /></View>
+                  <View style={styles.cardCopy}>
+                    <AppText accessibilityRole="header" variant="section">{recallCue(dueNote)}</AppText>
+                    <AppText variant="metadata" tone="secondary" style={styles.metaTop}>{dueNote.source || noteKindLabel(dueNote)}</AppText>
                   </View>
                 </View>
                 <View style={styles.recallDivider} />
+
                 {recallStage === 'cue' ? (
                   <View style={styles.recallActions}>
-                    <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => startRecall(dueNote)} style={[styles.primaryButton, savingRecall && styles.buttonDisabled]}><Text style={styles.primaryButtonText}>Try to recall</Text></Pressable>
-                    {!isPractice ? <Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => { void postponeRecall(); }} style={styles.laterButton}><Icon name={icons.later} size={19} /><Text style={styles.laterText}>Tomorrow</Text></Pressable> : null}
+                    <Button disabled={savingRecall} label="Try to recall" onPress={() => startRecall(dueNote)} style={styles.flexButton} />
+                    {!isPractice ? <Button disabled={savingRecall} label="Tomorrow" variant="text" onPress={() => { void postponeRecall(); }} /> : null}
                   </View>
                 ) : recallStage === 'attempt' ? (
-                  <View accessibilityLiveRegion="polite" style={styles.attemptBlock}><Icon name={icons.lightbulb} size={21} /><Text style={styles.attemptText}>Say the idea in your own words. The memory is still hidden.</Text><Pressable accessibilityRole="button" disabled={savingRecall} onPress={() => setRecallStage('revealed')} style={styles.primaryButton}><Text style={styles.primaryButtonText}>Reveal memory</Text></Pressable></View>
+                  <View accessibilityLiveRegion="polite" style={styles.attemptBlock}>
+                    <View style={styles.attemptPrompt}>
+                      <Icon name={icons.lightbulb} size={sizes.compactIcon} />
+                      <AppText variant="supporting" tone="secondary" style={styles.attemptCopy}>Try saying it in your own words. The memory is still hidden.</AppText>
+                    </View>
+                    <Button disabled={savingRecall} label="Reveal memory" onPress={() => setRecallStage('revealed')} />
+                  </View>
                 ) : (
-                  <View accessibilityLiveRegion="polite" style={styles.revealBlock}>
-                    <Text style={styles.revealedBody}>{dueNote.body}</Text>
-                    <TextInput accessibilityLabel="Optional recall reflection" editable={!savingRecall} onChangeText={setReflection} placeholder={reflectionPrompt(dueNote.kind)} placeholderTextColor={colors.muted} style={styles.reflectionInput} value={reflection} />
-                    <Text style={styles.ratingPrompt}>How well did you remember it?</Text>
-                    <View style={styles.ratingRow}>{(['forgot', 'partial', 'remembered'] as const).map((status) => <Pressable accessibilityLabel={`Mark recall ${recallResultLabel(status)}`} accessibilityRole="button" accessibilityState={{ busy: savingRecall, disabled: savingRecall }} disabled={savingRecall} key={status} onPress={() => { void saveRecall(status); }} style={[styles.ratingButton, savingRecall && styles.buttonDisabled]}><Text style={styles.ratingText}>{recallResultLabel(status)}</Text></Pressable>)}</View>
-                    {savingRecall ? <Text accessibilityLiveRegion="polite" style={styles.savingStatus}>Saving recall…</Text> : null}
+                  <View accessibilityLiveRegion="polite">
+                    <AppText variant="body">{dueNote.body}</AppText>
+                    <TextField
+                      accessibilityLabel="Optional recall reflection"
+                      editable={!savingRecall}
+                      multiline
+                      onChangeText={setReflection}
+                      placeholder={reflectionPrompt(dueNote.kind)}
+                      style={styles.reflectionInput}
+                      value={reflection}
+                    />
+                    <AppText variant="supporting" style={styles.ratingPrompt}>How well did you remember it?</AppText>
+                    <View style={styles.ratingRow}>
+                      {(['forgot', 'partial', 'remembered'] as const).map((status) => (
+                        <Button
+                          accessibilityLabel={`Mark recall ${ratingLabel(status)}`}
+                          accessibilityState={{ busy: savingRecall, disabled: savingRecall }}
+                          disabled={savingRecall}
+                          key={status}
+                          label={ratingLabel(status)}
+                          onPress={() => { void saveRecall(status); }}
+                          style={styles.ratingButton}
+                          variant="secondary"
+                        />
+                      ))}
+                    </View>
+                    {savingRecall ? <AppText accessibilityLiveRegion="polite" variant="metadata" tone="secondary" style={styles.savingStatus}>Saving recall…</AppText> : null}
                   </View>
                 )}
-              </View>
-              {recallError ? <Text accessibilityRole="alert" style={styles.error}>{recallError}</Text> : null}
+              </Card>
+              {recallError ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{recallError}</AppText> : null}
             </View>
-          ) : upcomingMessage ? <View style={styles.upcomingSection}><Icon color={colors.accent} name={icons.later} size={16} /><Text style={styles.upcomingText}>{upcomingMessage}</Text></View> : null}
+          ) : upcomingMessage ? (
+            <View style={styles.upcomingSection}>
+              <Icon color={colors.action} name={icons.later} size={18} />
+              <AppText variant="supporting" tone="secondary" style={styles.upcomingCopy}>{upcomingMessage}</AppText>
+            </View>
+          ) : null}
 
-          <CaptureEntry isEmpty={notes.length === 0} onPress={() => router.navigate('/capture')} />
+          <View style={styles.section}>
+            <SectionHeader>Capture</SectionHeader>
+            {notes.length === 0 ? <AppText variant="supporting" tone="secondary" style={styles.emptyPromise}>Save something worth remembering. Stories will bring it back later.</AppText> : null}
+            <Button
+              label="New memory"
+              leading={<Icon name={icons.add} size={sizes.compactIcon} color={dueNote ? colors.action : colors.onAction} />}
+              onPress={() => router.navigate('/capture')}
+              variant={dueNote ? 'secondary' : 'primary'}
+            />
+          </View>
 
           {recentNotes.length > 0 ? (
             <View style={styles.section}>
-              <Text style={sharedStyles.sectionLabel}>Recent</Text>
-              <View style={styles.recentList}>{recentNotes.map((note, index) => <Pressable key={note.id} accessibilityLabel={`Open ${note.title}`} accessibilityRole="button" onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })} style={[styles.recentRow, index > 0 && styles.recentRowBorder]}><View style={styles.recentIcon}><Icon name={kindIcon(note.kind)} size={21} /></View><View style={styles.recentCopy}><Text numberOfLines={2} style={styles.recentTitle}>{note.title}</Text><Text style={styles.recentSubtitle}>{noteKindLabel(note)} · {shortDateLabel(note.updatedAt)}</Text></View><Icon color={colors.muted} name={icons.chevron} size={19} /></Pressable>)}</View>
+              <SectionHeader>Recent</SectionHeader>
+              {recentNotes.map((note, index) => (
+                <ListRow
+                  key={note.id}
+                  accessibilityLabel={`Open ${note.title}`}
+                  leading={<View style={styles.compactIcon}><Icon name={kindIcon(note.kind)} size={sizes.compactIcon} /></View>}
+                  metadata={`${noteKindLabel(note)} · ${shortDateLabel(note.updatedAt)}`}
+                  onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
+                  showTopDivider={index > 0}
+                  title={note.title}
+                  trailing={<Icon color={colors.textSecondary} name={icons.chevron} size={18} />}
+                />
+              ))}
+              {healthyNotes.length > recentNotes.length ? <Button label="View Library" variant="text" onPress={() => router.navigate('/(tabs)/files')} /> : null}
             </View>
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {statusMessage ? (
+        <View pointerEvents="none" style={[styles.snackbarOverlay, { bottom: tabBar.height + spacing.md }]}>
+          <Snackbar message={statusMessage} />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
-function CaptureEntry({ isEmpty, onPress }: { isEmpty: boolean; onPress: () => void }) {
-  return <View style={styles.captureSection}><Text style={sharedStyles.sectionLabel}>Capture</Text>{isEmpty ? <Text style={styles.emptyPromise}>Save something worth remembering. Stories will bring it back later.</Text> : null}<Pressable accessibilityRole="button" onPress={onPress} style={styles.captureRow}><Icon name={icons.edit} size={25} /><Text style={styles.captureTitle}>What is worth remembering?</Text><Icon name={icons.add} size={22} /></Pressable></View>;
-}
-
 const styles = StyleSheet.create({
-  scrollContent: { paddingBottom: 36, paddingHorizontal: 20, paddingTop: 18 },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  muted: { color: colors.muted, fontSize: 16 },
-  errorTitle: { color: colors.ink, fontSize: 21, fontWeight: '700', textAlign: 'center' },
-  errorCopy: { marginTop: 10, maxWidth: 310, textAlign: 'center' },
-  errorHint: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 8, maxWidth: 310, textAlign: 'center' },
-  header: { marginBottom: 0 },
-  section: { marginTop: 29 },
-  captureSection: { marginTop: 29 },
-  captureRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.controlLine, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 13, minHeight: 64, paddingHorizontal: 15 },
-  captureTitle: { color: colors.muted, flex: 1, fontSize: 17 },
-  emptyPromise: { color: colors.muted, fontSize: 15, lineHeight: 22, marginBottom: 12, maxWidth: 330 },
-  firstMemoryCard: { backgroundColor: colors.surface, borderColor: colors.accent, borderRadius: 16, borderWidth: 1.5, marginTop: 16, padding: 18 },
-  firstMemoryHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
-  firstMemoryIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
-  firstMemoryCopy: { flex: 1 },
-  firstMemoryTitle: { color: colors.ink, fontSize: 17, fontWeight: '700', lineHeight: 22 },
-  firstMemorySubtitle: { color: colors.muted, fontSize: 13, marginTop: 3 },
-  firstMemoryBody: { color: colors.ink, fontSize: 15, lineHeight: 22, marginTop: 14 },
-  firstMemoryActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  firstMemoryPrimaryButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 10, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
-  firstMemoryPrimaryText: { color: colors.onAction, fontSize: 14, fontWeight: '600' },
-  firstMemoryDismissButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14 },
-  firstMemoryDismissText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  successMessage: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 14 },
-  successText: { color: colors.green, flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 20 },
-  recallCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, borderLeftWidth: 3, borderLeftColor: colors.accentWarm, padding: 16 },
-  recallHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
-  recallIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
-  recallCopy: { flex: 1 },
-  recallTitle: { color: colors.ink, fontSize: 17, fontWeight: '600', lineHeight: 22 },
-  recallMeta: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 5 },
-  recallDivider: { backgroundColor: colors.line, height: StyleSheet.hairlineWidth, marginVertical: 15 },
-  recallActions: { gap: 8 },
-  primaryButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 11, justifyContent: 'center', minHeight: 48, paddingHorizontal: 16 },
-  primaryButtonText: { color: colors.onAction, fontSize: 15, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.52 },
-  laterButton: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 46 },
-  laterText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
-  attemptBlock: { gap: 13 },
-  attemptText: { color: colors.muted, fontSize: 15, lineHeight: 22 },
-  revealBlock: { gap: 13 },
-  revealedBody: { color: colors.ink, fontSize: 16, lineHeight: 25 },
-  reflectionInput: { borderColor: colors.controlLine, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, lineHeight: 21, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },
-  ratingPrompt: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  ratingRow: { flexDirection: 'row', gap: 7 },
-  ratingButton: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 6 },
-  ratingText: { color: colors.ink, fontSize: 13, fontWeight: '600' },
-  savingStatus: { color: colors.muted, fontSize: 13, lineHeight: 18 },
-  error: { color: colors.danger, fontSize: 14, lineHeight: 20, marginTop: 10 },
-  upcomingSection: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 22 },
-  upcomingText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
-  recentList: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth },
-  recentRow: { alignItems: 'center', flexDirection: 'row', minHeight: 68, paddingVertical: 10 },
-  recentRowBorder: { borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth },
-  recentIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 10, height: 40, justifyContent: 'center', marginRight: 12, width: 40 },
-  recentCopy: { flex: 1 },
-  recentTitle: { color: colors.ink, fontSize: 15, fontWeight: '600', lineHeight: 21 },
-  recentSubtitle: { color: colors.muted, fontSize: 13, marginTop: 3 },
+  scrollContent: { paddingBottom: spacing.xxxl, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  header: { marginBottom: spacing.md },
+  headerSubtitle: { marginTop: spacing.xxs },
+  section: { marginTop: spacing.xxl },
+  firstMemoryCard: { marginTop: spacing.md },
+  cardHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
+  roundIcon: { alignItems: 'center', backgroundColor: colors.actionMuted, borderRadius: radii.pill, height: 44, justifyContent: 'center', width: 44 },
+  compactIcon: { alignItems: 'center', backgroundColor: colors.actionMuted, borderRadius: radii.compact, height: 36, justifyContent: 'center', width: 36 },
+  cardCopy: { flex: 1 },
+  metaTop: { marginTop: spacing.xxs },
+  firstMemoryBody: { marginTop: spacing.md },
+  firstMemoryActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
+  flexButton: { flex: 1 },
+  recallDivider: { backgroundColor: colors.divider, height: StyleSheet.hairlineWidth, marginVertical: spacing.md },
+  recallActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  attemptBlock: { gap: spacing.md },
+  attemptPrompt: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.xs },
+  attemptCopy: { flex: 1 },
+  reflectionInput: { marginTop: spacing.md, minHeight: 88, textAlignVertical: 'top' },
+  ratingPrompt: { fontWeight: '600', marginTop: spacing.md },
+  ratingRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  ratingButton: { flex: 1, paddingHorizontal: spacing.xs },
+  savingStatus: { marginTop: spacing.xs, textAlign: 'center' },
+  error: { marginTop: spacing.sm },
+  upcomingSection: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xl },
+  upcomingCopy: { flex: 1 },
+  emptyPromise: { marginBottom: spacing.sm, maxWidth: 330 },
+  snackbarOverlay: { left: 0, position: 'absolute', right: 0 },
 });
