@@ -5,6 +5,7 @@ import type { LinkResolution, MemoryNote, MemoryVault, NoteDraft } from '@core/i
 import { BrowserFileStore } from './browser-file-store';
 import { DeviceFileStore, deviceVaultLocation } from './device-file-store';
 import { ensureVaultReady } from './save-gate';
+import { reconcileRecallReminder } from '@/src/notifications/reminder-scheduler';
 
 type VaultContextValue = {
   notes: MemoryNote[];
@@ -54,6 +55,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!hydrated || openError || Platform.OS === 'web') return;
+    void reconcileRecallReminder(notes).catch(() => {
+      // Reminder reconciliation must never block access to the local vault.
+    });
+  }, [hydrated, notes, openError]);
 
   const saveNote = useCallback(async (draft: NoteDraft) => {
     const vault = vaultRef.current;
