@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Platform, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/src/ui/theme';
+import { colors, sizes, spacing } from '@/src/ui/theme';
 import { tabBarMetrics } from '@/src/navigation/tab-bar';
 
 type TabIconProps = {
@@ -12,7 +12,7 @@ type TabIconProps = {
 };
 
 function TabIcon({ android, color, ios }: TabIconProps) {
-  return <SymbolView name={{ android, ios, web: android }} size={22} tintColor={color} />;
+  return <SymbolView name={{ android, ios, web: android }} size={sizes.standardIcon} tintColor={color} />;
 }
 
 export default function TabLayout() {
@@ -23,15 +23,15 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarActiveTintColor: colors.action,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.line,
+          borderTopColor: colors.divider,
           height: tabBar.height,
           paddingBottom: tabBar.bottomPadding,
-          paddingTop: 8,
+          paddingTop: spacing.xs,
         },
       }}
     >
