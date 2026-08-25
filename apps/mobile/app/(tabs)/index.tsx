@@ -214,7 +214,7 @@ export default function TodayScreen() {
                 </View>
               </View>
               <AppText variant="supporting" tone="secondary" style={styles.firstMemoryBody}>
-                Try the recall flow once now. Practice won't change its return date.
+                {'Try the recall flow once now. Practice won\'t change its return date.'}
               </AppText>
               <View style={styles.firstMemoryActions}>
                 <Button label="Try practice recall" onPress={() => startRecall(firstMemoryPromptNote, true)} style={styles.flexButton} />
