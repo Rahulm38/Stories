@@ -41,6 +41,11 @@ export type VaultFile = {
   markdown: string;
 };
 
+export type VaultReadIssue = {
+  path: string;
+  message: string;
+};
+
 export type VaultQuery = {
   search?: string;
   folder?: string;
@@ -56,6 +61,7 @@ export type LinkResolution = {
 
 export type VaultSnapshot = {
   notes: MemoryNote[];
+  readIssues: VaultReadIssue[];
 };
 
 export type VaultChange = {
@@ -69,6 +75,7 @@ export interface VaultFileStore {
   list(): Promise<VaultFile[]>;
   replace(previousPath: string | undefined, nextPath: string, markdown: string): Promise<void>;
   delete?(path: string): Promise<void>;
+  getReadIssues?(): VaultReadIssue[];
 }
 
 export interface MemoryVault {

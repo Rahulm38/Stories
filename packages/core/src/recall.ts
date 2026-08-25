@@ -6,6 +6,10 @@ export const RECALL_INTERVAL_DAYS: Readonly<Record<RecallStatus, number>> = {
   forgot: 1,
 };
 
+function localDateStamp(date: Date): string {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+
 function parseRecallDate(value: string | undefined): Date | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
@@ -18,9 +22,13 @@ function parseRecallDate(value: string | undefined): Date | undefined {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   if (month < 1 || month > 12 || day < 1 || day > daysInMonth) return undefined;
   if (trimmed.length === 10) return new Date(year, month - 1, day);
-
   const parsed = new Date(trimmed);
   return Number.isFinite(parsed.getTime()) ? parsed : undefined;
+}
+
+function recallCalendarDay(value: string | undefined): string | undefined {
+  const parsed = parseRecallDate(value);
+  return parsed ? localDateStamp(parsed) : undefined;
 }
 
 function addDays(isoDate: string, days: number): string {
@@ -30,26 +38,22 @@ function addDays(isoDate: string, days: number): string {
   return date.toISOString();
 }
 
-function localDateStamp(date: Date): string {
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
-}
-
 export function normalizeRecallTimestamp(value: string | undefined): string | undefined {
   return parseRecallDate(value)?.toISOString();
 }
 
 export function dueRecalls(notes: MemoryNote[], now = new Date()): MemoryNote[] {
-  const nowTime = now.getTime();
+  const today = localDateStamp(now);
   return notes
     .filter((note) => {
-      if (note.parseStatus === 'quarantine') return false;
-      if (!note.nextRecallAt) return false;
-      const dueTime = parseRecallDate(note.nextRecallAt)?.getTime();
-      return dueTime !== undefined && dueTime <= nowTime;
+      if (note.parseStatus === 'quarantine' || !note.nextRecallAt) return false;
+      const dueDay = recallCalendarDay(note.nextRecallAt);
+      return dueDay !== undefined && dueDay <= today;
     })
     .sort((a, b) => {
-      const timeDifference = parseRecallDate(a.nextRecallAt)!.getTime() - parseRecallDate(b.nextRecallAt)!.getTime();
-      return timeDifference || a.path.localeCompare(b.path) || a.id.localeCompare(b.id);
+      const aDay = recallCalendarDay(a.nextRecallAt) || '';
+      const bDay = recallCalendarDay(b.nextRecallAt) || '';
+      return aDay.localeCompare(bDay) || a.path.localeCompare(b.path) || a.id.localeCompare(b.id);
     });
 }
 
@@ -60,12 +64,14 @@ export function scheduleFirstRecall(now = new Date(), days = 1): string {
 export function appendRecallReflection(body: string, reflection: string, now = new Date()): string {
   const content = reflection.trim();
   if (!content) return body;
-
   const section = `## Recall reflection\n\n${localDateStamp(now)}\n\n${content}`;
   return [body.trimEnd(), section].filter(Boolean).join('\n\n');
 }
 
 export function gradeRecall(note: MemoryNote, status: RecallStatus, now = new Date()): NoteDraft {
+  const today = localDateStamp(now);
+  const scheduledDay = recallCalendarDay(note.nextRecallAt);
+  const isEarlyPractice = Boolean(note.nextRecallAt && scheduledDay && scheduledDay > today);
   return {
     id: note.id,
     title: note.title,
@@ -76,7 +82,22 @@ export function gradeRecall(note: MemoryNote, status: RecallStatus, now = new Da
     recallPrompt: note.recallPrompt,
     recallStatus: status,
     lastRecalledAt: now.toISOString(),
-    nextRecallAt: addDays(now.toISOString(), RECALL_INTERVAL_DAYS[status]),
+    nextRecallAt: isEarlyPractice ? note.nextRecallAt : addDays(now.toISOString(), RECALL_INTERVAL_DAYS[status]),
+  };
+}
+
+export function practiceRecall(note: MemoryNote, status: RecallStatus, reflection = '', now = new Date()): NoteDraft {
+  return {
+    id: note.id,
+    title: note.title,
+    body: appendRecallReflection(note.body, reflection, now),
+    kind: note.kind,
+    folder: note.folder,
+    source: note.source,
+    recallPrompt: note.recallPrompt,
+    recallStatus: status,
+    lastRecalledAt: now.toISOString(),
+    nextRecallAt: note.nextRecallAt,
   };
 }
 

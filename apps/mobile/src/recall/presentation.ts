@@ -6,6 +6,13 @@ const RESULT_LABELS: Readonly<Record<RecallStatus, string>> = {
   remembered: 'Got it',
 };
 
+function localDate(value: string): Date | undefined {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T)/);
+  if (!match) return undefined;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isFinite(date.getTime()) ? date : undefined;
+}
+
 export function timeGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -14,13 +21,13 @@ export function timeGreeting(): string {
 }
 
 export function reflectionPrompt(kind: MemoryKind): string {
-  if (kind === 'book-learning') return 'How does this idea connect to your life today?';
+  if (kind === 'book-learning') return 'Where could this idea matter in your life now?';
   if (kind === 'experience') return 'What would you do differently now?';
-  return 'Any new thoughts since last time?';
+  return 'Where could this matter now?';
 }
 
 export function shortDateLabel(value: string, locale?: string): string | undefined {
-  const date = new Date(value);
+  const date = localDate(value) ?? new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
   return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
@@ -47,6 +54,11 @@ export function recallCue(note: Pick<MemoryNote, 'kind' | 'recallPrompt' | 'sour
 export function savedMemoryMessage(nextRecallAt?: string, locale?: string): string {
   const returnDate = nextRecallAt ? shortDateLabel(nextRecallAt, locale) : undefined;
   return returnDate ? `Saved privately. It returns on ${returnDate}.` : 'Saved privately.';
+}
+
+export function practiceCompletionMessage(nextRecallAt?: string, locale?: string): string {
+  const returnDate = nextRecallAt ? shortDateLabel(nextRecallAt, locale) : undefined;
+  return returnDate ? `Practice complete. This memory still returns on ${returnDate}.` : 'Practice complete.';
 }
 
 export function remainingRecallMessage(remaining: number): string {
