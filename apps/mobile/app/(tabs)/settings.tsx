@@ -1,13 +1,18 @@
 import React, { useCallback, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import { Alert, AppState, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, AppState, StyleSheet, Switch, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, sharedStyles, sizes, spacing, typography } from '@/src/ui/theme';
+import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { useVault } from '@/src/vault/provider';
 import { DEFAULT_REMINDER_PREFS, reminderStatusCopy, type ReminderPreferences } from '@/src/notifications/reminder-service';
 import { readReminderPreferences, writeReminderPreferences } from '@/src/notifications/reminder-preferences';
 import { reconcileRecallReminder } from '@/src/notifications/reminder-scheduler';
 import { checkNotificationPermission, openDeviceNotificationSettings, requestNotificationPermission, type PermissionStatus } from '@/src/notifications/device-permissions';
+import { AppText } from '@/src/ui/components/AppText';
+import { AppScreen } from '@/src/ui/components/AppScreen';
+import { ListRow } from '@/src/ui/components/ListRow';
+import { SectionHeader } from '@/src/ui/components/SectionHeader';
 
 export default function SettingsScreen() {
   const { notes, storageLocation } = useVault();
@@ -62,89 +67,83 @@ export default function SettingsScreen() {
 
     const result = currentStatus === 'granted' ? currentStatus : await requestNotificationPermission();
     setPermissionStatus(result);
-    if (result === 'granted') {
-      await persistReminders({ ...reminderPrefs, enabled: true });
-    }
+    if (result === 'granted') await persistReminders({ ...reminderPrefs, enabled: true });
   };
 
   return (
-    <SafeAreaView style={sharedStyles.screen} edges={['top']}>
-      <ScrollView style={sharedStyles.screen} contentContainerStyle={sharedStyles.scrollContent}>
-        <Text accessibilityRole="header" style={sharedStyles.title}>Settings</Text>
-        <Text style={sharedStyles.subtitle}>Local by default. Recall on your terms.</Text>
+    <AppScreen scroll scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
+      <AppText accessibilityRole="header" variant="display">Settings</AppText>
+      <AppText variant="supporting" tone="secondary" style={styles.subtitle}>Local by default. Recall on your terms.</AppText>
 
-        <View style={styles.section}>
-          <Text style={sharedStyles.sectionLabel}>Remembering</Text>
-          <View style={styles.row}>
-            <View style={styles.copy}>
-              <Text style={styles.title}>New memories return in 3 days</Text>
-              <Text style={styles.detail}>You can choose one week or turn recall off for an individual memory while capturing it.</Text>
-            </View>
+      <View style={styles.section}>
+        <SectionHeader>Remembering</SectionHeader>
+        <View style={styles.settingRow}>
+          <View style={styles.copy}>
+            <AppText variant="action">Quiet reminder</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.detail}>{reminderStatusCopy(reminderPrefs, permissionStatus === 'blocked')}</AppText>
+            {permissionStatus === 'blocked' ? (
+              <ListRow
+                showTopDivider={false}
+                title="Open device settings"
+                onPress={() => { void openDeviceNotificationSettings(); }}
+                trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.textSecondary} />}
+              />
+            ) : null}
           </View>
-          <View style={[styles.row, styles.rowWithoutTopBorder]}>
-            <View style={styles.copy}>
-              <Text style={styles.title}>Quiet reminder</Text>
-              <Text style={styles.detail}>{reminderStatusCopy(reminderPrefs, permissionStatus === 'blocked')}</Text>
-              {permissionStatus === 'blocked' ? (
-                <Pressable accessibilityRole="button" onPress={() => { void openDeviceNotificationSettings(); }} style={styles.permissionActionRow}>
-                  <Text style={styles.permissionActionText}>Open device settings →</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            <Switch
-              accessibilityLabel="Enable quiet recall reminder"
-              onValueChange={(value) => { void toggleReminders(value); }}
-              thumbColor={colors.onAction}
-              trackColor={{ false: colors.controlLine, true: colors.accent }}
-              value={reminderPrefs.enabled && permissionStatus === 'granted'}
-            />
-          </View>
+          <Switch
+            accessibilityLabel="Enable quiet recall reminder"
+            onValueChange={(value) => { void toggleReminders(value); }}
+            thumbColor={colors.onAction}
+            trackColor={{ false: colors.controlBorder, true: colors.action }}
+            value={reminderPrefs.enabled && permissionStatus === 'granted'}
+          />
         </View>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={sharedStyles.sectionLabel}>Storage & privacy</Text>
-          <View style={styles.row}>
-            <View style={styles.copy}>
-              <Text style={styles.title}>Stored on this device</Text>
-              <Text style={styles.detail}>Each memory is a local Markdown file. Stories does not upload your memory content or require an account.</Text>
-            </View>
-            <Text style={styles.value}>Local</Text>
+      <View style={styles.section}>
+        <SectionHeader>Storage & privacy</SectionHeader>
+        <View style={styles.settingRow}>
+          <View style={styles.copy}>
+            <AppText variant="action">Stored on this device</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.detail}>Each memory is a local Markdown file. Stories does not upload your memory content or require an account.</AppText>
           </View>
-          <View style={[styles.row, styles.rowWithoutTopBorder]}>
-            <View style={styles.copy}>
-              <Text style={styles.title}>Vault location</Text>
-              <Text style={styles.detail}>Stories uses its app-private document folder.</Text>
-              <Text accessibilityLabel={`Vault location ${storageLocation}`} selectable style={styles.path}>{storageLocation}</Text>
-            </View>
-          </View>
+          <AppText variant="metadata" tone="success" style={styles.value}>Local</AppText>
         </View>
+        <ListRow
+          title="Privacy policy"
+          subtitle="How Stories handles your memories and device data."
+          onPress={() => router.push('/privacy')}
+          trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.textSecondary} />}
+        />
+      </View>
 
-        <View style={styles.section}>
-          <Text style={sharedStyles.sectionLabel}>About</Text>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/privacy')} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-            <View style={styles.copy}>
-              <Text style={styles.title}>Privacy policy</Text>
-              <Text style={styles.detail}>How Stories handles your memories and device data.</Text>
-            </View>
-            <Text style={styles.action}>Read</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <View style={styles.section}>
+        <SectionHeader>Advanced</SectionHeader>
+        <ListRow
+          title="Vault location"
+          subtitle="App-private storage on this device"
+          onPress={() => Alert.alert('Vault location', storageLocation, [{ text: 'Done' }])}
+          trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.textSecondary} />}
+        />
+      </View>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  subtitle: { marginTop: spacing.xxs },
   section: { marginTop: spacing.xxl },
-  row: { alignItems: 'flex-start', borderBottomColor: colors.divider, borderTopColor: colors.divider, borderBottomWidth: StyleSheet.hairlineWidth, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', minHeight: sizes.rowMinimum, paddingVertical: spacing.md },
-  rowWithoutTopBorder: { borderTopWidth: 0 },
+  settingRow: {
+    alignItems: 'flex-start',
+    borderBottomColor: colors.divider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    minHeight: sizes.rowMinimum,
+    paddingVertical: spacing.md,
+  },
   copy: { flex: 1, paddingRight: spacing.md },
-  title: { color: colors.textPrimary, ...typography.action },
-  detail: { color: colors.textSecondary, marginTop: spacing.xxs, ...typography.supporting },
-  value: { color: colors.success, fontSize: 14, fontWeight: '600', marginTop: 2 },
-  action: { color: colors.accent, fontSize: 14, fontWeight: '600', marginTop: 2 },
-  pressed: { opacity: 0.65 },
-  path: { color: colors.textPrimary, marginTop: spacing.xs, ...typography.metadata },
-  permissionActionRow: { marginTop: 6, paddingVertical: 2 },
-  permissionActionText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  detail: { marginTop: spacing.xxs },
+  value: { fontWeight: '600', marginTop: spacing.xxs },
 });
