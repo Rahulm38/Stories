@@ -1,13 +1,21 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { VaultProvider } from '@/src/vault/provider';
 import { colors } from '@/src/ui/theme';
+import { configureReminderPresentation } from '@/src/notifications/reminder-scheduler';
 
 export { ErrorBoundary } from 'expo-router';
 
 export default function RootLayout() {
+  useEffect(() => {
+    void configureReminderPresentation().catch(() => {
+      // Notifications are optional; app startup and local memories must remain available.
+    });
+  }, []);
+
   return (
     <SafeAreaProvider style={styles.provider}>
       <View style={styles.appFrame}>
