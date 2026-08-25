@@ -1,11 +1,17 @@
 import { StyleSheet } from 'react-native';
 
 /**
- * Stories' semantic design tokens.
+ * Stories' semantic design system.
  *
- * Screens should prefer these roles over literal values. The legacy `colors`
- * names below remain aliases so this foundation can land without forcing a
- * risky, all-at-once screen migration.
+ * Product rules:
+ * - screens use semantic tokens, never raw colours;
+ * - spacing follows the 4/8 baseline grid;
+ * - interactive targets are at least 48dp;
+ * - controls use a 12dp radius, cards 16dp, compact icon containers 8dp;
+ * - typography is intentionally small and fixed so the app feels like one product.
+ *
+ * A few legacy aliases remain while older UI is migrated. New code should prefer
+ * semantic names directly.
  */
 export const semanticColors = {
   canvas: '#FAFAF8',
@@ -38,13 +44,18 @@ export const colors = {
 } as const;
 
 export const typography = {
-  screenTitle: { fontSize: 34, lineHeight: 41, fontWeight: '600', letterSpacing: -0.8 },
-  noteTitle: { fontSize: 27, lineHeight: 34, fontWeight: '600', letterSpacing: -0.35 },
-  sectionTitle: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  display: { fontSize: 32, lineHeight: 40, fontWeight: '600', letterSpacing: -0.6 },
+  title: { fontSize: 26, lineHeight: 32, fontWeight: '600', letterSpacing: -0.3 },
+  section: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
   body: { fontSize: 17, lineHeight: 27, fontWeight: '400' },
-  action: { fontSize: 16, lineHeight: 21, fontWeight: '600' },
   supporting: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
   metadata: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  action: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
+
+  // Legacy aliases. Prefer the semantic names above for new work.
+  screenTitle: { fontSize: 32, lineHeight: 40, fontWeight: '600', letterSpacing: -0.6 },
+  noteTitle: { fontSize: 26, lineHeight: 32, fontWeight: '600', letterSpacing: -0.3 },
+  sectionTitle: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
 } as const;
 
 export const spacing = {
@@ -61,18 +72,24 @@ export const spacing = {
 
 export const radii = {
   none: 0,
+  compact: 8,
+  control: 12,
+  card: 16,
+  pill: 999,
+
+  // Legacy aliases.
   subtle: 8,
-  control: 11,
-  panel: 14,
+  panel: 16,
   round: 999,
 } as const;
 
 export const sizes = {
-  touchMinimum: 44,
+  touchMinimum: 48,
   primaryActionHeight: 48,
-  rowMinimum: 56,
-  compactIcon: 18,
+  rowMinimum: 64,
+  compactIcon: 20,
   standardIcon: 22,
+  primaryIcon: 24,
   contentMaxWidth: 680,
 } as const;
 
@@ -87,41 +104,40 @@ export const designTokens = {
 export const sharedStyles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.paper,
+    backgroundColor: colors.canvas,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 36,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxxl,
   },
   title: {
-    color: colors.ink,
-    ...typography.screenTitle,
+    color: colors.textPrimary,
+    ...typography.display,
   },
   subtitle: {
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 21,
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginTop: spacing.xxs,
+    ...typography.supporting,
   },
   sectionLabel: {
-    color: colors.accent,
-    fontSize: 13,
+    color: colors.action,
+    marginBottom: spacing.sm,
+    ...typography.metadata,
     fontWeight: '600',
-    letterSpacing: 0.25,
-    marginBottom: 11,
+    letterSpacing: 0.2,
   },
   hairline: {
-    backgroundColor: colors.line,
+    backgroundColor: colors.divider,
     height: StyleSheet.hairlineWidth,
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: colors.accent,
-    borderRadius: radii.panel,
+    backgroundColor: colors.action,
+    borderRadius: radii.control,
     justifyContent: 'center',
     minHeight: sizes.primaryActionHeight,
-    paddingHorizontal: 18,
+    paddingHorizontal: spacing.lg,
   },
   primaryButtonText: {
     color: colors.onAction,
@@ -132,11 +148,10 @@ export const sharedStyles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: sizes.touchMinimum,
     minWidth: sizes.touchMinimum,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.xs,
   },
   quietButtonText: {
-    color: colors.accent,
-    fontSize: 15,
-    fontWeight: '600',
+    color: colors.action,
+    ...typography.action,
   },
 });
