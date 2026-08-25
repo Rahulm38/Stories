@@ -6,55 +6,49 @@ export const RECALL_INTERVAL_DAYS: Readonly<Record<RecallStatus, number>> = {
   forgot: 1,
 };
 
-function parseRecallDate(value: string | undefined): Date | undefined {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  const calendarDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?=$|T)/);
-  if (!calendarDate) return undefined;
-  const [, yearText, monthText, dayText] = calendarDate;
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  if (month < 1 || month > 12 || day < 1 || day > daysInMonth) return undefined;
-  if (trimmed.length === 10) return new Date(year, month - 1, day);
-
-  const parsed = new Date(trimmed);
-  return Number.isFinite(parsed.getTime()) ? parsed : undefined;
-}
-
-function addDays(isoDate: string, days: number): string {
-  const date = parseRecallDate(isoDate);
-  if (!date) throw new Error('Cannot schedule recall from an invalid date');
-  date.setDate(date.getDate() + days);
-  return date.toISOString();
-}
-
 function localDateStamp(date: Date): string {
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
 
+function parseCalendarDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T)/);
+  if (!match) return undefined;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth) return undefined;
+  return new Date(year, month - 1, day);
+}
+
+function addCalendarDays(value: Date | string, days: number): string {
+  const date = value instanceof Date ? new Date(value) : parseCalendarDate(value);
+  if (!date || !Number.isFinite(date.getTime())) throw new Error('Cannot schedule recall from an invalid date');
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return localDateStamp(date);
+}
+
 export function normalizeRecallTimestamp(value: string | undefined): string | undefined {
-  return parseRecallDate(value)?.toISOString();
+  const parsed = parseCalendarDate(value);
+  return parsed ? localDateStamp(parsed) : undefined;
 }
 
 export function dueRecalls(notes: MemoryNote[], now = new Date()): MemoryNote[] {
-  const nowTime = now.getTime();
+  const today = localDateStamp(now);
   return notes
-    .filter((note) => {
-      if (note.parseStatus === 'quarantine') return false;
-      if (!note.nextRecallAt) return false;
-      const dueTime = parseRecallDate(note.nextRecallAt)?.getTime();
-      return dueTime !== undefined && dueTime <= nowTime;
-    })
+    .filter((note) => note.parseStatus !== 'quarantine' && Boolean(note.nextRecallAt) && normalizeRecallTimestamp(note.nextRecallAt)! <= today)
     .sort((a, b) => {
-      const timeDifference = parseRecallDate(a.nextRecallAt)!.getTime() - parseRecallDate(b.nextRecallAt)!.getTime();
-      return timeDifference || a.path.localeCompare(b.path) || a.id.localeCompare(b.id);
+      const aDate = normalizeRecallTimestamp(a.nextRecallAt) || '';
+      const bDate = normalizeRecallTimestamp(b.nextRecallAt) || '';
+      return aDate.localeCompare(bDate) || a.path.localeCompare(b.path) || a.id.localeCompare(b.id);
     });
 }
 
 export function scheduleFirstRecall(now = new Date(), days = 1): string {
-  return addDays(now.toISOString(), days);
+  return addCalendarDays(now, days);
 }
 
 export function appendRecallReflection(body: string, reflection: string, now = new Date()): string {
@@ -76,7 +70,22 @@ export function gradeRecall(note: MemoryNote, status: RecallStatus, now = new Da
     recallPrompt: note.recallPrompt,
     recallStatus: status,
     lastRecalledAt: now.toISOString(),
-    nextRecallAt: addDays(now.toISOString(), RECALL_INTERVAL_DAYS[status]),
+    nextRecallAt: addCalendarDays(now, RECALL_INTERVAL_DAYS[status]),
+  };
+}
+
+export function practiceRecall(note: MemoryNote, status: RecallStatus, reflection = '', now = new Date()): NoteDraft {
+  return {
+    id: note.id,
+    title: note.title,
+    body: appendRecallReflection(note.body, reflection, now),
+    kind: note.kind,
+    folder: note.folder,
+    source: note.source,
+    recallPrompt: note.recallPrompt,
+    recallStatus: status,
+    lastRecalledAt: now.toISOString(),
+    nextRecallAt: note.nextRecallAt,
   };
 }
 
@@ -91,6 +100,6 @@ export function deferRecall(note: MemoryNote, now = new Date()): NoteDraft {
     recallPrompt: note.recallPrompt,
     recallStatus: note.recallStatus,
     lastRecalledAt: note.lastRecalledAt,
-    nextRecallAt: addDays(now.toISOString(), 1),
+    nextRecallAt: addCalendarDays(now, 1),
   };
 }
