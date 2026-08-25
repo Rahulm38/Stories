@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,8 +10,17 @@ import { clearCaptureDraft, readCaptureDraft, writeCaptureDraft } from '@/src/ca
 import { captureKindFromParam } from '@/src/navigation/route-state';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { useVault } from '@/src/vault/provider';
-import { colors, sharedStyles } from '@/src/ui/theme';
+import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { shortDateLabel } from '@/src/recall/presentation';
+import { AppText } from '@/src/ui/components/AppText';
+import { Button } from '@/src/ui/components/Button';
+import { DisclosureRow } from '@/src/ui/components/DisclosureRow';
+import { ErrorState } from '@/src/ui/components/ErrorState';
+import { IconButton } from '@/src/ui/components/IconButton';
+import { SegmentedControl } from '@/src/ui/components/SegmentedControl';
+import { StatusMessage } from '@/src/ui/components/StatusMessage';
+import { TextField } from '@/src/ui/components/TextField';
+import { TopAppBar } from '@/src/ui/components/TopAppBar';
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -74,7 +83,6 @@ export default function CaptureScreen() {
   const recallDaysDisplay = recallDaysForChoice(recallChoice);
   const nextRecallAtDisplay = recallDaysDisplay ? scheduleFirstRecall(new Date(), recallDaysDisplay) : undefined;
   const formattedReturnDate = nextRecallAtDisplay ? shortDateLabel(nextRecallAtDisplay) : '';
-  const saveButtonText = saving ? 'Saving…' : (!hydrated ? 'Opening…' : (formattedReturnDate ? `Save · returns ${formattedReturnDate}` : 'Save memory'));
 
   const leaveCapture = useCallback(() => {
     if (Platform.OS !== 'web' && router.canGoBack()) router.back();
@@ -119,82 +127,147 @@ export default function CaptureScreen() {
   };
 
   if (openError) {
-    return <SafeAreaView style={[sharedStyles.screen, styles.errorScreen]} edges={['top', 'bottom']}><Text accessibilityRole="header" style={styles.errorTitle}>Your vault could not be opened</Text><Text accessibilityRole="alert" style={styles.error}>{openError}</Text><Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)')} style={sharedStyles.quietButton}><Text style={sharedStyles.quietButtonText}>Back to Today</Text></Pressable></SafeAreaView>;
+    return (
+      <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
+        <ErrorState
+          title="Couldn't open your memories"
+          body={openError}
+          hint="Your files were not replaced."
+          action={<Button label="Back to Today" variant="text" onPress={() => router.replace('/(tabs)')} />}
+        />
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={sharedStyles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <TopAppBar
+          title="New memory"
+          left={(
+            <IconButton accessibilityLabel="Close new memory" disabled={saving} onPress={leaveCapture}>
+              <SymbolView name={{ android: 'close', ios: 'xmark', web: 'close' }} size={sizes.standardIcon} tintColor={colors.action} />
+            </IconButton>
+          )}
+        />
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
-          <View style={styles.topBar}><Text accessibilityRole="header" style={styles.topBarTitle}>New memory</Text></View>
-          {recovered ? <View accessibilityLiveRegion="polite" style={styles.recovered}><Text style={styles.recoveredText}>Recovered your unfinished memory.</Text></View> : null}
-          <Text style={styles.editorLabel}>What do you want to remember?</Text>
-          <Text style={styles.editorSupport}>One sentence is enough.</Text>
-          <MarkdownEditor value={draft} onChangeText={(value) => { if (!savingRef.current) setDraft(value); }} accessibilityLabel="What do you want to remember?" placeholder={placeholder} autoFocus editable={!saving} minHeight={280} showToolbar={false} />
+          {recovered ? <StatusMessage message="Recovered your unfinished memory." /> : null}
+
+          <View style={styles.editorHeading}>
+            <AppText variant="action">What do you want to remember?</AppText>
+            <AppText variant="metadata" tone="secondary" style={styles.editorSupport}>One sentence is enough.</AppText>
+          </View>
+          <MarkdownEditor
+            value={draft}
+            onChangeText={(value) => { if (!savingRef.current) setDraft(value); }}
+            accessibilityLabel="What do you want to remember?"
+            placeholder={placeholder}
+            autoFocus
+            editable={!saving}
+            minHeight={280}
+            showToolbar={false}
+          />
 
           <View style={styles.detailsPanel}>
-            <Pressable accessibilityHint={detailsExpanded ? 'Hides optional memory settings' : 'Shows memory type, recall timing, and optional recall cue'} accessibilityLabel={`Memory details, ${memoryDetailsSummary(kind, recallChoice)}`} accessibilityRole="button" accessibilityState={{ expanded: detailsExpanded }} disabled={saving} onPress={() => setDetailsExpanded((expanded) => !expanded)} style={({ pressed }) => [styles.detailsDisclosure, pressed && styles.detailsDisclosurePressed]}>
-              <View style={styles.detailsHeading}><SymbolView name={{ android: 'tune', ios: 'slider.horizontal.3', web: 'tune' }} size={20} tintColor={colors.accent} /><View style={styles.detailsHeadingCopy}><Text style={styles.detailsTitle}>Memory details</Text><Text style={styles.detailsSummary}>{memoryDetailsSummary(kind, recallChoice)}</Text></View></View>
-              <SymbolView accessibilityElementsHidden importantForAccessibility="no-hide-descendants" name={{ android: detailsExpanded ? 'expand_less' : 'expand_more', ios: detailsExpanded ? 'chevron.up' : 'chevron.down', web: detailsExpanded ? 'expand_less' : 'expand_more' }} size={20} tintColor={colors.accent} />
-            </Pressable>
+            <DisclosureRow
+              accessibilityHint={detailsExpanded ? 'Hides optional memory settings' : 'Shows memory type, recall timing, and optional recall cue'}
+              accessibilityLabel={`Memory details, ${memoryDetailsSummary(kind, recallChoice)}`}
+              accessibilityState={{ expanded: detailsExpanded }}
+              disabled={saving}
+              onPress={() => setDetailsExpanded((expanded) => !expanded)}
+              title="Memory details"
+              summary={memoryDetailsSummary(kind, recallChoice)}
+              leading={<SymbolView name={{ android: 'tune', ios: 'slider.horizontal.3', web: 'tune' }} size={sizes.compactIcon} tintColor={colors.action} />}
+              trailing={<SymbolView accessibilityElementsHidden importantForAccessibility="no-hide-descendants" name={{ android: detailsExpanded ? 'expand_less' : 'expand_more', ios: detailsExpanded ? 'chevron.up' : 'chevron.down', web: detailsExpanded ? 'expand_less' : 'expand_more' }} size={sizes.compactIcon} tintColor={colors.action} />}
+            />
 
-            {detailsExpanded ? <View style={styles.detailsContent}>
-              <Text style={styles.fieldLabel}>Save as</Text>
-              <View accessibilityRole="radiogroup" accessibilityLabel="Remember as" style={styles.modeRow}>{MEMORY_KIND_OPTIONS.map((option) => { const selected = kind === option.value; return <Pressable accessibilityLabel={option.label} key={option.value} accessibilityRole="radio" accessibilityState={{ selected }} disabled={saving} onPress={() => router.setParams({ kind: option.value })} style={[styles.modeChip, selected && styles.modeChipSelected]}><Text style={[styles.modeChipText, selected && styles.modeChipTextSelected]}>{option.label}</Text></Pressable>; })}</View>
-              {kind !== 'note' ? <View style={styles.detailField}><Text style={styles.fieldLabel}>{kind === 'book-learning' ? 'Book or author' : 'People, place, or context'} <Text style={styles.optional}>Optional</Text></Text><TextInput accessibilityLabel={kind === 'book-learning' ? 'Optional book or author' : 'Optional people, place, or context'} editable={!saving} onChangeText={setSource} placeholder={kind === 'book-learning' ? 'e.g. Deep Work by Cal Newport' : 'e.g. Goa with Mira'} placeholderTextColor={colors.muted} style={styles.input} value={source} /></View> : null}
-              <View style={styles.detailField}><Text style={styles.fieldLabel}>Bring this back</Text><View accessibilityRole="radiogroup" accessibilityLabel="Recall timing" style={styles.segmentedRow}>{RECALL_OPTIONS.map((option) => { const selected = recallChoice === option.value; return <Pressable key={option.value} accessibilityRole="radio" accessibilityState={{ selected }} disabled={saving} onPress={() => setRecallChoice(option.value)} style={[styles.segment, selected && styles.segmentSelected]}><Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text></Pressable>; })}</View></View>
-              {recallChoice !== 'off' ? <View style={styles.detailField}><Text style={styles.fieldLabel}>Recall cue <Text style={styles.optional}>Optional</Text></Text><TextInput accessibilityLabel="Optional recall cue" editable={!saving} onChangeText={setRecallPrompt} placeholder="What should future-you try to recall?" placeholderTextColor={colors.muted} style={styles.input} value={recallPrompt} /></View> : null}
-            </View> : null}
+            {detailsExpanded ? (
+              <View style={styles.detailsContent}>
+                <FieldLabel>Save as</FieldLabel>
+                <SegmentedControl accessibilityLabel="Remember as" disabled={saving} options={MEMORY_KIND_OPTIONS} value={kind} onChange={(value) => router.setParams({ kind: value })} />
+
+                {kind !== 'note' ? (
+                  <View style={styles.detailField}>
+                    <FieldLabel optional>{kind === 'book-learning' ? 'Book or author' : 'People, place, or context'}</FieldLabel>
+                    <TextField
+                      accessibilityLabel={kind === 'book-learning' ? 'Optional book or author' : 'Optional people, place, or context'}
+                      editable={!saving}
+                      onChangeText={setSource}
+                      placeholder={kind === 'book-learning' ? 'e.g. Deep Work by Cal Newport' : 'e.g. Goa with Mira'}
+                      value={source}
+                    />
+                  </View>
+                ) : null}
+
+                <View style={styles.detailField}>
+                  <FieldLabel>Bring this back</FieldLabel>
+                  <SegmentedControl accessibilityLabel="Recall timing" disabled={saving} options={RECALL_OPTIONS} value={recallChoice} onChange={setRecallChoice} />
+                </View>
+
+                {recallChoice !== 'off' ? (
+                  <View style={styles.detailField}>
+                    <FieldLabel optional>Recall cue</FieldLabel>
+                    <TextField accessibilityLabel="Optional recall cue" editable={!saving} onChangeText={setRecallPrompt} placeholder="What should future-you try to recall?" value={recallPrompt} />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
-          <View style={styles.storageHintRow}><SymbolView name={{ android: 'lock', ios: 'lock', web: 'lock' }} size={16} tintColor={colors.green} /><Text style={styles.storageHint}>Stored privately on this device.</Text></View>
-          {saveError ? <Text accessibilityRole="alert" style={styles.error}>{saveError}</Text> : null}
+          <View style={styles.storageHintRow}>
+            <SymbolView name={{ android: 'lock', ios: 'lock', web: 'lock' }} size={18} tintColor={colors.success} />
+            <AppText variant="metadata" tone="secondary">Stored privately on this device.</AppText>
+          </View>
+          {saveError ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{saveError}</AppText> : null}
         </ScrollView>
-        <View style={styles.bottomBar}><Pressable accessibilityRole="button" disabled={saving} onPress={leaveCapture} style={styles.cancelButton}><Text style={styles.cancelButtonText}>Cancel</Text></Pressable><Pressable accessibilityRole="button" accessibilityState={{ busy: saving, disabled: !hydrated || !draft.trim() || saving }} disabled={!hydrated || !draft.trim() || saving} onPress={() => { void save(); }} style={[styles.saveButton, (!hydrated || !draft.trim() || saving) && styles.buttonDisabled]}><Text style={styles.saveButtonText}>{saveButtonText}</Text></Pressable></View>
+
+        <View style={styles.bottomBar}>
+          {formattedReturnDate ? <AppText variant="metadata" tone="secondary" style={styles.returnDate}>Returns {formattedReturnDate}</AppText> : null}
+          <Button
+            accessibilityState={{ busy: saving, disabled: !hydrated || !draft.trim() || saving }}
+            disabled={!hydrated || !draft.trim() || saving}
+            label={saving ? 'Saving…' : 'Save memory'}
+            onPress={() => { void save(); }}
+            style={styles.saveButton}
+          />
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+function FieldLabel({ children, optional = false }: { children: string; optional?: boolean }) {
+  return (
+    <AppText variant="metadata" style={styles.fieldLabel}>
+      {children}{optional ? <AppText variant="metadata" tone="secondary"> · Optional</AppText> : null}
+    </AppText>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollContent: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 20 },
-  topBar: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, justifyContent: 'center', minHeight: 58 },
-  topBarTitle: { color: colors.ink, fontSize: 17, fontWeight: '600' },
-  recovered: { backgroundColor: colors.accentSoft, borderRadius: 10, marginTop: 14, paddingHorizontal: 12, paddingVertical: 9 },
-  recoveredText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
-  editorLabel: { color: colors.ink, fontSize: 15, fontWeight: '600', marginBottom: 4, marginTop: 18 },
-  editorSupport: { color: colors.muted, fontSize: 13, marginBottom: 10 },
-  detailsPanel: { borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 22 },
-  detailsDisclosure: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 64, paddingVertical: 10 },
-  detailsDisclosurePressed: { opacity: 0.68 },
-  detailsHeading: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 11 },
-  detailsHeadingCopy: { flex: 1 },
-  detailsTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  detailsSummary: { color: colors.muted, fontSize: 13, marginTop: 2 },
-  detailsContent: { paddingBottom: 18 },
-  fieldLabel: { color: colors.ink, fontSize: 13, fontWeight: '600', marginBottom: 8 },
-  optional: { color: colors.muted, fontWeight: '400' },
-  modeRow: { flexDirection: 'row', gap: 7 },
-  modeChip: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
-  modeChipSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  modeChipText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  modeChipTextSelected: { color: colors.accent },
-  detailField: { marginTop: 18 },
-  input: { borderColor: colors.controlLine, borderRadius: 11, borderWidth: 1, color: colors.ink, fontSize: 15, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },
-  segmentedRow: { flexDirection: 'row', gap: 7 },
-  segment: { alignItems: 'center', borderColor: colors.controlLine, borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
-  segmentSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  segmentText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  segmentTextSelected: { color: colors.accent },
-  storageHintRow: { alignItems: 'center', flexDirection: 'row', gap: 7, marginTop: 18 },
-  storageHint: { color: colors.muted, fontSize: 13 },
-  error: { color: colors.danger, fontSize: 14, lineHeight: 20, marginTop: 10 },
-  errorScreen: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  errorTitle: { color: colors.ink, fontSize: 21, fontWeight: '700', marginBottom: 10, textAlign: 'center' },
-  bottomBar: { alignItems: 'center', backgroundColor: colors.paper, borderTopColor: colors.line, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 10 },
-  cancelButton: { alignItems: 'center', justifyContent: 'center', minHeight: 48, paddingHorizontal: 12 },
-  cancelButtonText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
-  saveButton: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 12, flex: 1, justifyContent: 'center', minHeight: 48, paddingHorizontal: 14 },
-  saveButtonText: { color: colors.onAction, fontSize: 15, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.5 },
+  scrollContent: { flexGrow: 1, paddingBottom: spacing.xl, paddingHorizontal: spacing.lg },
+  editorHeading: { marginBottom: spacing.xs, marginTop: spacing.lg },
+  editorSupport: { marginTop: spacing.xxs },
+  detailsPanel: {
+    borderBottomColor: colors.divider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: spacing.xl,
+  },
+  detailsContent: { paddingBottom: spacing.lg, paddingTop: spacing.xs },
+  detailField: { marginTop: spacing.lg },
+  fieldLabel: { fontWeight: '600', marginBottom: spacing.xs },
+  storageHintRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.lg },
+  error: { marginTop: spacing.sm },
+  bottomBar: {
+    backgroundColor: colors.canvas,
+    borderTopColor: colors.divider,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+  },
+  returnDate: { marginBottom: spacing.xs, textAlign: 'center' },
+  saveButton: { width: '100%' },
 });
