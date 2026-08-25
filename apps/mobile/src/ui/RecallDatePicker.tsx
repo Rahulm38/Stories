@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SymbolView } from 'expo-symbols';
 
 import { dateInputFromDate, dateInputToDate } from '../navigation/local-date';
-import { colors, sizes } from './theme';
+import { colors, radii, sizes, spacing } from './theme';
+import { AppText } from './components/AppText';
+import { Button } from './components/Button';
+import { TextField } from './components/TextField';
 
 export type RecallDatePickerProps = {
   value: string;
@@ -22,7 +25,7 @@ export function RecallDatePicker({ value, onChange, disabled = false }: RecallDa
 
   if (Platform.OS === 'web') {
     return (
-      <TextInput
+      <TextField
         accessibilityLabel="Recall date"
         autoCapitalize="none"
         editable={!disabled}
@@ -30,8 +33,6 @@ export function RecallDatePicker({ value, onChange, disabled = false }: RecallDa
         maxLength={10}
         onChangeText={onChange}
         placeholder="YYYY-MM-DD"
-        placeholderTextColor={colors.muted}
-        style={styles.field}
         value={value}
       />
     );
@@ -62,16 +63,13 @@ export function RecallDatePicker({ value, onChange, disabled = false }: RecallDa
         accessibilityRole="button"
         accessibilityState={{ expanded, disabled }}
         accessibilityValue={{ text: value ? labelFor(selected) : 'Not set' }}
+        android_ripple={{ color: colors.actionMuted }}
         disabled={disabled}
         onPress={toggleExpanded}
-        style={({ pressed }) => [styles.field, styles.row, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.field, pressed && styles.pressed]}
       >
-        <Text style={[styles.value, !value && styles.placeholder]}>{value ? labelFor(selected) : 'Choose a date'}</Text>
-        <SymbolView
-          name={{ ios: 'calendar', android: 'calendar_today', web: 'calendar_today' }}
-          size={16}
-          tintColor={colors.accent}
-        />
+        <AppText variant="action" tone={value ? 'primary' : 'secondary'} style={styles.value}>{value ? labelFor(selected) : 'Choose a date'}</AppText>
+        <SymbolView name={{ ios: 'calendar', android: 'calendar_today', web: 'calendar_today' }} size={sizes.compactIcon} tintColor={colors.action} />
       </Pressable>
 
       {expanded ? (
@@ -84,35 +82,24 @@ export function RecallDatePicker({ value, onChange, disabled = false }: RecallDa
         />
       ) : null}
 
-      {value && !disabled ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onChange('')}
-          style={({ pressed }) => [styles.clearRow, pressed && styles.pressed]}
-        >
-          <Text style={styles.clearText}>Clear date</Text>
-        </Pressable>
-      ) : null}
+      {value && !disabled ? <Button label="Clear date" variant="text" onPress={() => onChange('')} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   field: {
+    alignItems: 'center',
     backgroundColor: colors.surface,
-    borderColor: colors.controlLine,
-    borderRadius: 10,
+    borderColor: colors.controlBorder,
+    borderRadius: radii.control,
     borderWidth: 1,
-    color: colors.ink,
-    fontSize: 16,
-    minHeight: sizes.primaryActionHeight,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    minHeight: sizes.touchMinimum,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  placeholder: { color: colors.muted },
-  pressed: { opacity: 0.62 },
-  row: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  value: { color: colors.ink, flex: 1, fontSize: 16 },
-  clearRow: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingVertical: 6 },
-  clearText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
+  value: { flex: 1, fontWeight: '400' },
+  pressed: { backgroundColor: colors.actionMuted },
 });
