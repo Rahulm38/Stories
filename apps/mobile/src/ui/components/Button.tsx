@@ -18,6 +18,7 @@ export function Button({ disabled, label, leading, style, variant = 'primary', .
     <Pressable
       {...props}
       accessibilityRole="button"
+      android_ripple={{ color: colors.actionMuted }}
       disabled={disabled}
       style={({ pressed }) => [
         styles.base,
@@ -43,6 +44,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     minHeight: sizes.touchMinimum,
+    overflow: 'hidden',
     paddingHorizontal: spacing.lg,
   },
   primary: { backgroundColor: colors.action },
