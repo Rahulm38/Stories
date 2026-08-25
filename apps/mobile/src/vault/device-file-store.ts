@@ -1,13 +1,10 @@
 import { Directory, File, Paths } from 'expo-file-system';
-import type { VaultFile, VaultFileStore } from '@core/model';
+import type { VaultFile, VaultFileStore, VaultReadIssue } from '@core/model';
 
 const VAULT_FOLDER = 'stories-vault';
 const RECOVERY_ARTIFACT = /^\.(.+)\.(\d+)\.(bak|tmp)$/;
 
-type RecoveryArtifact = {
-  kind: 'backup' | 'temporary';
-  targetName: string;
-};
+type RecoveryArtifact = { kind: 'backup' | 'temporary'; targetName: string };
 
 export function deviceVaultLocation(): string {
   return new Directory(Paths.document, VAULT_FOLDER).uri;
@@ -37,6 +34,11 @@ function isCompleteMarkdown(markdown: string): boolean {
 
 export class DeviceFileStore implements VaultFileStore {
   private readonly root = new Directory(Paths.document, VAULT_FOLDER);
+  private readIssues: VaultReadIssue[] = [];
+
+  getReadIssues(): VaultReadIssue[] {
+    return [...this.readIssues];
+  }
 
   private ensureRoot() {
     this.root.create({ intermediates: true, idempotent: true });
@@ -49,13 +51,11 @@ export class DeviceFileStore implements VaultFileStore {
       if (entry instanceof Directory) {
         files.push(...await this.readDirectory(entry, prefix ? `${prefix}/${entry.name}` : entry.name));
       } else if (entry instanceof File && entry.name.toLowerCase().endsWith('.md')) {
+        const path = prefix ? `${prefix}/${entry.name}` : entry.name;
         try {
-          files.push({
-            path: prefix ? `${prefix}/${entry.name}` : entry.name,
-            markdown: await entry.text(),
-          });
-        } catch {
-          // Keep one unreadable file from making the rest of the local vault unavailable.
+          files.push({ path, markdown: await entry.text() });
+        } catch (error) {
+          this.readIssues.push({ path, message: error instanceof Error ? error.message : 'This Markdown file could not be read' });
         }
       }
     }
@@ -67,7 +67,6 @@ export class DeviceFileStore implements VaultFileStore {
       if (!(entry instanceof File)) continue;
       const artifact = recoveryArtifact(entry.name);
       if (!artifact) continue;
-
       const destination = new File(directory, artifact.targetName);
       try {
         if (artifact.kind === 'temporary') {
@@ -75,31 +74,26 @@ export class DeviceFileStore implements VaultFileStore {
             const markdown = await entry.text();
             if (isCompleteMarkdown(markdown)) await entry.move(destination, { overwrite: false });
             else entry.delete();
-          } else {
-            entry.delete();
-          }
+          } else entry.delete();
           continue;
         }
-
         const destinationHealthy = destination.exists && isCompleteMarkdown(await destination.text());
         let restored = false;
         if (!destinationHealthy) {
           const markdown = await entry.text();
-          if (isCompleteMarkdown(markdown)) {
-            await entry.move(destination, { overwrite: true });
-            restored = true;
-          }
+          if (isCompleteMarkdown(markdown)) { await entry.move(destination, { overwrite: true }); restored = true; }
           else continue;
         }
         if (!restored && entry.exists) entry.delete();
       } catch {
-        // Leave an unrecoverable artifact for a later startup rather than deleting data.
+        // Keep an unrecoverable artifact for a later startup rather than deleting data.
       }
     }
   }
 
   async list(): Promise<VaultFile[]> {
     this.ensureRoot();
+    this.readIssues = [];
     return this.readDirectory(this.root, '');
   }
 
@@ -109,7 +103,6 @@ export class DeviceFileStore implements VaultFileStore {
     if (!parts) return undefined;
     const name = parts.pop();
     if (!name) return undefined;
-
     let directory = this.root;
     for (const folder of parts) {
       const next = new Directory(directory, folder);
@@ -120,20 +113,14 @@ export class DeviceFileStore implements VaultFileStore {
   }
 
   private recoveryArtifacts(directory: Directory, targetName: string): File[] {
-    return directory.list().filter((entry): entry is File => {
-      if (!(entry instanceof File)) return false;
-      return recoveryArtifact(entry.name)?.targetName === targetName;
-    });
+    return directory.list().filter((entry): entry is File => entry instanceof File && recoveryArtifact(entry.name)?.targetName === targetName);
   }
 
   async replace(previousPath: string | undefined, path: string, markdown: string): Promise<void> {
     const destination = this.fileAt(path, true);
     if (!destination) throw new Error('A Markdown file needs a name');
-
     const temporary = new File(destination.parentDirectory, `.${destination.name}.${Date.now()}.tmp`);
-    const backup = destination.exists
-      ? new File(destination.parentDirectory, `.${destination.name}.${Date.now()}.bak`)
-      : undefined;
+    const backup = destination.exists ? new File(destination.parentDirectory, `.${destination.name}.${Date.now()}.bak`) : undefined;
     let backupCreated = false;
     let committed = false;
     try {
@@ -143,13 +130,11 @@ export class DeviceFileStore implements VaultFileStore {
         if (await backup.text() !== original) throw new Error('The Markdown backup could not be verified');
         backupCreated = true;
       }
-
       temporary.create({ overwrite: true });
       temporary.write(markdown);
       if (await temporary.text() !== markdown) throw new Error('The Markdown file could not be verified');
       await temporary.move(destination, { overwrite: previousPath === path });
       committed = true;
-
       if (previousPath && previousPath !== path) {
         const previous = this.fileAt(previousPath, false);
         if (previous?.exists) previous.delete();
@@ -157,45 +142,22 @@ export class DeviceFileStore implements VaultFileStore {
     } catch (error) {
       if (committed) {
         try {
-          if (backupCreated && backup?.exists) {
-            await backup.move(destination, { overwrite: true });
-            backupCreated = false;
-          }
+          if (backupCreated && backup?.exists) { await backup.move(destination, { overwrite: true }); backupCreated = false; }
           else if (destination.exists) destination.delete();
-        } catch (restoreError) {
-          throw new Error('The Markdown file could not be restored after a failed move', { cause: restoreError });
-        }
+        } catch (restoreError) { throw new Error('The Markdown file could not be restored after a failed move', { cause: restoreError }); }
       } else if (backupCreated && backup?.exists) {
         let destinationHealthy = false;
-        try {
-          destinationHealthy = destination.exists && isCompleteMarkdown(await destination.text());
-        } catch {
-          destinationHealthy = false;
-        }
-
+        try { destinationHealthy = destination.exists && isCompleteMarkdown(await destination.text()); } catch { destinationHealthy = false; }
         if (!destinationHealthy) {
-          try {
-            await backup.move(destination, { overwrite: true });
-            backupCreated = false;
-          } catch (restoreError) {
-            throw new Error('The Markdown file could not be restored after a failed replacement', { cause: restoreError });
-          }
+          try { await backup.move(destination, { overwrite: true }); backupCreated = false; }
+          catch (restoreError) { throw new Error('The Markdown file could not be restored after a failed replacement', { cause: restoreError }); }
         }
       }
       if (!committed && temporary.exists) temporary.delete();
-      try {
-        if (backupCreated && backup?.exists) backup.delete();
-      } catch {
-        // A verified backup is a safe recovery artifact and will be cleaned on startup.
-      }
+      try { if (backupCreated && backup?.exists) backup.delete(); } catch { /* startup recovery keeps verified backups safe */ }
       throw error;
     }
-
-    try {
-      if (backupCreated && backup?.exists) backup.delete();
-    } catch {
-      // The committed destination is healthy; startup recovery will remove the stale backup.
-    }
+    try { if (backupCreated && backup?.exists) backup.delete(); } catch { /* startup recovery removes stale backup */ }
   }
 
   async delete(path: string): Promise<void> {
@@ -203,10 +165,6 @@ export class DeviceFileStore implements VaultFileStore {
     if (!file) throw new Error('The Markdown file could not be located');
     await this.recoverArtifacts(file.parentDirectory);
     if (!file.exists) throw new Error('This memory could not be found');
-
-    // Remove stale recovery copies before deleting the live file. If deletion is
-    // interrupted after this point, the source remains rather than being
-    // resurrected from an old backup on the next launch.
     for (const artifact of this.recoveryArtifacts(file.parentDirectory, file.name)) artifact.delete();
     file.delete();
   }
