@@ -24,14 +24,6 @@ export const mockMemories: Memory[] = [
     connectedMemoryIds: ['mem-2', 'mem-3'],
     recallCardIds: ['rc-1'],
     practiceStrength: 72,
-    storyDraft: {
-      shortVersion: 'In Goa, a cafe owner named Francis told us to skip the tourist sunset point and take the old chapel road instead. We almost didn\'t go, but it turned out to be the best evening of the trip — just us and a handful of locals watching the sun drop into the sea.',
-      longVersion: 'We were sitting at this open-air cafe near Anjuna, trying to figure out where to watch the sunset. The owner, Francis, overheard us and said, "Don\'t go to the point. Take the old chapel road. That\'s where we go." We almost ignored it — it didn\'t look like much on the map. But something about his confidence made us try it. The road wound through a quiet village, past an old Portuguese chapel with peeling blue paint, and opened up to a cliff edge. There were maybe five other people there, all locals. No vendors, no selfie sticks. Just the sky turning orange, the sound of waves below, and this feeling that we\'d found something real. Francis was right. The tourist point would have been fine, but this felt like the trip.',
-      bizarreMoment: 'A stray dog followed us the entire way to the chapel and sat with us during sunset like it does this every evening.',
-      localInteraction: 'Francis at the cafe — he didn\'t just give us a tip, he gave us the memory of the trip.',
-      lesson: 'Ask locals. The best experiences aren\'t on the map.',
-      vividDetail: 'The old Portuguese chapel had peeling blue paint and a single bell that someone rang right as the sun touched the water.',
-    },
   },
   {
     id: 'mem-2',
