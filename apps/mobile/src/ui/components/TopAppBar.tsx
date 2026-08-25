@@ -12,8 +12,10 @@ type TopAppBarProps = {
 export function TopAppBar({ left, right, title }: TopAppBarProps) {
   return (
     <View style={styles.bar}>
-      <View style={styles.side}>{left}</View>
-      <AppText variant="action" numberOfLines={1} style={styles.title}>{title}</AppText>
+      <View style={[styles.side, styles.left]}>{left}</View>
+      <View pointerEvents="none" style={styles.titleWrap}>
+        <AppText variant="action" numberOfLines={1} style={styles.title}>{title}</AppText>
+      </View>
       <View style={[styles.side, styles.right]}>{right}</View>
     </View>
   );
@@ -27,8 +29,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: 56,
     paddingHorizontal: spacing.sm,
+    position: 'relative',
   },
-  side: { minHeight: sizes.touchMinimum, minWidth: sizes.touchMinimum, justifyContent: 'center' },
+  side: { flex: 1, minHeight: sizes.touchMinimum, justifyContent: 'center' },
+  left: { alignItems: 'flex-start' },
   right: { alignItems: 'flex-end' },
-  title: { flex: 1, paddingHorizontal: spacing.xs, textAlign: 'center' },
+  titleWrap: { alignItems: 'center', left: 112, position: 'absolute', right: 112 },
+  title: { textAlign: 'center' },
 });
