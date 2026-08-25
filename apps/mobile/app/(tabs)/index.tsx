@@ -57,14 +57,18 @@ export default function TodayScreen() {
 
   useEffect(() => {
     const saved = Array.isArray(params.saved) ? params.saved[0] : params.saved;
-    if (saved !== '1' || firstParam === '1') return;
+    if (saved !== '1' || firstParam === '1') return undefined;
     const nextRecallAt = Array.isArray(params.nextRecallAt) ? params.nextRecallAt[0] : params.nextRecallAt;
-    setStatusMessage(savedMemoryMessage(nextRecallAt));
-    router.setParams({ nextRecallAt: undefined, saved: undefined });
+    const timer = setTimeout(() => {
+      if (!mountedRef.current) return;
+      setStatusMessage(savedMemoryMessage(nextRecallAt));
+      router.setParams({ nextRecallAt: undefined, saved: undefined });
+    }, 0);
+    return () => clearTimeout(timer);
   }, [firstParam, params.nextRecallAt, params.saved, router]);
 
   useEffect(() => {
-    if (!statusMessage) return;
+    if (!statusMessage) return undefined;
     const timer = setTimeout(() => setStatusMessage(''), 6_000);
     return () => clearTimeout(timer);
   }, [statusMessage]);
