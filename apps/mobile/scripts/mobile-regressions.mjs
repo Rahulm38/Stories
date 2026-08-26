@@ -100,9 +100,9 @@ test('Library search combines fragments, ranks exact matches, and tolerates smal
   assert.ok(librarySearchScore(story, 'Bangalore taxi') < librarySearchScore(story, 'Bangalor taxi'));
 });
 
-test('mobile flow contains the storyteller-first Android contracts', async () => {
+test('mobile flow contains discover, remember and tell outcome contracts', async () => {
   const [
-    capture, today, library, note, practice, triggerCard, revealSurface, choices, storyListItem,
+    capture, today, library, note, practice, triggerCard, revealSurface, choices, storyListItem, coaching,
     provider, appJsonText, mobilePackageText, easText, draftStore, reminderPrefs,
   ] = await Promise.all([
     readFile(new URL('../app/capture.tsx', import.meta.url), 'utf8'),
@@ -114,6 +114,7 @@ test('mobile flow contains the storyteller-first Android contracts', async () =>
     readFile(new URL('../src/ui/story/StoryRevealSurface.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/ui/story/RecallChoiceGroup.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/ui/story/StoryListItem.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/recall/story-coaching.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/vault/provider.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app.json', import.meta.url), 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8'),
@@ -124,11 +125,13 @@ test('mobile flow contains the storyteller-first Android contracts', async () =>
 
   for (const source of [capture, today, library, note, practice]) {
     assert.doesNotMatch(source, /Book learning|Experience|Recall cue|Memory details|Formatting toolbar/);
+    assert.doesNotMatch(source, /streak|points|leaderboard|score/i);
   }
 
   assert.match(capture, /What would you want to tell later\?/);
-  assert.match(capture, /Need an idea\?/);
+  assert.match(capture, /Find a story/);
   assert.match(capture, /STORY_STARTER_PROMPTS/);
+  assert.match(capture, /mode === 'prompt'/);
   assert.match(capture, /Try it now/);
   assert.match(capture, /scheduleFirstRecall\(new Date\(\), 3\)/);
   assert.match(capture, /clearCaptureDraft/);
@@ -138,6 +141,10 @@ test('mobile flow contains the storyteller-first Android contracts', async () =>
   assert.match(today, /RecallChoiceGroup/);
   assert.match(today, /Could you tell it\?/);
   assert.match(today, /Try a story/);
+  assert.match(today, /Find a story/);
+  assert.match(today, /readyStoryCount/);
+  assert.match(today, /ready to tell/);
+  assert.match(today, /storyCoachingCue/);
   assert.match(today, /Enough for today/);
   assert.match(today, /selectPracticeMemory/);
   assert.match(today, /readDailyReviewSession/);
@@ -146,9 +153,13 @@ test('mobile flow contains the storyteller-first Android contracts', async () =>
   assert.match(practice, /StoryTriggerCard/);
   assert.match(practice, /StoryRevealSurface/);
   assert.match(practice, /Another story/);
-  assert.doesNotMatch(practice, /gradeRecall|practiceRecall|saveNote|recordDailyReviewHandled/);
+  assert.match(practice, /I told this/);
+  assert.match(practice, /markStoryTold/);
+  assert.match(practice, /storyCoachingCue/);
+  assert.doesNotMatch(practice, /gradeRecall|practiceRecall|recordDailyReviewHandled/);
 
   assert.match(triggerCard, /Story trigger/);
+  assert.match(triggerCard, /coachingPrompt/);
   assert.match(triggerCard, /Tell it like you’d tell a friend/);
   assert.match(triggerCard, /Need a hint\?/);
   assert.match(revealSurface, /What you saved/);
@@ -157,6 +168,9 @@ test('mobile flow contains the storyteller-first Android contracts', async () =>
   assert.match(choices, /Yes/);
 
   assert.match(note, /Try telling/);
+  assert.match(note, /I told this/);
+  assert.match(note, /markStoryTold/);
+  assert.match(note, /storyReadiness/);
   assert.match(note, /plainStoryText/);
   assert.match(note, /\/practice\/\[id\]/);
   assert.match(note, /ActionSheet/);
@@ -167,8 +181,16 @@ test('mobile flow contains the storyteller-first Android contracts', async () =>
   assert.match(library, /StoryListItem/);
   assert.match(library, /Search stories/);
   assert.match(library, /Small typos are okay/);
+  assert.match(library, /readyStoryCount/);
+  assert.match(library, /ready to tell/);
   assert.doesNotMatch(library, /memoryTitle|storyCue|cleanSnippet|ListRow/);
   assert.match(storyListItem, /numberOfLines=\{2\}/);
+  assert.match(storyListItem, /readinessLabel/);
+
+  assert.match(coaching, /Start with where you were/);
+  assert.match(coaching, /Get to what changed/);
+  assert.match(coaching, /What made this worth telling/);
+  assert.match(coaching, /Tell it in under a minute/);
 
   for (const source of [capture, today, library, note, practice]) {
     assert.doesNotMatch(source, /Opening your memories|Search memories|memories left for now|memory reminders/i);
