@@ -65,7 +65,7 @@ export function StoryTriggerCard({
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 32 },
+  header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   headerRight: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   label: { fontWeight: '600', letterSpacing: 0.2 },
   primary: { marginTop: spacing.md },
