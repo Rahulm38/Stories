@@ -45,6 +45,7 @@ export default function TodayScreen() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [reminderPrompt, setReminderPrompt] = useState(false);
+  const [practiceOffset, setPracticeOffset] = useState(0);
   const mounted = useRef(true);
   const savingRef = useRef(false);
 
@@ -88,7 +89,7 @@ export default function TodayScreen() {
   const capped = activeSession.handled >= MAX_SESSION_MEMORIES;
   const current = capped ? undefined : due[0];
   const visibleDue = Math.min(due.length, Math.max(0, MAX_SESSION_MEMORIES - activeSession.handled));
-  const practiceCandidate = useMemo(() => selectPracticeMemory(healthy), [healthy]);
+  const practiceCandidate = useMemo(() => selectPracticeMemory(healthy, practiceOffset), [healthy, practiceOffset]);
   const upcoming = useMemo(
     () => healthy
       .filter((note) => note.nextRecallAt && !due.some((item) => item.id === note.id))
@@ -202,7 +203,9 @@ export default function TodayScreen() {
 
   const practiceNow = () => {
     if (!practiceCandidate) return;
-    router.push({ pathname: '/practice/[id]', params: { id: practiceCandidate.id, from: 'today' } });
+    const candidate = practiceCandidate;
+    setPracticeOffset((offset) => offset + 1);
+    router.push({ pathname: '/practice/[id]', params: { id: candidate.id, from: 'today' } });
   };
 
   const enableReminders = async () => {
