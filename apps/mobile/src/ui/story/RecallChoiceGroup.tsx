@@ -19,7 +19,7 @@ export function RecallChoiceGroup({ disabled = false, onSelect }: RecallChoiceGr
   const stack = width < 390 || PixelRatio.getFontScale() >= 1.3;
 
   return (
-    <View accessibilityRole="radiogroup" style={[styles.group, stack && styles.stack]}>
+    <View style={[styles.group, stack && styles.stack]}>
       {OPTIONS.map(({ label, status }) => (
         <Button
           key={status}
