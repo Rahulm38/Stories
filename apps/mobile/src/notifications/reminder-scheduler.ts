@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { MemoryNote } from '@core/model';
 import { readReminderPreferences } from './reminder-preferences';
+import { reminderNotificationMessage } from './reminder-service';
+import { readDailyReviewSession } from '@/src/recall/daily-session-store';
 
 const REMINDER_ID_KEY = 'stories-return-reminder';
 const LEGACY_REMINDER_ID_KEY = 'stories-recall-reminder';
@@ -11,6 +13,19 @@ function localDateFromRecall(value: string): Date | undefined {
   if (!match) return undefined;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   return Number.isFinite(date.getTime()) ? date : undefined;
+}
+
+function startOfLocalDay(value: Date): Date {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function tomorrowAt(hour: number, minute: number, now: Date): Date {
+  const target = startOfLocalDay(now);
+  target.setDate(target.getDate() + 1);
+  target.setHours(hour, minute, 0, 0);
+  return target;
 }
 
 export async function configureReminderPresentation(): Promise<void> {
@@ -44,22 +59,32 @@ export async function reconcileRecallReminder(notes: MemoryNote[], now = new Dat
   );
   if (!prefs.enabled) return;
 
-  const future = notes
+  const recallDates = notes
     .filter((note) => note.parseStatus !== 'quarantine' && note.nextRecallAt)
     .map((note) => localDateFromRecall(note.nextRecallAt!))
     .filter((date): date is Date => Boolean(date))
     .sort((a, b) => a.getTime() - b.getTime());
-  const nextDate = future[0];
-  if (!nextDate) return;
+  if (recallDates.length === 0) return;
 
-  const target = new Date(nextDate);
-  target.setHours(prefs.reminderHour, prefs.reminderMinute, 0, 0);
-  if (target.getTime() <= now.getTime()) target.setTime(now.getTime() + 60_000);
+  const today = startOfLocalDay(now);
+  const dueCount = recallDates.filter((date) => date.getTime() <= today.getTime()).length;
+  const dailySession = await readDailyReviewSession(now);
+
+  let target: Date;
+  if (dueCount > 0 && dailySession.handled > 0) {
+    // Once the user has engaged with Today's session, never nag again a minute later.
+    // Any remaining backlog gets one calm opportunity tomorrow.
+    target = tomorrowAt(prefs.reminderHour, prefs.reminderMinute, now);
+  } else {
+    target = new Date(recallDates[0]);
+    target.setHours(prefs.reminderHour, prefs.reminderMinute, 0, 0);
+    if (target.getTime() <= now.getTime()) target.setTime(now.getTime() + 60_000);
+  }
 
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Stories',
-      body: 'A memory is ready to come back.',
+      body: reminderNotificationMessage(Math.max(1, dueCount)) || 'A memory is ready to come back.',
       data: { [REMINDER_ID_KEY]: true },
       sound: false,
     },
