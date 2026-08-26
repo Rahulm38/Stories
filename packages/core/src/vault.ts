@@ -78,6 +78,8 @@ export function createMemoryVault(fileStore: VaultFileStore): MemoryVault {
       recallStatus: hasDraftField('recallStatus') ? draft.recallStatus : previous?.recallStatus,
       lastRecalledAt: hasDraftField('lastRecalledAt') ? draft.lastRecalledAt : previous?.lastRecalledAt,
       reviewStrengthDays: hasDraftField('reviewStrengthDays') ? draft.reviewStrengthDays : previous?.reviewStrengthDays,
+      toldCount: hasDraftField('toldCount') ? draft.toldCount : previous?.toldCount,
+      lastToldAt: hasDraftField('lastToldAt') ? draft.lastToldAt : previous?.lastToldAt,
       frontmatter: hasDraftField('frontmatter') ? draft.frontmatter : previous?.frontmatter,
     }, previous?.path || '');
 
