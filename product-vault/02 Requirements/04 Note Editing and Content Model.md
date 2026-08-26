@@ -1,35 +1,61 @@
-# Memory Reading, Editing and Content Model
+---
+title: Memory Editing and Content Model
+status: active
+last_reviewed: 2026-08-26
+---
 
-## Reading
+# Memory Editing and Content Model
 
-The memory screen prioritises the user's original content.
+## User-facing model
 
-Show:
+A memory is the text the user chose to keep. The original text is the source of truth.
 
-- original memory as ordinary readable text;
-- one lightweight return state: `Comes back [date]` or `Saved in Library`;
-- Edit and overflow actions.
+The Android UI does not ask users to manage:
+- title;
+- category/kind;
+- folder/path;
+- source field;
+- recall cue;
+- schedule date;
+- formatting syntax.
 
-Do not add a separate visible title, category, cue, or advanced details section to the memory screen.
+Those older fields may exist internally on beta memories only for compatibility.
 
-## Editing
+## Direct editing
 
-Editing is the memory text only. There is no formatting language, toolbar, title field, category field, cue field, or return-date form.
+Opening a memory places the body in a plain multiline editor immediately. There is no separate `Edit` mode or Save button.
 
-When edited, Stories may re-derive the Library display title from the first meaningful line. Existing return state is preserved automatically.
+Autosave requirements:
+- debounce normal typing;
+- serialize overlapping writes;
+- if the user types new text while an earlier write is in flight, the newest text must be saved next;
+- surface a quiet `Saving…` / `Saved` state;
+- surface errors visibly and keep the unsaved text in the editor;
+- never save an empty memory over a previously valid memory.
 
-## Overflow actions
+## Android Back
 
-- Share
-- Stop resurfacing, or Bring back in 3 days when currently stopped
-- Delete
+If current text differs from the last durable text or a write is in flight:
+1. prevent navigation;
+2. flush the newest non-empty text;
+3. verify no newer text appeared during the write and flush again if required;
+4. only then dispatch the pending navigation action.
 
-Stopping resurfacing does not delete the memory. Deleting requires destructive confirmation. Sharing uses the system share sheet and plain readable text.
+If the body is empty, offer `Keep writing` or `Restore saved version` rather than destroying the previous memory.
 
-## Content truth
+## Memory actions
 
-The user's saved memory is the source of truth. The system may derive a Library title, search index and short retrieval clue, but must not invent events, quotes, motives or details.
+Use a bottom action sheet so Android is not constrained by Alert button count.
 
-## Legacy compatibility
+- **Share** — system share sheet with current plain text.
+- **Stop resurfacing** — clears future due date but keeps the memory.
+- **Bring back in 3 days** — starts a fresh resurfacing cycle by clearing old rating/last-return/strength state.
+- **Delete memory** — destructive confirmation; permanently removes local memory.
 
-Older memories can contain storage-era metadata and formatting syntax. They must remain readable. The mobile product renders them as ordinary text and does not expose old authoring controls. Editing an older memory converts the visible content into the current plain-text experience.
+## Legacy content conversion
+
+When an older memory contains formatting syntax, editing converts it to ordinary readable text. Conversion must preserve meaningful content. In particular, a legacy external link such as `[Reference](https://example.com)` should become readable text that retains the URL rather than silently losing it.
+
+## Internal compatibility
+
+The existing beta storage representation is isolated in `packages/core/src/legacy-memory-format.ts`. Do not introduce new UI or product logic that depends on its filename extension, frontmatter, folder or formatting syntax. Any future migration away from it must have explicit rollback/compatibility tests before deleting reader support.
