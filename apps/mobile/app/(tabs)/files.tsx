@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MemoryNote } from '@core/model';
+import { readyStoryCount, storyReadiness } from '@core/story-state';
 import { librarySearchScore } from '@/src/navigation/library-search';
 import { useVault } from '@/src/vault/provider';
 import { colors, radii, sharedStyles, sizes, spacing, typography } from '@/src/ui/theme';
@@ -21,6 +22,7 @@ export default function FilesScreen() {
   const [query, setQuery] = useState('');
 
   const healthyStories = useMemo(() => notes.filter((note) => note.parseStatus !== 'quarantine'), [notes]);
+  const readyCount = useMemo(() => readyStoryCount(healthyStories), [healthyStories]);
   const visibleStories = useMemo(() => healthyStories
     .map((note) => ({ note, score: librarySearchScore(note, query) }))
     .filter((item): item is { note: MemoryNote; score: number } => item.score !== null)
@@ -75,6 +77,7 @@ export default function FilesScreen() {
                 <AppText accessibilityLabel={`${healthyStories.length} stories`} variant="supporting" tone="secondary" style={styles.count}>
                   {healthyStories.length} {healthyStories.length === 1 ? 'story' : 'stories'}
                 </AppText>
+                {readyCount > 0 ? <AppText variant="metadata" tone="action" style={styles.readyCount}>{readyCount} ready to tell</AppText> : null}
               </View>
               <Button label="New" variant="text" onPress={() => router.navigate('/capture')} />
             </View>
@@ -117,6 +120,7 @@ export default function FilesScreen() {
           <StoryListItem
             body={item.body}
             dateLabel={shortDateLabel(item.updatedAt)}
+            readinessLabel={storyReadiness(item) === 'ready' ? 'Ready' : undefined}
             onPress={() => router.push({ pathname: '/note/[id]', params: { id: item.id } })}
             showTopDivider={index > 0}
           />
@@ -131,6 +135,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', flexDirection: 'row', marginBottom: spacing.xl },
   headerCopy: { flex: 1 },
   count: { marginTop: spacing.xxs },
+  readyCount: { marginTop: spacing.xxs },
   issueBanner: {
     backgroundColor: colors.surface,
     borderColor: colors.danger,
