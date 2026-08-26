@@ -6,8 +6,8 @@ function recallAnchor(note: MemoryNote): number {
   return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
 }
 
-export function selectPracticeMemory(notes: MemoryNote[], offset = 0): MemoryNote | undefined {
-  const candidates = [...notes]
+function practiceCandidates(notes: MemoryNote[]): MemoryNote[] {
+  return [...notes]
     .filter((note) => note.parseStatus !== 'quarantine')
     .sort((a, b) => {
       const aHasRecall = Boolean(a.lastRecalledAt);
@@ -15,7 +15,19 @@ export function selectPracticeMemory(notes: MemoryNote[], offset = 0): MemoryNot
       if (aHasRecall !== bHasRecall) return aHasRecall ? 1 : -1;
       return recallAnchor(a) - recallAnchor(b) || a.id.localeCompare(b.id);
     });
+}
+
+export function selectPracticeMemory(notes: MemoryNote[], offset = 0): MemoryNote | undefined {
+  const candidates = practiceCandidates(notes);
   if (candidates.length === 0) return undefined;
   const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
   return candidates[safeOffset % candidates.length];
+}
+
+export function nextPracticeMemory(notes: MemoryNote[], currentId: string): MemoryNote | undefined {
+  const candidates = practiceCandidates(notes);
+  if (candidates.length <= 1) return undefined;
+  const currentIndex = candidates.findIndex((note) => note.id === currentId);
+  if (currentIndex < 0) return candidates[0];
+  return candidates[(currentIndex + 1) % candidates.length];
 }
