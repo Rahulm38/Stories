@@ -3,6 +3,7 @@
     "name": "Stories",
     "slug": "stories",
     "version": "1.0.0",
+    "platforms": ["android", "ios"],
     "orientation": "portrait",
     "icon": "./assets/images/stories-icon.png",
     "scheme": "stories",
@@ -22,11 +23,6 @@
       "bundleIdentifier": "com.rahulm.stories",
       "buildNumber": "1"
     },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/stories-icon.png"
-    },
     "plugins": [
       "expo-router",
       "expo-notifications",
@@ -37,8 +33,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#FAFAF8"
         }
-      ],
-      "@react-native-community/datetimepicker"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
