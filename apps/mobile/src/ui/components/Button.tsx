@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type 
 import { AppText } from './AppText';
 import { colors, radii, sizes, spacing } from '../theme';
 
-type ButtonVariant = 'primary' | 'secondary' | 'text' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'tonal' | 'text' | 'danger';
 
 type ButtonProps = Omit<PressableProps, 'style'> & {
   label: string;
@@ -24,6 +24,7 @@ export function Button({ disabled, label, leading, style, variant = 'primary', .
         styles.base,
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
+        variant === 'tonal' && styles.tonal,
         variant === 'text' && styles.text,
         variant === 'danger' && styles.danger,
         pressed && !disabled && styles.pressed,
@@ -49,6 +50,7 @@ const styles = StyleSheet.create({
   },
   primary: { backgroundColor: colors.action },
   secondary: { backgroundColor: colors.surface, borderColor: colors.controlBorder, borderWidth: 1 },
+  tonal: { backgroundColor: colors.actionMuted },
   text: { backgroundColor: 'transparent', paddingHorizontal: spacing.sm },
   danger: { backgroundColor: 'transparent', paddingHorizontal: spacing.sm },
   leading: { marginRight: spacing.xs },
