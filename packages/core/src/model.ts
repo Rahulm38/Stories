@@ -16,6 +16,12 @@ export type MemoryNote = {
   recallPrompt?: string;
   recallStatus?: RecallStatus;
   lastRecalledAt?: string;
+  /**
+   * Last durable recall interval. Stored separately from nextRecallAt so deferring
+   * a due memory cannot accidentally make the scheduling algorithm think the
+   * memory became stronger.
+   */
+  reviewStrengthDays?: number;
   frontmatter?: string[];
   schemaVersion?: number;
   parseStatus?: ParseStatus;
@@ -33,11 +39,13 @@ export type NoteDraft = {
   recallPrompt?: string;
   recallStatus?: RecallStatus;
   lastRecalledAt?: string;
+  reviewStrengthDays?: number;
   frontmatter?: string[];
 };
 
 export type VaultFile = {
   path: string;
+  /** Legacy on-device serialized representation. Kept only for safe beta-data compatibility. */
   markdown: string;
 };
 
@@ -84,7 +92,5 @@ export interface MemoryVault {
   read(id: string): MemoryNote | undefined;
   save(draft: NoteDraft): Promise<MemoryNote>;
   remove(id: string): Promise<void>;
-  suggestLinks(query: string, fromId?: string): LinkCandidate[];
-  resolveLink(target: string, fromId?: string): LinkResolution;
   subscribe(listener: (change: VaultChange) => void): () => void;
 }
