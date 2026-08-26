@@ -5,7 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MemoryNote } from '@core/model';
 import { memoryTitle, storyCue } from '@core/story-cue';
-import { matchesLibrarySearch } from '@/src/navigation/library-search';
+import { librarySearchScore } from '@/src/navigation/library-search';
 import { cleanSnippet } from '@/src/navigation/snippet';
 import { useVault } from '@/src/vault/provider';
 import { colors, radii, sharedStyles, sizes, spacing, typography } from '@/src/ui/theme';
@@ -22,14 +22,17 @@ export default function FilesScreen() {
   const { hydrated, notes, openError, readIssues } = useVault();
   const [query, setQuery] = useState('');
 
-  const visibleNotes = useMemo(() => notes
-    .filter((note) => note.parseStatus !== 'quarantine')
-    .filter((note) => matchesLibrarySearch(note, query))
+  const healthyNotes = useMemo(() => notes.filter((note) => note.parseStatus !== 'quarantine'), [notes]);
+  const visibleNotes = useMemo(() => healthyNotes
+    .map((note) => ({ note, score: librarySearchScore(note, query) }))
+    .filter((item): item is { note: MemoryNote; score: number } => item.score !== null)
     .sort((a, b) => {
-      const aTime = new Date(a.updatedAt).getTime() || 0;
-      const bTime = new Date(b.updatedAt).getTime() || 0;
-      return bTime - aTime || a.title.localeCompare(b.title);
-    }), [notes, query]);
+      if (query.trim() && a.score !== b.score) return a.score - b.score;
+      const aTime = new Date(a.note.updatedAt).getTime() || 0;
+      const bTime = new Date(b.note.updatedAt).getTime() || 0;
+      return bTime - aTime || a.note.title.localeCompare(b.note.title);
+    })
+    .map((item) => item.note), [healthyNotes, query]);
 
   if (!hydrated) {
     return <SafeAreaView style={sharedStyles.screen} edges={['top']}><LoadingState label="Opening your memories…" /></SafeAreaView>;
@@ -43,7 +46,7 @@ export default function FilesScreen() {
     );
   }
 
-  if (notes.length === 0 && readIssues.length === 0) {
+  if (healthyNotes.length === 0 && readIssues.length === 0) {
     return (
       <SafeAreaView style={sharedStyles.screen} edges={['top']}>
         <View style={[sharedStyles.scrollContent, styles.emptyScreen]}>
@@ -60,11 +63,12 @@ export default function FilesScreen() {
   }
 
   const renderMemory = ({ item, index }: { item: MemoryNote; index: number }) => {
-    const snippet = cleanSnippet(item.body, item.title) || storyCue(item.body);
+    const title = memoryTitle(item.body);
+    const snippet = cleanSnippet(item.body, title) || storyCue(item.body);
     const updated = shortDateLabel(item.updatedAt);
     return (
       <ListRow
-        accessibilityLabel={`Open ${memoryTitle(item.body)}`}
+        accessibilityLabel={`Open ${title}`}
         leading={(
           <View style={styles.memoryIcon}>
             <SymbolView name={{ ios: 'quote.bubble', android: 'chat_bubble', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.action} />
@@ -74,8 +78,8 @@ export default function FilesScreen() {
         onPress={() => router.push({ pathname: '/note/[id]', params: { id: item.id } })}
         showTopDivider={index > 0}
         subtitle={snippet}
-        title={memoryTitle(item.body)}
-        trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.textSecondary} />}
+        title={title}
+        trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />}
       />
     );
   };
@@ -93,8 +97,8 @@ export default function FilesScreen() {
             <View style={styles.header}>
               <View style={styles.headerCopy}>
                 <AppText accessibilityRole="header" variant="display">Library</AppText>
-                <AppText accessibilityLabel={`${notes.length} memories`} variant="supporting" tone="secondary" style={styles.count}>
-                  {notes.length} {notes.length === 1 ? 'memory' : 'memories'}
+                <AppText accessibilityLabel={`${healthyNotes.length} memories`} variant="supporting" tone="secondary" style={styles.count}>
+                  {healthyNotes.length} {healthyNotes.length === 1 ? 'memory' : 'memories'}
                 </AppText>
               </View>
               <Button
@@ -119,6 +123,7 @@ export default function FilesScreen() {
               <TextInput
                 accessibilityLabel="Search memories"
                 autoCapitalize="none"
+                autoCorrect={false}
                 clearButtonMode="while-editing"
                 onChangeText={setQuery}
                 placeholder="Search people, places, moments…"
@@ -135,7 +140,7 @@ export default function FilesScreen() {
           <EmptyState
             icon={<SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={sizes.primaryIcon} tintColor={colors.action} />}
             title="Nothing matched"
-            body="Try a person, place, event, or phrase you remember."
+            body="Try a person, place, event, or a shorter phrase. Small typos are okay."
             action={<Button label="Clear search" variant="secondary" onPress={() => setQuery('')} />}
           />
         )}
