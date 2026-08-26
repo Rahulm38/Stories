@@ -37,16 +37,16 @@ export default function PrivacyScreen() {
         <AppText accessibilityRole="header" variant="title">Privacy policy</AppText>
         <AppText variant="metadata" tone="secondary" style={styles.updated}>Effective 26 August 2026</AppText>
 
-        <PolicySection title="Your memories stay on your device">
-          Stories keeps the memory content you create in the app&apos;s private storage. The app does not create an account, show ads, use analytics, or send your memories to us or to third parties.
+        <PolicySection title="Your stories stay on your device">
+          Stories keeps the content you create in the app&apos;s private storage. The app does not create an account, show ads, use analytics, or send your stories to us or to third parties.
         </PolicySection>
 
         <PolicySection title="Data access and sharing">
-          The app accesses local memory content only for capture, Library search, editing, resurfacing, sharing actions you start, and optional local reminders. Android cloud backup is disabled for Stories.
+          The app accesses local story content only for capture, Library search, editing, resurfacing, sharing actions you start, and optional local reminders. Android cloud backup is disabled for Stories.
         </PolicySection>
 
         <PolicySection title="Retention and deletion">
-          Memories remain on the device until you edit or delete them, clear the app&apos;s data, or uninstall the app. Stopping resurfacing does not delete a memory; it remains in Library. Because we do not receive your memories, we cannot retrieve or delete them remotely.
+          Stories remain on the device until you edit or delete them, clear the app&apos;s data, or uninstall the app. Stopping resurfacing does not delete a story; it remains in Library. Because we do not receive your stories, we cannot retrieve or delete them remotely.
         </PolicySection>
 
         <PolicySection title="Children and changes">
