@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { MemoryNote } from '@core/model';
 import { readReminderPreferences } from './reminder-preferences';
@@ -7,6 +6,7 @@ import { readDailyReviewSession } from '@/src/recall/daily-session-store';
 
 const REMINDER_ID_KEY = 'stories-return-reminder';
 const LEGACY_REMINDER_ID_KEY = 'stories-recall-reminder';
+const REMINDER_CHANNEL_ID = 'recall';
 
 function localDateFromRecall(value: string): Date | undefined {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -29,7 +29,6 @@ function tomorrowAt(hour: number, minute: number, now: Date): Date {
 }
 
 export async function configureReminderPresentation(): Promise<void> {
-  if (Platform.OS === 'web') return;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
@@ -38,18 +37,15 @@ export async function configureReminderPresentation(): Promise<void> {
       shouldSetBadge: false,
     }),
   });
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('recall', {
-      name: 'Story reminders',
-      importance: Notifications.AndroidImportance.DEFAULT,
-      sound: null,
-      vibrationPattern: null,
-    });
-  }
+  await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
+    name: 'Story reminders',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: null,
+    vibrationPattern: null,
+  });
 }
 
 export async function reconcileRecallReminder(notes: MemoryNote[], now = new Date()): Promise<void> {
-  if (Platform.OS === 'web') return;
   const prefs = await readReminderPreferences();
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
@@ -74,9 +70,6 @@ export async function reconcileRecallReminder(notes: MemoryNote[], now = new Dat
   target.setHours(prefs.reminderHour, prefs.reminderMinute, 0, 0);
 
   if (dueCount > 0 && (dailySession.handled > 0 || target.getTime() <= now.getTime())) {
-    // When Stories is already open, an overdue reminder should never turn into a
-    // one-minute-later nag. Once today's reminder window has passed or the user
-    // has engaged, defer the next generic nudge to tomorrow.
     target = tomorrowAt(prefs.reminderHour, prefs.reminderMinute, now);
   }
 
@@ -90,7 +83,7 @@ export async function reconcileRecallReminder(notes: MemoryNote[], now = new Dat
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: target,
-      ...(Platform.OS === 'android' ? { channelId: 'recall' } : {}),
+      channelId: REMINDER_CHANNEL_ID,
     },
   });
 }
