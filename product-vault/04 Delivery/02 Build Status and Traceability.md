@@ -1,56 +1,69 @@
 ---
 title: Build Status and Traceability
 status: current_snapshot
-snapshot_date: 2026-08-24
+snapshot_date: 2026-08-26
 ---
 
 # Build Status and Traceability
 
-## Architecture Snapshot
+## Shipping architecture
 
-| Subsystem | Tech Stack / Location | Current Implementation Status |
+| Subsystem | Location | Current role |
 |---|---|---|
-| **Mobile App Client** | `apps/mobile` (Expo SDK 57, React Native, Expo Router) | Complete UI foundation (Today, Capture, Library, Reader, Settings) |
-| **Domain Logic Core** | `packages/core` (Framework-agnostic TypeScript) | Model, Markdown parser/serializer, Link resolution, Spaced recall engine |
-| **Device Storage** | `apps/mobile/src/vault/device-file-store.ts` | App-private Markdown vault, atomic writes, `.tmp`/`.bak` crash recovery |
-| **Web Reference** | `src/` (Next.js 16 App Router) | Reference prototype with browser localStorage adapter |
-| **Native Reminders** | `apps/mobile/src/notifications/reminder-service.ts` | Local device reminder scheduling service & settings toggle |
-| **1-Click Vault Export** | `apps/mobile/src/vault/vault-bundle.ts` & `vault-export.ts` | Plain Markdown vault backup export for web & mobile |
+| Android/iOS client | `apps/mobile` | Expo / React Native / Expo Router native client |
+| Domain model & scheduling | `packages/core/src/model.ts`, `recall.ts` | Framework-independent memory and resurfacing rules |
+| Compatibility storage codec | `packages/core/src/legacy-memory-format.ts` | Reads/writes files created by existing beta builds; not a user-facing product model |
+| Device storage | `apps/mobile/src/vault/device-file-store.ts` | App-private durable local files with recovery behavior |
+| Vault orchestration | `packages/core/src/vault.ts` | Serialized saves, list/read/delete, compatibility boundary |
+| Daily review state | `apps/mobile/src/recall/daily-session*.ts` | Persists five-item local-day limit across navigation/relaunch |
+| Search | `apps/mobile/src/navigation/library-search.ts` | Local relevance + fragment + typo-tolerant matching |
+| Reminders | `apps/mobile/src/notifications/*` | Generic local notifications and Android channel/permission behavior |
+| Web prototype | `src/` | Non-shipping historical/reference surface; not the Android product contract |
 
----
+## Current mobile flow map
 
-## Current Verification Checklist
+- **Today:** `apps/mobile/app/(tabs)/index.tsx`
+- **Capture:** `apps/mobile/app/capture.tsx`
+- **Library:** `apps/mobile/app/(tabs)/files.tsx`
+- **Memory editor:** `apps/mobile/app/note/[id].tsx`
+- **Settings/privacy:** `apps/mobile/app/(tabs)/settings.tsx`, `app/privacy.tsx`
+- **Android action sheet:** `apps/mobile/src/ui/components/ActionSheet.tsx`
+- **Deterministic cue:** `packages/core/src/story-cue.ts`
+- **Progressive scheduling:** `packages/core/src/recall.ts`
+- **Daily cap:** `apps/mobile/src/recall/daily-session.ts`, `daily-session-store.ts`
 
-- [x] **Monorepo Tests**: 79/79 passing (`npm run test`)
-  - **Core Domain Tests**: 39/39 passing (`npm run test:core`)
-    - Frontmatter schema versioning & migration
-    - Frontmatter quarantine on malformed external edits
-    - Atomic rename & backlink rewriting
-    - Recall interval calculations (1d / 4d / 14d) & tie-breakers
-  - **Mobile Regression Tests**: 28/28 passing (`npm --prefix apps/mobile run test:regressions`)
-    - Route state parsing for capture and note views
-    - Personalized recall cues based on memory kind, source, and custom prompt
-    - Next upcoming recall anticipation message calculation
-    - Date picker & localized calendar date formatting
-    - Safe link scheme handling & external browser launch
-    - Cold-start vault hydration safety
-    - Vault backup bundling and filename formatting
-    - Device reminder time formatting and daily schedule math
-    - Empty vault state reset after deleting all previous notes
-    - Clean Markdown snippet stripping for library previews
-  - **Web Regression Tests**: 12/12 passing (`npm run test:web`)
-- [x] **Static Typecheck & Lint**: Zero TypeScript or ESLint errors (`npm run lint`)
-- [x] **Web Bundle Scan**: Verified no product-vault docs or `.obsidian` files in production exports
+## Hardening changes in the current candidate
 
----
+- Daily five-memory limit is persistent instead of screen-local.
+- Reminder reconciliation respects a user's Today engagement instead of scheduling a second nudge a minute later.
+- Recall strength is persisted separately from `nextRecallAt`, so `Tomorrow` cannot inflate later intervals.
+- Restarting resurfacing resets recall status/strength.
+- Capture discard/erase removes stale recovered drafts.
+- Story clues avoid the ending of short memories and no longer use a recording-like icon.
+- Library search ranks exact matches first and tolerates small spelling mistakes.
+- Memory body uses serialized autosave; Android Back flushes the newest text.
+- Share/resurface/delete actions use a bottom action sheet instead of an Android Alert with too many buttons.
+- Hosted privacy policy matches current behavior.
+- Mobile web/date-picker plumbing and obsolete wikilink/Markdown product code were removed from the shipping architecture.
 
-## Code-to-Feature Map
+## Automated verification entry points
 
-- **Today Screen & Day 1 Onboarding**: `apps/mobile/app/(tabs)/index.tsx` & `packages/core/src/recall.ts`
-- **Fast Capture Composer**: `apps/mobile/app/capture.tsx` & `apps/mobile/src/capture/options.ts`
-- **Library (By Folder vs All Memories View)**: `apps/mobile/app/(tabs)/files.tsx` & `apps/mobile/src/navigation/snippet.ts`
-- **Memory Reader & Practice Recall**: `apps/mobile/app/note/[id].tsx` & `apps/mobile/src/ui/MarkdownEditor.tsx`
-- **Vault Export & Backup**: `apps/mobile/src/vault/vault-bundle.ts` & `apps/mobile/src/vault/vault-export.ts`
-- **Device Reminders & Permissions**: `apps/mobile/src/notifications/reminder-service.ts` & `device-permissions.ts`
-- **Settings & Memory Stats**: `apps/mobile/app/(tabs)/settings.tsx` & `apps/mobile/app/privacy.tsx`
+```bash
+npm ci
+npm --prefix apps/mobile install
+npm test
+npm run lint
+npm run build
+npm --prefix apps/mobile exec tsc -- --noEmit
+cd apps/mobile && npx expo-doctor
+```
 
+`.github/workflows/quality.yml` runs these checks for `main` and pull requests to `main`.
+
+## Evidence status
+
+Do not treat this document as evidence that a command passed. The GitHub Actions result for the exact commit is authoritative for repository-level checks. Physical Android behavior still requires device testing for keyboard resize, predictive Back, notification delivery, TalkBack, display/font scaling and update compatibility.
+
+## Storage note
+
+Older beta memories retain their existing app-private serialized representation so updates do not destroy user data. New UI and product behavior do not expose folders, file paths, Markdown authoring or wikilinks. A future storage migration should be explicit, reversible/tested against beta data, and independent of product UX.
