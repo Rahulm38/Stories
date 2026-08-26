@@ -138,8 +138,8 @@ test('delete refuses to remove a memory changed outside Stories', async () => {
 
 test('due memories use local calendar day rather than exact capture time', () => {
   const now = new Date(2026, 7, 26, 8, 0, 0);
-  const dueToday = memory({ id: 'today', path: 'Inbox/today.md', nextRecallAt: '2026-08-26T23:59:00.000Z' });
-  const future = memory({ id: 'future', path: 'Inbox/future.md', nextRecallAt: '2026-08-27T00:01:00.000Z' });
+  const dueToday = memory({ id: 'today', path: 'Inbox/today.md', nextRecallAt: new Date(2026, 7, 26, 23, 59, 0).toISOString() });
+  const future = memory({ id: 'future', path: 'Inbox/future.md', nextRecallAt: new Date(2026, 7, 27, 0, 1, 0).toISOString() });
   assert.deepEqual(dueRecalls([future, dueToday], now).map((note) => note.id), ['today']);
 });
 
