@@ -5,7 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleFirstRecall } from '@core/recall';
 import { MarkdownEditor } from '@/src/ui/MarkdownEditor';
-import { DEFAULT_RECALL_CHOICE, RECALL_OPTIONS, recallDaysForChoice, type RecallChoice } from '@/src/capture/options';
+import { DEFAULT_RECALL_CHOICE, recallDaysForChoice } from '@/src/capture/options';
 import { clearCaptureDraft, readCaptureDraft, writeCaptureDraft } from '@/src/capture/draft-store';
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { useVault } from '@/src/vault/provider';
@@ -14,15 +14,15 @@ import { AppText } from '@/src/ui/components/AppText';
 import { Button } from '@/src/ui/components/Button';
 import { ErrorState } from '@/src/ui/components/ErrorState';
 import { IconButton } from '@/src/ui/components/IconButton';
-import { SegmentedControl } from '@/src/ui/components/SegmentedControl';
 import { StatusMessage } from '@/src/ui/components/StatusMessage';
 import { TopAppBar } from '@/src/ui/components/TopAppBar';
 
+// "Show me again" timing is intentionally not a capture-time choice.
+// New memories use the product default and can be rescheduled later from the memory.
 export default function CaptureScreen() {
   const router = useRouter();
   const { hydrated, notes, openError, saveNote } = useVault();
   const [draft, setDraft] = useState('');
-  const [recallChoice, setRecallChoice] = useState<RecallChoice>(DEFAULT_RECALL_CHOICE);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [recovered, setRecovered] = useState(false);
@@ -43,14 +43,13 @@ export default function CaptureScreen() {
         return;
       }
       setDraft(saved.body);
-      setRecallChoice(saved.recallChoice || DEFAULT_RECALL_CHOICE);
       setRecovered(Boolean(saved.body.trim()));
       setDraftLoaded(true);
     });
     return () => { active = false; };
   }, []);
 
-  const dirty = Boolean(draft.trim() || recallChoice !== DEFAULT_RECALL_CHOICE);
+  const dirty = Boolean(draft.trim());
   const allowNextNavigation = useUnsavedChangesGuard(dirty, saving);
 
   useEffect(() => {
@@ -61,12 +60,12 @@ export default function CaptureScreen() {
         source: '',
         recallPrompt: '',
         kind: 'note',
-        recallChoice,
+        recallChoice: DEFAULT_RECALL_CHOICE,
         savedAt: new Date().toISOString(),
       });
     }, 700);
     return () => clearTimeout(timer);
-  }, [draft, draftLoaded, dirty, recallChoice, saving]);
+  }, [draft, draftLoaded, dirty, saving]);
 
   const leaveCapture = useCallback(() => {
     if (Platform.OS !== 'web' && router.canGoBack()) router.back();
@@ -77,8 +76,8 @@ export default function CaptureScreen() {
     if (!hydrated || !draft.trim() || savingRef.current) return;
     savingRef.current = true;
     const wasEmptyVault = notes.length === 0;
-    const recallDays = recallDaysForChoice(recallChoice);
-    const nextRecallAt = recallDays ? scheduleFirstRecall(new Date(), recallDays) : undefined;
+    const recallDays = recallDaysForChoice(DEFAULT_RECALL_CHOICE) ?? 3;
+    const nextRecallAt = scheduleFirstRecall(new Date(), recallDays);
     setSaving(true);
     setSaveError('');
     try {
@@ -95,7 +94,7 @@ export default function CaptureScreen() {
         pathname: '/(tabs)',
         params: {
           saved: '1',
-          ...(nextRecallAt ? { nextRecallAt } : {}),
+          nextRecallAt,
           ...(wasEmptyVault ? { first: '1', noteId: created.id } : {}),
         },
       });
@@ -145,23 +144,10 @@ export default function CaptureScreen() {
             placeholder="A useful idea, something that happened, a lesson, a quote…"
             autoFocus
             editable={!saving}
-            minHeight={260}
+            minHeight={300}
           />
 
-          <View style={styles.returnSection}>
-            <AppText variant="section">Show me again</AppText>
-            <AppText variant="supporting" tone="secondary" style={styles.returnSupport}>
-              Stories will hide the memory first so you can try to remember it.
-            </AppText>
-            <SegmentedControl
-              accessibilityLabel="When should Stories show this memory again?"
-              disabled={saving}
-              options={RECALL_OPTIONS}
-              value={recallChoice}
-              onChange={setRecallChoice}
-            />
-          </View>
-
+          <AppText variant="metadata" tone="secondary" style={styles.returnHint}>We’ll show this again in 3 days.</AppText>
           {saveError ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{saveError}</AppText> : null}
         </ScrollView>
 
@@ -183,8 +169,7 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingBottom: spacing.xxl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
   prompt: { marginTop: spacing.sm },
   support: { marginBottom: spacing.lg, marginTop: spacing.xs },
-  returnSection: { borderTopColor: colors.divider, borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.xxl, paddingTop: spacing.lg },
-  returnSupport: { marginBottom: spacing.md, marginTop: spacing.xxs },
+  returnHint: { marginTop: spacing.lg },
   error: { marginTop: spacing.md },
   bottomBar: {
     backgroundColor: colors.canvas,
