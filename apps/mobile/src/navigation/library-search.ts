@@ -1,5 +1,5 @@
-import type { MemoryNote } from '@core/model';
-import { plainMemoryText } from '@core/story-cue';
+import type { MemoryNote } from '../../../../packages/core/src/model.ts';
+import { plainMemoryText } from '../../../../packages/core/src/story-cue.ts';
 
 function normalizeSearch(value: string): string {
   return value
