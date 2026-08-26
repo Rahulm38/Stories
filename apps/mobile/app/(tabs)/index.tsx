@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, PixelRatio, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, AppState, PixelRatio, ScrollView, StyleSheet, View, useWindowDimensions, type ColorValue } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deferRecall, dueRecalls, gradeRecall, MAX_SESSION_MEMORIES, stopResurfacing } from '@core/recall';
-import { memoryTitle, storyCue } from '@core/story-cue';
+import { storyCue } from '@core/story-cue';
 import type { MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
 import { colors, radii, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { tabBarMetrics } from '@/src/navigation/tab-bar';
-import { memoryAgeLabel, nextUpcomingRecallMessage, recallCompletionMessage, recallResultLabel, remainingStoryMessage, savedMemoryMessage, shortDateLabel, timeGreeting } from '@/src/recall/presentation';
+import { memoryAgeLabel, nextUpcomingRecallMessage, recallCompletionMessage, recallResultLabel, remainingStoryMessage, timeGreeting } from '@/src/recall/presentation';
+import { selectPracticeMemory } from '@/src/recall/practice';
 import { readReminderPreferences, writeReminderPreferences } from '@/src/notifications/reminder-preferences';
 import { checkNotificationPermission, requestNotificationPermission } from '@/src/notifications/device-permissions';
 import { reconcileRecallReminder } from '@/src/notifications/reminder-scheduler';
@@ -21,14 +22,13 @@ import { Button } from '@/src/ui/components/Button';
 import { Card } from '@/src/ui/components/Card';
 import { ErrorState } from '@/src/ui/components/ErrorState';
 import { IconButton } from '@/src/ui/components/IconButton';
-import { ListRow } from '@/src/ui/components/ListRow';
 import { LoadingState } from '@/src/ui/components/LoadingState';
 import { SectionHeader } from '@/src/ui/components/SectionHeader';
 import { Snackbar } from '@/src/ui/components/Snackbar';
 
 type Stage = 'hidden' | 'revealed';
 
-const symbol = (ios: string, android: string, tint = colors.action) => (
+const symbol = (ios: string, android: string, tint: ColorValue = colors.action) => (
   <SymbolView name={{ ios: ios as never, android: android as never, web: android as never }} size={sizes.compactIcon} tintColor={tint} />
 );
 
@@ -37,7 +37,6 @@ export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const fontScale = PixelRatio.getFontScale();
-  const params = useLocalSearchParams<{ nextRecallAt?: string | string[]; saved?: string | string[] }>();
   const { hydrated, notes, openError, saveNote } = useVault();
   const [now, setNow] = useState(() => new Date());
   const [stage, setStage] = useState<Stage>('hidden');
@@ -50,18 +49,6 @@ export default function TodayScreen() {
   const savingRef = useRef(false);
 
   useEffect(() => () => { mounted.current = false; }, []);
-
-  useEffect(() => {
-    const saved = Array.isArray(params.saved) ? params.saved[0] : params.saved;
-    if (saved !== '1') return undefined;
-    const next = Array.isArray(params.nextRecallAt) ? params.nextRecallAt[0] : params.nextRecallAt;
-    const timer = setTimeout(() => {
-      if (!mounted.current) return;
-      setStatus(savedMemoryMessage(next));
-      router.setParams({ saved: undefined, nextRecallAt: undefined });
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [params.nextRecallAt, params.saved, router]);
 
   useEffect(() => {
     if (!status) return undefined;
@@ -101,7 +88,7 @@ export default function TodayScreen() {
   const capped = activeSession.handled >= MAX_SESSION_MEMORIES;
   const current = capped ? undefined : due[0];
   const visibleDue = Math.min(due.length, Math.max(0, MAX_SESSION_MEMORIES - activeSession.handled));
-  const recent = healthy.filter((note) => note.id !== current?.id).slice(0, 3);
+  const practiceCandidate = useMemo(() => selectPracticeMemory(healthy), [healthy]);
   const upcoming = useMemo(
     () => healthy
       .filter((note) => note.nextRecallAt && !due.some((item) => item.id === note.id))
@@ -130,7 +117,7 @@ export default function TodayScreen() {
   };
 
   const offerReminder = async (firstReturn: boolean) => {
-    if (!firstReturn || Platform.OS === 'web') return;
+    if (!firstReturn) return;
     try {
       const prefs = await readReminderPreferences();
       if (prefs.enabled || prefs.promptedAfterReview) return;
@@ -207,11 +194,16 @@ export default function TodayScreen() {
     }
   };
 
-  const actions = (note: MemoryNote) => Alert.alert('Memory', undefined, [
+  const actions = (note: MemoryNote) => Alert.alert('Story', undefined, [
     { text: 'Open memory', onPress: () => router.push({ pathname: '/note/[id]', params: { id: note.id } }) },
     { text: 'Stop resurfacing', onPress: () => { void stop(); } },
     { text: 'Cancel', style: 'cancel' },
   ]);
+
+  const practiceNow = () => {
+    if (!practiceCandidate) return;
+    router.push({ pathname: '/practice/[id]', params: { id: practiceCandidate.id, from: 'today' } });
+  };
 
   const enableReminders = async () => {
     const currentPermission = await checkNotificationPermission();
@@ -232,14 +224,14 @@ export default function TodayScreen() {
   }
 
   const sessionDone = capped && due.length > 0;
-  const tabBar = tabBarMetrics(insets.bottom, Platform.OS === 'ios');
+  const tabBar = tabBarMetrics(insets.bottom, false);
   const subtitle = healthy.length === 0
-    ? 'Keep the good moments available.'
+    ? 'Build a bank of stories you can actually remember.'
     : current
-      ? (due.length > visibleDue ? 'A few memories are back today.' : `${visibleDue} ${visibleDue === 1 ? 'memory is' : 'memories are'} back today.`)
+      ? (due.length > visibleDue ? 'A few stories are ready to tell.' : `${visibleDue} ${visibleDue === 1 ? 'story is' : 'stories are'} ready to tell.`)
       : sessionDone
         ? 'That’s enough for today.'
-        : 'Nothing needs your attention right now.';
+        : 'You’re caught up. Practice one anytime.';
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
@@ -252,20 +244,20 @@ export default function TodayScreen() {
         {healthy.length === 0 ? (
           <View style={styles.firstUse}>
             <View style={styles.hero}>{symbol('quote.bubble.fill', 'chat_bubble')}</View>
-            <AppText variant="title">Save it now. Tell it later.</AppText>
-            <AppText variant="body" tone="secondary" style={styles.firstCopy}>Stories brings useful moments and ideas back with a small clue. Try telling them before you look.</AppText>
-            <Button label="Save your first memory" leading={symbol('plus', 'add', colors.onAction)} onPress={() => router.navigate('/capture')} style={styles.firstButton} />
+            <AppText variant="title">Build your story bank</AppText>
+            <AppText variant="body" tone="secondary" style={styles.firstCopy}>Save moments, observations and ideas worth telling. Stories brings them back with a clue so they stay available when conversation gives you an opening.</AppText>
+            <Button label="Save your first story" leading={symbol('plus', 'add', colors.onAction)} onPress={() => router.navigate('/capture')} style={styles.firstButton} />
           </View>
         ) : null}
 
         {current ? (
           <View style={styles.section}>
-            <SectionHeader>Back today</SectionHeader>
+            <SectionHeader>Ready to tell</SectionHeader>
             <Card accent>
               <View style={styles.reviewTop}>
                 <View style={styles.smallIcon}>{symbol('bubble.left.fill', 'chat_bubble')}</View>
                 <AppText variant="metadata" tone="secondary" style={styles.age}>{memoryAgeLabel(current.createdAt, now)}</AppText>
-                <IconButton accessibilityLabel="Memory options" disabled={saving} onPress={() => actions(current)}>
+                <IconButton accessibilityLabel="Story options" disabled={saving} onPress={() => actions(current)}>
                   <SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.textSecondary} />
                 </IconButton>
               </View>
@@ -275,17 +267,17 @@ export default function TodayScreen() {
                   <AppText accessibilityRole="header" variant="title" style={styles.cue}>{storyCue(current.body)}</AppText>
                   <View style={styles.tell}>
                     {symbol('quote.bubble', 'chat_bubble_outline', colors.textSecondary)}
-                    <AppText variant="supporting" tone="secondary" style={styles.flex}>Try telling it without looking. Out loud if you can.</AppText>
+                    <AppText variant="supporting" tone="secondary" style={styles.flex}>Tell it in your own words before you look. Out loud if you can.</AppText>
                   </View>
                   <View style={[styles.actions, stackActions && styles.actionsStack]}>
-                    <Button disabled={saving} label="Reveal" leading={symbol('eye', 'visibility', colors.onAction)} onPress={() => setStage('revealed')} style={stackActions ? styles.fullWidth : styles.flex} />
+                    <Button disabled={saving} label="Reveal original" leading={symbol('eye', 'visibility', colors.onAction)} onPress={() => setStage('revealed')} style={stackActions ? styles.fullWidth : styles.flex} />
                     <Button disabled={saving} label="Tomorrow" leading={symbol('clock', 'schedule')} variant="text" onPress={() => { void tomorrow(); }} style={stackActions ? styles.fullWidth : undefined} />
                   </View>
                 </>
               ) : (
                 <View accessibilityLiveRegion="polite">
                   <View style={styles.original}><MemoryText body={current.body} /></View>
-                  <AppText variant="section" style={styles.ratingTitle}>Could you tell it?</AppText>
+                  <AppText variant="section" style={styles.ratingTitle}>Could you tell it naturally?</AppText>
                   <View style={[styles.ratings, stackRatings && styles.ratingsStack]}>
                     {(['forgot', 'partial', 'remembered'] as const).map((result) => (
                       <Button
@@ -304,7 +296,7 @@ export default function TodayScreen() {
             {error ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{error}</AppText> : null}
           </View>
         ) : sessionDone ? (
-          <Card style={styles.done}>
+          <Card style={styles.stateCard}>
             <View style={styles.doneRow}>
               <View style={styles.smallIcon}>{symbol('checkmark', 'check', colors.success)}</View>
               <View style={styles.flex}>
@@ -313,11 +305,20 @@ export default function TodayScreen() {
               </View>
             </View>
           </Card>
-        ) : upcomingCopy ? (
-          <View style={styles.upcoming}>
-            {symbol('clock.arrow.circlepath', 'history', colors.textSecondary)}
-            <AppText variant="supporting" tone="secondary" style={styles.flex}>{upcomingCopy}</AppText>
-          </View>
+        ) : healthy.length > 0 ? (
+          <Card style={styles.stateCard}>
+            <View style={styles.doneRow}>
+              <View style={styles.smallIcon}>{symbol('checkmark', 'check', colors.success)}</View>
+              <View style={styles.flex}>
+                <AppText variant="section">You’re caught up</AppText>
+                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>{upcomingCopy || 'Nothing is scheduled yet. You can still practice a story anytime.'}</AppText>
+              </View>
+            </View>
+            <View style={[styles.actions, stackActions && styles.actionsStack]}>
+              <Button label="Try one now" leading={symbol('quote.bubble', 'chat_bubble', colors.onAction)} onPress={practiceNow} style={stackActions ? styles.fullWidth : styles.flex} />
+              <Button label="New story" leading={symbol('plus', 'add')} variant="secondary" onPress={() => router.navigate('/capture')} style={stackActions ? styles.fullWidth : styles.flex} />
+            </View>
+          </Card>
         ) : null}
 
         {reminderPrompt ? (
@@ -336,27 +337,9 @@ export default function TodayScreen() {
           </Card>
         ) : null}
 
-        {healthy.length > 0 ? (
+        {healthy.length > 0 && (current || sessionDone) ? (
           <View style={styles.section}>
-            <Button label="New memory" leading={symbol('plus', 'add', current ? colors.action : colors.onAction)} variant={current ? 'secondary' : 'primary'} onPress={() => router.navigate('/capture')} />
-          </View>
-        ) : null}
-
-        {recent.length > 0 ? (
-          <View style={styles.section}>
-            <SectionHeader>Recent</SectionHeader>
-            {recent.map((note, index) => (
-              <ListRow
-                key={note.id}
-                accessibilityLabel={`Open ${memoryTitle(note.body)}`}
-                metadata={shortDateLabel(note.updatedAt)}
-                onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
-                showTopDivider={index > 0}
-                title={memoryTitle(note.body)}
-                trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />}
-              />
-            ))}
-            {healthy.length > recent.length ? <Button label="Search Library" leading={symbol('magnifyingglass', 'search')} variant="text" onPress={() => router.navigate('/(tabs)/files')} /> : null}
+            <Button label="New story" leading={symbol('plus', 'add')} variant="secondary" onPress={() => router.navigate('/capture')} />
           </View>
         ) : null}
       </ScrollView>
@@ -371,7 +354,7 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: spacing.xxs },
   firstUse: { marginTop: spacing.xxl },
   hero: { alignItems: 'center', backgroundColor: colors.actionMuted, borderRadius: radii.card, height: 56, justifyContent: 'center', marginBottom: spacing.lg, width: 56 },
-  firstCopy: { marginTop: spacing.sm, maxWidth: 360 },
+  firstCopy: { marginTop: spacing.sm, maxWidth: 420 },
   firstButton: { marginTop: spacing.xl },
   section: { marginTop: spacing.xxl },
   reviewTop: { alignItems: 'center', flexDirection: 'row' },
@@ -389,10 +372,9 @@ const styles = StyleSheet.create({
   ratingsStack: { flexDirection: 'column' },
   rating: { flex: 1, paddingHorizontal: spacing.xs },
   error: { marginTop: spacing.sm },
-  done: { marginTop: spacing.xxl },
+  stateCard: { marginTop: spacing.xxl },
   doneRow: { alignItems: 'center', flexDirection: 'row' },
   tinyTop: { marginTop: spacing.xxs },
-  upcoming: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xl },
   reminder: { marginTop: spacing.lg },
   snackbar: { left: spacing.lg, position: 'absolute', right: spacing.lg },
 });
