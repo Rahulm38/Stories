@@ -6,6 +6,7 @@ import { deferRecall, gradeRecall, MAX_SESSION_MEMORIES, scheduleFirstRecall, st
 import { plainMemoryText, storyCue } from '../../../packages/core/src/story-cue.ts';
 import { librarySearchScore, matchesLibrarySearch } from '../src/navigation/library-search.ts';
 import { dailyReviewComplete, incrementDailyReviewSession, remainingDailyReviewCapacity, sessionForDay } from '../src/recall/daily-session.ts';
+import { selectPracticeMemory } from '../src/recall/practice.ts';
 import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
 import { nextUpcomingRecallMessage, recallCompletionMessage, recallResultLabel, savedMemoryMessage } from '../src/recall/presentation.ts';
 import { reminderNotificationMessage, reminderStatusCopy } from '../src/notifications/reminder-service.ts';
@@ -45,7 +46,7 @@ test('first return is three days and successful returns progressively spread out
   assert.equal(afterSecond.reviewStrengthDays, 30);
 });
 
-test('Tomorrow moves only the due date and does not fake stronger memory', () => {
+test('Tomorrow moves only the due date and freezes legacy strength before moving it', () => {
   const memory = {
     id: 'm1', title: 'Memory', body: 'A story', kind: 'note', folder: 'Inbox', path: 'Inbox/memory.md',
     createdAt: '2026-08-01T10:00:00.000Z', updatedAt: '2026-08-01T10:00:00.000Z',
@@ -54,6 +55,11 @@ test('Tomorrow moves only the due date and does not fake stronger memory', () =>
   const deferred = deferRecall(memory, new Date('2026-08-24T10:00:00.000Z'));
   assert.equal(deferred.nextRecallAt, '2026-08-25T10:00:00.000Z');
   assert.equal(deferred.reviewStrengthDays, 14);
+
+  const legacy = { ...memory, reviewStrengthDays: undefined };
+  const legacyDeferred = deferRecall(legacy, new Date('2026-08-24T10:00:00.000Z'));
+  assert.equal(legacyDeferred.reviewStrengthDays, 14);
+
   const remembered = gradeRecall({ ...memory, ...deferred }, 'remembered', new Date('2026-08-25T10:00:00.000Z'));
   assert.equal(remembered.reviewStrengthDays, 30);
   assert.equal(stopResurfacing(memory).nextRecallAt, undefined);
@@ -68,6 +74,16 @@ test('daily review limit persists conceptually for the whole local day and reset
   assert.equal(sessionForDay(session, new Date(2026, 7, 27, 0, 1)).handled, 0);
 });
 
+test('voluntary practice chooses a useful story without changing recall state', () => {
+  const base = { title: 'Story', body: 'A story', kind: 'note', folder: 'Inbox', parseStatus: 'healthy' };
+  const notes = [
+    { ...base, id: 'recent', path: 'Inbox/recent.md', createdAt: '2026-08-01T10:00:00.000Z', updatedAt: '2026-08-01T10:00:00.000Z', lastRecalledAt: '2026-08-25T10:00:00.000Z' },
+    { ...base, id: 'unseen-new', path: 'Inbox/new.md', createdAt: '2026-08-20T10:00:00.000Z', updatedAt: '2026-08-20T10:00:00.000Z' },
+    { ...base, id: 'unseen-old', path: 'Inbox/old.md', createdAt: '2026-08-10T10:00:00.000Z', updatedAt: '2026-08-10T10:00:00.000Z' },
+  ];
+  assert.equal(selectPracticeMemory(notes)?.id, 'unseen-old');
+});
+
 test('Library search combines fragments, ranks exact matches, and tolerates small typos', () => {
   const memory = {
     title: 'Airport moment', body: 'In Bangalore, Ravi told me a funny story about a taxi driver.',
@@ -80,32 +96,70 @@ test('Library search combines fragments, ranks exact matches, and tolerates smal
   assert.ok(librarySearchScore(memory, 'Bangalore taxi') < librarySearchScore(memory, 'Bangalor taxi'));
 });
 
-test('mobile flow contains the hardened Android interaction contracts', async () => {
-  const [capture, today, library, note, provider, appJson, mobilePackage] = await Promise.all([
+test('mobile flow contains the hardened Android storytelling contracts', async () => {
+  const [capture, today, library, note, practice, provider, appJsonText, mobilePackageText, easText, draftStore, reminderPrefs] = await Promise.all([
     readFile(new URL('../app/capture.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/(tabs)/index.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/(tabs)/files.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/note/[id].tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/practice/[id].tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/vault/provider.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app.json', import.meta.url), 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    readFile(new URL('../eas.json', import.meta.url), 'utf8'),
+    readFile(new URL('../src/capture/draft-store.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/notifications/reminder-preferences.ts', import.meta.url), 'utf8'),
   ]);
 
-  for (const source of [capture, today, library, note]) {
+  for (const source of [capture, today, library, note, practice]) {
     assert.doesNotMatch(source, /Book learning|Experience|Recall cue|Memory details|Formatting toolbar/);
   }
+
+  assert.match(capture, /Try telling it now/);
+  assert.match(capture, /scheduleFirstRecall\(new Date\(\), 3\)/);
   assert.match(capture, /clearCaptureDraft/);
-  assert.match(today, /readDailyReviewSession/);
+
+  assert.match(today, /Try one now/);
+  assert.match(today, /selectPracticeMemory/);
+  assert.match(today, /Ready to tell/);
   assert.match(today, /Done for today/);
-  assert.doesNotMatch(today, /record_voice_over/);
+  assert.match(today, /readDailyReviewSession/);
+  assert.doesNotMatch(today, /<SectionHeader>Recent<\/SectionHeader>|ListRow|record_voice_over/);
+
+  assert.match(practice, /Reveal original/);
+  assert.match(practice, /does not change when the story is scheduled to come back/);
+  assert.doesNotMatch(practice, /gradeRecall|practiceRecall|saveNote|recordDailyReviewHandled/);
+
+  assert.match(note, /Try telling/);
+  assert.match(note, /\/practice\/\[id\]/);
   assert.match(note, /ActionSheet/);
   assert.match(note, /beforeRemove/);
   assert.match(note, /runSaveLoop/);
   assert.doesNotMatch(note, /Edit memory/);
+
   assert.match(library, /Small typos are okay/);
   assert.doesNotMatch(provider, /BrowserFileStore|storageLocation|suggestLinks|resolveLink/);
-  assert.doesNotMatch(appJson, /datetimepicker|"web"/);
-  assert.doesNotMatch(mobilePackage, /datetimepicker|react-native-web|react-dom|expo-web-browser/);
+  assert.doesNotMatch(draftStore, /Platform|localStorage/);
+  assert.doesNotMatch(reminderPrefs, /Platform|localStorage/);
+
+  const appJson = JSON.parse(appJsonText);
+  assert.deepEqual(appJson.expo.platforms, ['android']);
+  assert.equal(appJson.expo.ios, undefined);
+  const buildProperties = appJson.expo.plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-build-properties');
+  assert.ok(buildProperties);
+  assert.equal(buildProperties[1].android.enableMinifyInReleaseBuilds, true);
+  assert.equal(buildProperties[1].android.enableShrinkResourcesInReleaseBuilds, true);
+
+  const mobilePackage = JSON.parse(mobilePackageText);
+  assert.equal(mobilePackage.dependencies['expo-build-properties'], '~57.0.13');
+  for (const removed of ['expo-dev-client', 'expo-font', 'react-native-reanimated', 'react-native-worklets', 'react-native-web', 'react-dom']) {
+    assert.equal(mobilePackage.dependencies[removed], undefined);
+  }
+
+  const eas = JSON.parse(easText);
+  assert.equal(eas.build.development, undefined);
+  assert.equal(eas.build.preview.android.buildType, 'apk');
+  assert.equal(eas.build.production.android.buildType, 'app-bundle');
 });
 
 test('result copy stays storytelling-oriented and calm', () => {
@@ -117,10 +171,9 @@ test('result copy stays storytelling-oriented and calm', () => {
   assert.equal(nextUpcomingRecallMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Next one comes back on Aug 29.');
 });
 
-test('bottom tabs keep comfortable device-safe spacing', () => {
+test('bottom tabs keep comfortable Android device-safe spacing', () => {
   assert.deepEqual(tabBarMetrics(0, false), { bottomPadding: 16, height: 74 });
   assert.deepEqual(tabBarMetrics(24, false), { bottomPadding: 24, height: 82 });
-  assert.deepEqual(tabBarMetrics(0, true), { bottomPadding: 18, height: 76 });
 });
 
 test('reminder copy is generic and content-private', () => {
