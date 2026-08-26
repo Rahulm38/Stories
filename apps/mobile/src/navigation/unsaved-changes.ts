@@ -16,7 +16,13 @@ type Navigation = {
   ) => () => void;
 };
 
-export function useUnsavedChangesGuard(dirty: boolean, busy = false): () => void {
+type DiscardHandler = () => void | Promise<void>;
+
+export function useUnsavedChangesGuard(
+  dirty: boolean,
+  busy = false,
+  onDiscard?: DiscardHandler,
+): () => void {
   const navigation = useNavigation<Navigation>();
   const allowNextRemoval = useRef(false);
   const allowNextNavigation = useCallback(() => {
@@ -33,23 +39,27 @@ export function useUnsavedChangesGuard(dirty: boolean, busy = false): () => void
       event.preventDefault();
 
       if (busy) {
-        Alert.alert('Save in progress', 'Please wait for Stories to finish saving this memory.');
+        Alert.alert('Save in progress', 'Stories is finishing this memory.');
         return;
       }
 
-      Alert.alert('Discard changes?', 'Your unsaved changes will be lost.', [
-        { text: 'Keep editing', style: 'cancel' },
+      Alert.alert('Discard changes?', 'Your unfinished memory will be removed.', [
+        { text: 'Keep writing', style: 'cancel' },
         {
           text: 'Discard',
           style: 'destructive',
           onPress: () => {
-            allowNextRemoval.current = true;
-            navigation.dispatch(event.data.action);
+            void Promise.resolve(onDiscard?.())
+              .catch(() => undefined)
+              .then(() => {
+                allowNextRemoval.current = true;
+                navigation.dispatch(event.data.action);
+              });
           },
         },
       ]);
     },
-    [busy, navigation],
+    [busy, navigation, onDiscard],
   );
 
   useEffect(() => {
@@ -61,10 +71,7 @@ export function useUnsavedChangesGuard(dirty: boolean, busy = false): () => void
   }, [busy, dirty, navigation]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || (!dirty && !busy)) {
-      return undefined;
-    }
-
+    if (Platform.OS === 'web' || (!dirty && !busy)) return undefined;
     return navigation.addListener('beforeRemove', handleBeforeRemove);
   }, [busy, dirty, handleBeforeRemove, navigation]);
 
