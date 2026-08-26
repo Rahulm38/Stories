@@ -1,6 +1,6 @@
 import { useNavigation } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 
 type NavigationAction = unknown;
 type BeforeRemoveEvent = {
@@ -9,7 +9,6 @@ type BeforeRemoveEvent = {
 };
 type Navigation = {
   dispatch: (action: NavigationAction) => void;
-  setOptions: (options: { gestureEnabled: boolean }) => void;
   addListener: (
     event: 'beforeRemove',
     listener: (event: BeforeRemoveEvent) => void,
@@ -63,15 +62,7 @@ export function useUnsavedChangesGuard(
   );
 
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      navigation.setOptions({ gestureEnabled: !dirty && !busy });
-      return () => navigation.setOptions({ gestureEnabled: true });
-    }
-    return undefined;
-  }, [busy, dirty, navigation]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web' || (!dirty && !busy)) return undefined;
+    if (!dirty && !busy) return undefined;
     return navigation.addListener('beforeRemove', handleBeforeRemove);
   }, [busy, dirty, handleBeforeRemove, navigation]);
 
