@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deferRecall, dueRecalls, gradeRecall, MAX_SESSION_MEMORIES, stopResurfacing } from '@core/recall';
+import { readyStoryCount } from '@core/story-state';
 import { storyTrigger } from '@core/story-cue';
 import type { MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
@@ -11,6 +12,7 @@ import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { tabBarMetrics } from '@/src/navigation/tab-bar';
 import { memoryAgeLabel, nextUpcomingRecallMessage, recallCompletionMessage, remainingStoryMessage } from '@/src/recall/presentation';
 import { selectPracticeMemory } from '@/src/recall/practice';
+import { storyCoachingCue } from '@/src/recall/story-coaching';
 import { readReminderPreferences, writeReminderPreferences } from '@/src/notifications/reminder-preferences';
 import { checkNotificationPermission, requestNotificationPermission } from '@/src/notifications/device-permissions';
 import { reconcileRecallReminder } from '@/src/notifications/reminder-scheduler';
@@ -87,6 +89,8 @@ export default function TodayScreen() {
   const current = capped ? undefined : due[0];
   const visibleDue = Math.min(due.length, Math.max(0, MAX_SESSION_MEMORIES - activeSession.handled));
   const trigger = useMemo(() => storyTrigger(current?.body || ''), [current?.body]);
+  const coachingPrompt = useMemo(() => current ? storyCoachingCue(current) : undefined, [current]);
+  const readyCount = useMemo(() => readyStoryCount(healthy), [healthy]);
   const practiceCandidate = useMemo(() => selectPracticeMemory(healthy, practiceOffset), [healthy, practiceOffset]);
   const upcoming = useMemo(
     () => healthy
@@ -205,6 +209,8 @@ export default function TodayScreen() {
     router.push({ pathname: '/practice/[id]', params: { id: candidate.id, from: 'today' } });
   };
 
+  const findStory = () => router.push({ pathname: '/capture', params: { mode: 'prompt' } });
+
   const enableReminders = async () => {
     const currentPermission = await checkNotificationPermission();
     const permission = currentPermission === 'granted' ? currentPermission : await requestNotificationPermission();
@@ -226,12 +232,14 @@ export default function TodayScreen() {
   const sessionDone = capped && due.length > 0;
   const tabBar = tabBarMetrics(insets.bottom, false);
   const subtitle = healthy.length === 0
-    ? 'Have a story ready when conversation opens the door.'
+    ? 'Build a bank of stories you can actually tell.'
     : current
       ? (due.length > visibleDue ? 'A few stories came back.' : `${visibleDue} ${visibleDue === 1 ? 'story came back.' : 'stories came back.'}`)
       : sessionDone
         ? 'Enough for today.'
-        : 'Nothing due today.';
+        : readyCount > 0
+          ? `${readyCount} ${readyCount === 1 ? 'story is' : 'stories are'} ready to tell.`
+          : 'Your stories are getting ready.';
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
@@ -243,9 +251,10 @@ export default function TodayScreen() {
 
         {healthy.length === 0 ? (
           <View style={styles.firstUse}>
-            <AppText variant="title">Have a story ready.</AppText>
-            <AppText variant="body" tone="secondary" style={styles.firstCopy}>Save moments worth telling. We’ll bring them back before they fade.</AppText>
-            <Button label="Save your first story" onPress={() => router.navigate('/capture')} style={styles.firstButton} />
+            <AppText variant="title">Start with something worth telling.</AppText>
+            <AppText variant="body" tone="secondary" style={styles.firstCopy}>A moment, opinion, mistake, surprise—anything you’d tell a friend.</AppText>
+            <Button label="Save something" onPress={() => router.navigate('/capture')} style={styles.firstButton} />
+            <Button label="Find a story" variant="tonal" onPress={findStory} style={styles.firstSecondaryButton} />
           </View>
         ) : null}
 
@@ -255,6 +264,7 @@ export default function TodayScreen() {
               <StoryTriggerCard
                 trigger={trigger}
                 ageLabel={memoryAgeLabel(current.createdAt, now)}
+                coachingPrompt={coachingPrompt}
                 headerAction={(
                   <IconButton accessibilityLabel="Story options" disabled={saving} onPress={() => actions(current)}>
                     <SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.textSecondary} />
@@ -279,14 +289,17 @@ export default function TodayScreen() {
           <Card style={styles.stateCard}>
             <AppText variant="section">Enough for today</AppText>
             <AppText variant="supporting" tone="secondary" style={styles.stateCopy}>The rest can wait.</AppText>
-            <Button label="New story" variant="tonal" onPress={() => router.navigate('/capture')} style={styles.stateAction} />
+            <Button label="Find a new story" variant="tonal" onPress={findStory} style={styles.stateAction} />
           </Card>
         ) : healthy.length > 0 ? (
           <Card style={styles.stateCard}>
-            <AppText variant="section">Your stories are resting</AppText>
-            <AppText variant="supporting" tone="secondary" style={styles.stateCopy}>{upcomingCopy || 'Try one anytime.'}</AppText>
+            <AppText variant="section">{readyCount > 0 ? `${readyCount} ${readyCount === 1 ? 'story' : 'stories'} ready` : 'Your stories are getting ready'}</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.stateCopy}>
+              {readyCount > 0 ? 'Keep one fresh or find a new story.' : (upcomingCopy || 'Every return makes them easier to reach.')}
+            </AppText>
             <Button label="Try a story" onPress={practiceNow} style={styles.stateAction} />
-            <Button label="New story" variant="tonal" onPress={() => router.navigate('/capture')} style={styles.secondaryStateAction} />
+            <Button label="Find a story" variant="tonal" onPress={findStory} style={styles.secondaryStateAction} />
+            <Button label="Something happened" variant="text" onPress={() => router.navigate('/capture')} style={styles.secondaryStateAction} />
           </Card>
         ) : null}
 
@@ -315,6 +328,7 @@ const styles = StyleSheet.create({
   firstUse: { marginTop: spacing.xxl },
   firstCopy: { marginTop: spacing.sm, maxWidth: 420 },
   firstButton: { marginTop: spacing.xl, width: '100%' },
+  firstSecondaryButton: { marginTop: spacing.xs, width: '100%' },
   section: { marginTop: spacing.xl },
   ratingTitle: { marginTop: spacing.lg },
   error: { marginTop: spacing.sm },
