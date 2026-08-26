@@ -59,14 +59,6 @@ export type VaultQuery = {
   folder?: string;
 };
 
-export type LinkCandidate = MemoryNote;
-
-export type LinkResolution = {
-  target: string;
-  note?: MemoryNote;
-  status: 'resolved' | 'missing' | 'ambiguous';
-};
-
 export type VaultSnapshot = {
   notes: MemoryNote[];
   readIssues: VaultReadIssue[];
