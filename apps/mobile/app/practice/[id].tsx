@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { AppText } from '@/src/ui/components/AppText';
 import { Button } from '@/src/ui/components/Button';
+import { Card } from '@/src/ui/components/Card';
 import { ErrorState } from '@/src/ui/components/ErrorState';
 import { IconButton } from '@/src/ui/components/IconButton';
 import { LoadingState } from '@/src/ui/components/LoadingState';
@@ -84,13 +85,13 @@ export default function PracticeScreen() {
             onShowStory={() => setStage('revealed')}
           />
         ) : (
-          <View accessibilityLiveRegion="polite" style={styles.reveal}>
+          <Card>
             <StoryRevealSurface body={note.body} />
             <AppText variant="supporting" tone="secondary" style={styles.explainer}>That’s it. We’ll bring it back later.</AppText>
             <Button label="Done" onPress={close} style={styles.primary} />
             {source === 'today' && nextStory ? <Button label="Another story" variant="tonal" onPress={anotherStory} style={styles.secondary} /> : null}
             <Button label="Try again" variant="text" onPress={() => { setStage('trigger'); setHintVisible(false); }} style={styles.secondary} />
-          </View>
+          </Card>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -99,7 +100,6 @@ export default function PracticeScreen() {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingBottom: spacing.xxxl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
-  reveal: { backgroundColor: colors.surface, borderRadius: 16, padding: spacing.md },
   explainer: { marginTop: spacing.lg },
   primary: { marginTop: spacing.lg, width: '100%' },
   secondary: { marginTop: spacing.xs, width: '100%' },
