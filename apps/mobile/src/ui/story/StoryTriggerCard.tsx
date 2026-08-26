@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { StoryTrigger } from '@core/story-cue';
 import { AppText } from '../components/AppText';
@@ -8,6 +9,7 @@ import { colors, radii, spacing } from '../theme';
 type StoryTriggerCardProps = {
   trigger: StoryTrigger;
   ageLabel?: string;
+  headerAction?: ReactNode;
   hintVisible?: boolean;
   disabled?: boolean;
   onShowStory: () => void;
@@ -18,6 +20,7 @@ type StoryTriggerCardProps = {
 export function StoryTriggerCard({
   ageLabel,
   disabled = false,
+  headerAction,
   hintVisible = false,
   onNeedHint,
   onShowStory,
@@ -30,7 +33,12 @@ export function StoryTriggerCard({
     <Card>
       <View style={styles.header}>
         <AppText variant="metadata" tone="action" style={styles.label}>Story trigger</AppText>
-        {ageLabel ? <AppText variant="metadata" tone="secondary">{ageLabel}</AppText> : null}
+        {ageLabel || headerAction ? (
+          <View style={styles.headerRight}>
+            {ageLabel ? <AppText variant="metadata" tone="secondary">{ageLabel}</AppText> : null}
+            {headerAction}
+          </View>
+        ) : null}
       </View>
 
       <AppText accessibilityRole="header" variant="title" style={styles.primary}>{trigger.primary}</AppText>
@@ -57,7 +65,8 @@ export function StoryTriggerCard({
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 32 },
+  headerRight: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   label: { fontWeight: '600', letterSpacing: 0.2 },
   primary: { marginTop: spacing.md },
   hint: { backgroundColor: colors.actionMuted, borderRadius: radii.control, marginTop: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
