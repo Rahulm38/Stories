@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import { DEFAULT_REMINDER_PREFS, type ReminderPreferences } from './reminder-service';
 
@@ -7,7 +6,6 @@ function preferencesFile(): File {
 }
 
 export async function readReminderPreferences(): Promise<ReminderPreferences> {
-  if (Platform.OS === 'web') return DEFAULT_REMINDER_PREFS;
   try {
     const file = preferencesFile();
     if (!file.exists) return DEFAULT_REMINDER_PREFS;
@@ -27,7 +25,6 @@ export async function readReminderPreferences(): Promise<ReminderPreferences> {
 }
 
 export async function writeReminderPreferences(preferences: ReminderPreferences): Promise<void> {
-  if (Platform.OS === 'web') return;
   const file = preferencesFile();
   file.create({ overwrite: true });
   file.write(JSON.stringify(preferences));
