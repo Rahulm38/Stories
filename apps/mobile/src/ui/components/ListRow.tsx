@@ -22,7 +22,7 @@ export function ListRow({ leading, metadata, showTopDivider = true, subtitle, ti
     >
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={styles.copy}>
-        <AppText variant="action" numberOfLines={1}>{title}</AppText>
+        <AppText variant="action" numberOfLines={2}>{title}</AppText>
         {subtitle ? <AppText variant="supporting" tone="secondary" numberOfLines={2} style={styles.subtitle}>{subtitle}</AppText> : null}
         {metadata ? <AppText variant="metadata" tone="secondary" style={styles.metadata}>{metadata}</AppText> : null}
       </View>
