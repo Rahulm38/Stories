@@ -1,22 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { storyCue } from '@core/story-cue';
+import { storyTrigger } from '@core/story-cue';
+import { nextPracticeMemory } from '@/src/recall/practice';
 import { useVault } from '@/src/vault/provider';
-import { colors, radii, sharedStyles, sizes, spacing } from '@/src/ui/theme';
-import { MemoryText } from '@/src/ui/MemoryText';
+import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { AppText } from '@/src/ui/components/AppText';
 import { Button } from '@/src/ui/components/Button';
-import { Card } from '@/src/ui/components/Card';
 import { ErrorState } from '@/src/ui/components/ErrorState';
 import { IconButton } from '@/src/ui/components/IconButton';
 import { LoadingState } from '@/src/ui/components/LoadingState';
 import { TopAppBar } from '@/src/ui/components/TopAppBar';
+import { StoryRevealSurface } from '@/src/ui/story/StoryRevealSurface';
+import { StoryTriggerCard } from '@/src/ui/story/StoryTriggerCard';
 
 type PracticeSource = 'saved' | 'today' | 'memory';
-type Stage = 'hidden' | 'revealed';
+type Stage = 'trigger' | 'revealed';
 
 export default function PracticeScreen() {
   const router = useRouter();
@@ -26,7 +27,16 @@ export default function PracticeScreen() {
   const source: PracticeSource = sourceValue === 'saved' || sourceValue === 'memory' ? sourceValue : 'today';
   const { hydrated, notes, openError } = useVault();
   const note = notes.find((item) => item.id === noteId && item.parseStatus !== 'quarantine');
-  const [stage, setStage] = useState<Stage>('hidden');
+  const [stage, setStage] = useState<Stage>('trigger');
+  const [hintVisible, setHintVisible] = useState(false);
+
+  useEffect(() => {
+    setStage('trigger');
+    setHintVisible(false);
+  }, [noteId]);
+
+  const trigger = useMemo(() => storyTrigger(note?.body || ''), [note?.body]);
+  const nextStory = useMemo(() => note ? nextPracticeMemory(notes, note.id) : undefined, [note, notes]);
 
   const close = () => {
     if (source === 'saved') {
@@ -35,6 +45,11 @@ export default function PracticeScreen() {
     }
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
+  };
+
+  const anotherStory = () => {
+    if (!nextStory) return;
+    router.replace({ pathname: '/practice/[id]', params: { id: nextStory.id, from: 'today' } });
   };
 
   if (!hydrated) {
@@ -52,7 +67,7 @@ export default function PracticeScreen() {
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
       <TopAppBar
-        title="Try telling"
+        title="Try a story"
         left={(
           <IconButton accessibilityLabel="Go back" onPress={close}>
             <SymbolView name={{ android: 'arrow_back', ios: 'chevron.left', web: 'arrow_back' }} size={sizes.standardIcon} tintColor={colors.action} />
@@ -61,42 +76,22 @@ export default function PracticeScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Card accent>
-          <View style={styles.kicker}>
-            <View style={styles.icon}>
-              <SymbolView name={{ android: 'chat_bubble', ios: 'quote.bubble.fill', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.action} />
-            </View>
-            <AppText variant="metadata" tone="secondary">Just practice</AppText>
+        {stage === 'trigger' ? (
+          <StoryTriggerCard
+            trigger={trigger}
+            hintVisible={hintVisible}
+            onNeedHint={trigger.secondary ? () => setHintVisible(true) : undefined}
+            onShowStory={() => setStage('revealed')}
+          />
+        ) : (
+          <View accessibilityLiveRegion="polite" style={styles.reveal}>
+            <StoryRevealSurface body={note.body} />
+            <AppText variant="supporting" tone="secondary" style={styles.explainer}>That’s it. We’ll bring it back later.</AppText>
+            <Button label="Done" onPress={close} style={styles.primary} />
+            {source === 'today' && nextStory ? <Button label="Another story" variant="tonal" onPress={anotherStory} style={styles.secondary} /> : null}
+            <Button label="Try again" variant="text" onPress={() => { setStage('trigger'); setHintVisible(false); }} style={styles.secondary} />
           </View>
-
-          {stage === 'hidden' ? (
-            <>
-              <AppText accessibilityRole="header" variant="title" style={styles.cue}>{storyCue(note.body)}</AppText>
-              <AppText variant="body" tone="secondary" style={styles.copy}>Say it back. Don’t worry about exact words.</AppText>
-              <Button
-                label="See original"
-                leading={<SymbolView name={{ android: 'visibility', ios: 'eye', web: 'visibility' }} size={sizes.compactIcon} tintColor={colors.onAction} />}
-                onPress={() => setStage('revealed')}
-                style={styles.primary}
-              />
-            </>
-          ) : (
-            <View accessibilityLiveRegion="polite">
-              <AppText variant="metadata" tone="secondary">Original story</AppText>
-              <View style={styles.original}><MemoryText body={note.body} /></View>
-              <View style={styles.explainer}>
-                <SymbolView name={{ android: 'history', ios: 'clock.arrow.circlepath', web: 'history' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
-                <AppText variant="supporting" tone="secondary" style={styles.flex}>
-                  {source === 'saved'
-                    ? 'We’ll bring this back when it starts to fade.'
-                    : 'Practicing helps keep stories available.'}
-                </AppText>
-              </View>
-              <Button label="Done" onPress={close} style={styles.primary} />
-              <Button label="Try again" variant="text" onPress={() => setStage('hidden')} style={styles.secondaryAction} />
-            </View>
-          )}
-        </Card>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -104,13 +99,8 @@ export default function PracticeScreen() {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingBottom: spacing.xxxl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
-  kicker: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
-  icon: { alignItems: 'center', backgroundColor: colors.actionMuted, borderRadius: radii.compact, height: 36, justifyContent: 'center', width: 36 },
-  cue: { marginTop: spacing.xl },
-  copy: { marginTop: spacing.md },
-  primary: { marginTop: spacing.xl, width: '100%' },
-  original: { borderTopColor: colors.divider, borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.sm, paddingTop: spacing.lg },
-  explainer: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xl },
-  flex: { flex: 1 },
-  secondaryAction: { marginTop: spacing.sm, width: '100%' },
+  reveal: { backgroundColor: colors.surface, borderRadius: 16, padding: spacing.md },
+  explainer: { marginTop: spacing.lg },
+  primary: { marginTop: spacing.lg, width: '100%' },
+  secondary: { marginTop: spacing.xs, width: '100%' },
 });
