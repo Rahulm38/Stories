@@ -1,56 +1,62 @@
-# Resurfacing and Tellability Requirements
+---
+title: Today and Resurfacing
+status: active
+last_reviewed: 2026-08-26
+---
+
+# Today and Resurfacing
 
 ## Goal
 
-Keep worthwhile memories available for real-world telling and use without turning Stories into study software.
+Bring a small number of saved memories back in a way that strengthens conversational availability without making Stories feel like homework.
+
+## Eligibility
+
+- A memory is due when `nextRecallAt` falls on or before the user's current local calendar day.
+- Quarantined/unreadable legacy files are never surfaced for review.
+- New memories first return after three local calendar days.
+- Stopped memories have no `nextRecallAt` and remain searchable in Library.
 
 ## Hidden state
 
-A due memory must not display its full title or body before reveal when either could expose the answer.
+Show:
+- age/context such as `From 3 days ago`;
+- a deterministic clue generated only from safe contextual words near the opening of the user's memory;
+- `Try telling it without looking. Out loud if you can.`;
+- primary `Reveal`;
+- secondary `Tomorrow`;
+- overflow with `Open memory`, `Stop resurfacing`, `Cancel`.
 
-Instead show:
-
-- how long ago it was saved;
-- a short deterministic clue made from a few distinctive words in the original memory;
-- the instruction: **Try telling it without looking. Out loud if you can.**
-- primary action: **Reveal**;
-- secondary action: **Tomorrow**;
-- overflow: Edit memory / Stop resurfacing.
+Do not show the derived Library title, original body, punchline, source metadata, file path or recording UI before Reveal.
 
 ## Revealed state
 
-Show the original memory exactly as saved in ordinary readable text.
+Show the exact original memory, then ask **Could you tell it?**
 
-Ask one question:
+- `Not yet` -> weak return, initially 1 day.
+- `Mostly` -> initially 4 days, then progressively 7 / 14 / 30 / 60 days.
+- `Yes` -> initially 14 days, then progressively 30 / 90 / 180 / 365 days.
 
-**Could you tell it?**
+The internal `reviewStrengthDays` is the durable scheduling state. `nextRecallAt` is only the due date. `Tomorrow` must never increase strength.
 
-Outcomes:
+## Daily calm limit
 
-- **Not yet** — return soon.
-- **Mostly** — increase the interval modestly.
-- **Yes** — increase the interval substantially.
+- Maximum **5 handled memories per local calendar day**.
+- Handled means rating, Tomorrow or Stop resurfacing.
+- Count persists across tab changes, process restart and app relaunch.
+- It resets automatically when the local calendar date changes.
+- When five are handled, Today shows `Done for today`; remaining backlog waits without guilt copy.
 
-## Scheduling
+## Reminders
 
-- New memories first return after 3 days.
-- First outcome retains simple initial intervals so the product is predictable.
-- Later successful returns progressively spread out, capped at a long interval.
-- A failed return comes back soon.
-- The model stays invisible to the user.
+- Reminders are optional and generic.
+- Permission is requested contextually after the user experiences a real return, not on first launch.
+- Once a user has engaged with Today's session, reconciliation must not schedule another immediate one-minute reminder for remaining overdue memories.
+- Remaining backlog can be reconsidered the next day.
 
-## Session design
+## Accessibility
 
-- Show no more than 5 due memories in one session.
-- Do not show overdue counts, red badges, catch-up debt, or streak penalties.
-- If more are due, end with **Done for now** and leave the rest for a later session.
-
-## Stop resurfacing
-
-Stopping must clear future returns without deleting the memory. The memory remains searchable in Library and can be scheduled again later.
-
-## First real return
-
-Do not simulate an immediate practice round after first save. The first real return after time has passed is the activation moment.
-
-After the first completed real return, Stories may offer the user a quiet notification permission prompt once. Declining must not block the product.
+- On narrow screens or larger font scale, Reveal/Tomorrow and the three rating controls may stack vertically.
+- All actions meet the 48dp minimum target.
+- Reveal changes should be announced politely to assistive technology.
+- A speech/quote icon may reinforce telling; do not use a microphone icon unless the app is actually recording/listening.
