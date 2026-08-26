@@ -1,16 +1,31 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { plainMemoryText } from '@core/story-cue';
 import { AppText } from './components/AppText';
-import { spacing } from './theme';
+import { colors, radii, spacing } from './theme';
 
 type MemoryTextProps = {
   body: string;
 };
 
 export function MemoryText({ body }: MemoryTextProps) {
-  return <AppText variant="body" style={styles.body}>{plainMemoryText(body)}</AppText>;
+  return (
+    <View style={styles.container}>
+      <AppText variant="body" style={styles.body}>{plainMemoryText(body)}</AppText>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  body: { paddingBottom: spacing.xl },
+  container: {
+    backgroundColor: colors.surfaceMuted,
+    borderLeftColor: colors.accentWarm,
+    borderLeftWidth: 2,
+    borderRadius: radii.compact,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  body: {
+    color: colors.textPrimary,
+  },
 });

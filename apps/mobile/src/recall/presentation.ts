@@ -1,9 +1,9 @@
 import type { RecallStatus } from '@core/model';
 
 const RESULT_LABELS: Readonly<Record<RecallStatus, string>> = {
-  forgot: 'Not yet',
-  partial: 'Mostly',
-  remembered: 'Yes',
+  forgot: 'Forgot',
+  partial: 'Close',
+  remembered: 'Got it',
 };
 
 function localDate(value: string): Date | undefined {
@@ -42,7 +42,7 @@ export function recallResultLabel(status: RecallStatus): string {
 
 export function savedMemoryMessage(nextRecallAt?: string, locale?: string): string {
   const returnDate = nextRecallAt ? shortDateLabel(nextRecallAt, locale) : undefined;
-  return returnDate ? `Saved. We’ll bring it back on ${returnDate}.` : 'Saved.';
+  return returnDate ? `Saved. Comes back on ${returnDate}.` : 'Saved.';
 }
 
 export function remainingStoryMessage(remaining: number): string {
@@ -53,11 +53,11 @@ export function remainingStoryMessage(remaining: number): string {
 
 export function recallCompletionMessage(nextRecallAt: string, remaining: number, locale?: string): string {
   const returnDate = shortDateLabel(nextRecallAt, locale);
-  return `${returnDate ? `Nice. Back on ${returnDate}.` : 'Nice.'} ${remainingStoryMessage(remaining)}`;
+  return `${returnDate ? `Back on ${returnDate}.` : 'Done.'} ${remainingStoryMessage(remaining)}`;
 }
 
 export function nextUpcomingRecallMessage(nextRecallAt?: string, locale?: string): string | undefined {
   if (!nextRecallAt) return undefined;
   const returnDate = shortDateLabel(nextRecallAt, locale);
-  return returnDate ? `Next one comes back on ${returnDate}.` : undefined;
+  return returnDate ? `Your next story comes back on ${returnDate}.` : undefined;
 }

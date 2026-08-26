@@ -81,7 +81,7 @@ export default function CaptureScreen() {
       setRecovered(false);
       setSavedId(saved.id);
     } catch (error) {
-      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be saved');
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This story could not be saved');
     } finally {
       savingRef.current = false;
       if (mountedRef.current) setSaving(false);
@@ -91,7 +91,7 @@ export default function CaptureScreen() {
   if (openError) {
     return (
       <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
-        <ErrorState title="Couldn't open your memories" body={openError} hint="Your memories were left unchanged." action={<Button label="Back to Today" variant="text" onPress={() => router.replace('/(tabs)')} />} />
+        <ErrorState title="Couldn't open your stories" body={openError} hint="Your stories were left unchanged." action={<Button label="Back to Today" variant="text" onPress={() => router.replace('/(tabs)')} />} />
       </SafeAreaView>
     );
   }
@@ -104,8 +104,8 @@ export default function CaptureScreen() {
           <View style={styles.savedIcon}>
             <SymbolView name={{ android: 'check', ios: 'checkmark', web: 'check' }} size={sizes.primaryIcon} tintColor={colors.success} />
           </View>
-          <AppText accessibilityRole="header" variant="title">Memory saved</AppText>
-          <AppText variant="body" tone="secondary" style={styles.savedCopy}>It comes back in 3 days. Try the Stories loop now without changing that schedule.</AppText>
+          <AppText accessibilityRole="header" variant="title">Saved</AppText>
+          <AppText variant="body" tone="secondary" style={styles.savedCopy}>Comes back in 3 days.</AppText>
           <Button
             label="Try telling it now"
             leading={<SymbolView name={{ android: 'chat_bubble', ios: 'quote.bubble', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.onAction} />}
@@ -130,19 +130,19 @@ export default function CaptureScreen() {
     <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={sharedStyles.screen} behavior="height">
         <TopAppBar
-          title="New memory"
+          title="New story"
           left={(
-            <IconButton accessibilityLabel="Close new memory" disabled={saving} onPress={leaveCapture}>
+            <IconButton accessibilityLabel="Close new story" disabled={saving} onPress={leaveCapture}>
               <SymbolView name={{ android: 'close', ios: 'xmark', web: 'close' }} size={sizes.standardIcon} tintColor={colors.action} />
             </IconButton>
           )}
         />
 
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
-          {recovered ? <StatusMessage message="Recovered your unfinished memory." /> : null}
+          {recovered ? <StatusMessage message="Recovered your unfinished story." /> : null}
 
           <AppText accessibilityRole="header" variant="title" style={styles.prompt}>What’s worth remembering?</AppText>
-          <AppText variant="supporting" tone="secondary" style={styles.support}>A moment, idea or detail is enough. Write it naturally.</AppText>
+          <AppText variant="supporting" tone="secondary" style={styles.support}>One sentence is enough.</AppText>
 
           <MemoryEditor
             value={draft}
@@ -152,7 +152,7 @@ export default function CaptureScreen() {
               if (recovered) setRecovered(false);
             }}
             accessibilityLabel="What’s worth remembering?"
-            placeholder="Something that happened, a useful idea, a detail you want to tell later…"
+            placeholder="A conversation, a moment, something you’d tell a friend…"
             autoFocus
             editable={!saving}
             minHeight={300}
@@ -160,7 +160,7 @@ export default function CaptureScreen() {
 
           <View style={styles.returnHint}>
             <SymbolView name={{ ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
-            <AppText variant="metadata" tone="secondary" style={styles.returnCopy}>We’ll bring this back in 3 days.</AppText>
+            <AppText variant="metadata" tone="secondary" style={styles.returnCopy}>Comes back in 3 days.</AppText>
           </View>
           {saveError ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{saveError}</AppText> : null}
         </ScrollView>
@@ -169,7 +169,7 @@ export default function CaptureScreen() {
           <Button
             accessibilityState={{ busy: saving, disabled: !hydrated || !draft.trim() || saving }}
             disabled={!hydrated || !draft.trim() || saving}
-            label={saving ? 'Saving…' : 'Save memory'}
+            label={saving ? 'Saving…' : 'Save story'}
             leading={<SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} size={sizes.compactIcon} tintColor={colors.onAction} />}
             onPress={() => { void save(); }}
             style={styles.saveButton}

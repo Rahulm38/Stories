@@ -29,8 +29,17 @@ function parseRecallDate(value: string | undefined): Date | undefined {
 }
 
 function recallCalendarDay(value: string | undefined): string | undefined {
-  const parsed = parseRecallDate(value);
-  return parsed ? localDateStamp(parsed) : undefined;
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  const calendarDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?=$|T)/);
+  if (!calendarDate) return undefined;
+  const [, yearText, monthText, dayText] = calendarDate;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth) return undefined;
+  return `${yearText}-${monthText}-${dayText}`;
 }
 
 function addDays(isoDate: string, days: number): string {

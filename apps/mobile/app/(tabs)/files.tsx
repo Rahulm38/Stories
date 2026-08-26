@@ -53,9 +53,9 @@ export default function FilesScreen() {
           <AppText accessibilityRole="header" variant="display">Library</AppText>
           <EmptyState
             icon={<SymbolView name={{ ios: 'bubble.left.and.bubble.right', android: 'chat_bubble', web: 'chat_bubble' }} size={sizes.primaryIcon} tintColor={colors.action} />}
-            title="Your stories start here"
-            body="Save moments and ideas you want available when it’s time to tell them."
-            action={<Button label="Save your first memory" leading={<SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={sizes.compactIcon} tintColor={colors.onAction} />} onPress={() => router.navigate('/capture')} />}
+            title="Nothing saved yet"
+            body="The best stories are the ones you actually remember."
+            action={<Button label="Save your first story" leading={<SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={sizes.compactIcon} tintColor={colors.onAction} />} onPress={() => router.navigate('/capture')} />}
           />
         </View>
       </SafeAreaView>
@@ -140,7 +140,7 @@ export default function FilesScreen() {
           <EmptyState
             icon={<SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={sizes.primaryIcon} tintColor={colors.action} />}
             title="Nothing matched"
-            body="Try a person, place, event, or a shorter phrase. Small typos are okay."
+            body="Try a name, place, or shorter phrase. Small typos are okay."
             action={<Button label="Clear search" variant="secondary" onPress={() => setQuery('')} />}
           />
         )}

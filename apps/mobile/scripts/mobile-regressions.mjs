@@ -126,13 +126,12 @@ test('mobile flow contains the hardened Android storytelling contracts', async (
   assert.match(today, /selectPracticeMemory/);
   assert.match(today, /practiceOffset/);
   assert.match(today, /setPracticeOffset/);
-  assert.match(today, /Ready to tell/);
   assert.match(today, /Done for today/);
   assert.match(today, /readDailyReviewSession/);
   assert.doesNotMatch(today, /<SectionHeader>Recent<\/SectionHeader>|ListRow|record_voice_over/);
 
-  assert.match(practice, /Reveal original/);
-  assert.match(practice, /does not change when the story is scheduled to come back/);
+  assert.match(practice, /See original/);
+  assert.match(practice, /Just practice/);
   assert.doesNotMatch(practice, /gradeRecall|practiceRecall|saveNote|recordDailyReviewHandled/);
 
   assert.match(note, /Try telling/);
@@ -169,12 +168,12 @@ test('mobile flow contains the hardened Android storytelling contracts', async (
 });
 
 test('result copy stays storytelling-oriented and calm', () => {
-  assert.equal(recallResultLabel('forgot'), 'Not yet');
-  assert.equal(recallResultLabel('partial'), 'Mostly');
-  assert.equal(recallResultLabel('remembered'), 'Yes');
-  assert.equal(savedMemoryMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Saved. We’ll bring it back on Aug 29.');
-  assert.equal(recallCompletionMessage('2026-09-09T10:00:00.000Z', 0, 'en-US'), 'Nice. Back on Sep 9. Done for now.');
-  assert.equal(nextUpcomingRecallMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Next one comes back on Aug 29.');
+  assert.equal(recallResultLabel('forgot'), 'Forgot');
+  assert.equal(recallResultLabel('partial'), 'Close');
+  assert.equal(recallResultLabel('remembered'), 'Got it');
+  assert.equal(savedMemoryMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Saved. Comes back on Aug 29.');
+  assert.equal(recallCompletionMessage('2026-09-09T10:00:00.000Z', 0, 'en-US'), 'Back on Sep 9. Done for now.');
+  assert.equal(nextUpcomingRecallMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Your next story comes back on Aug 29.');
 });
 
 test('bottom tabs keep comfortable Android device-safe spacing', () => {

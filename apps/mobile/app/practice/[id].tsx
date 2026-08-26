@@ -66,15 +66,15 @@ export default function PracticeScreen() {
             <View style={styles.icon}>
               <SymbolView name={{ android: 'chat_bubble', ios: 'quote.bubble.fill', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.action} />
             </View>
-            <AppText variant="metadata" tone="secondary">Practice, not a test</AppText>
+            <AppText variant="metadata" tone="secondary">Just practice</AppText>
           </View>
 
           {stage === 'hidden' ? (
             <>
               <AppText accessibilityRole="header" variant="title" style={styles.cue}>{storyCue(note.body)}</AppText>
-              <AppText variant="body" tone="secondary" style={styles.copy}>Tell the memory in your own words before you look. Exact wording does not matter.</AppText>
+              <AppText variant="body" tone="secondary" style={styles.copy}>Say it back. Don’t worry about exact words.</AppText>
               <Button
-                label="Reveal original"
+                label="See original"
                 leading={<SymbolView name={{ android: 'visibility', ios: 'eye', web: 'visibility' }} size={sizes.compactIcon} tintColor={colors.onAction} />}
                 onPress={() => setStage('revealed')}
                 style={styles.primary}
@@ -82,14 +82,14 @@ export default function PracticeScreen() {
             </>
           ) : (
             <View accessibilityLiveRegion="polite">
-              <AppText variant="metadata" tone="secondary">Original memory</AppText>
+              <AppText variant="metadata" tone="secondary">Original story</AppText>
               <View style={styles.original}><MemoryText body={note.body} /></View>
               <View style={styles.explainer}>
                 <SymbolView name={{ android: 'history', ios: 'clock.arrow.circlepath', web: 'history' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
                 <AppText variant="supporting" tone="secondary" style={styles.flex}>
                   {source === 'saved'
-                    ? 'That’s the loop. We’ll bring this back later when remembering takes more effort.'
-                    : 'This practice does not change when the story is scheduled to come back.'}
+                    ? 'We’ll bring this back when it starts to fade.'
+                    : 'Practicing helps keep stories available.'}
                 </AppText>
               </View>
               <Button label="Done" onPress={close} style={styles.primary} />

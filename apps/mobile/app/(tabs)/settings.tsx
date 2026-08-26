@@ -72,7 +72,7 @@ export default function SettingsScreen() {
   return (
     <AppScreen scroll scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <AppText accessibilityRole="header" variant="display">Settings</AppText>
-      <AppText variant="supporting" tone="secondary" style={styles.subtitle}>Private by default. Quiet when you don’t need it.</AppText>
+      <AppText variant="supporting" tone="secondary" style={styles.subtitle}>Private. Quiet. Yours.</AppText>
 
       <View style={styles.section}>
         <SectionHeader>Reminders</SectionHeader>

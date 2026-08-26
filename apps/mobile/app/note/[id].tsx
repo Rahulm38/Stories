@@ -216,15 +216,15 @@ export default function NoteScreen() {
 
   const confirmDelete = () => {
     if (!note || deleting) return;
-    Alert.alert('Delete this memory?', 'This permanently removes it from this device. This can’t be undone.', [
+    Alert.alert('Delete this story?', 'This permanently removes it from this device. This can’t be undone.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => { void performDelete(note.id); } },
     ]);
   };
 
-  if (!hydrated) return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><LoadingState label="Opening memory…" /></SafeAreaView>;
-  if (openError) return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><ErrorState title="Couldn't open your memories" body={openError} action={<Button label="Go back" variant="text" onPress={leaveNote} />} /></SafeAreaView>;
-  if (!note) return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><ErrorState title="This memory isn't available" body="It may have been deleted." action={<Button label="Back to Library" variant="text" onPress={() => router.dismissTo('/(tabs)/files')} />} /></SafeAreaView>;
+  if (!hydrated) return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><LoadingState label="Opening story…" /></SafeAreaView>;
+  if (openError) return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><ErrorState title="Couldn't open your stories" body={openError} action={<Button label="Go back" variant="text" onPress={leaveNote} />} /></SafeAreaView>;
+  if (!note) return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><ErrorState title="This story isn't available" body="It may have been deleted." action={<Button label="Back to Library" variant="text" onPress={() => router.dismissTo('/(tabs)/files')} />} /></SafeAreaView>;
 
   const returns = returnLabel(note.nextRecallAt);
   const sheetActions: ActionSheetAction[] = [
@@ -250,7 +250,7 @@ export default function NoteScreen() {
           onPress: () => { void bringBackSoon(); },
         },
     {
-      label: 'Delete memory',
+      label: 'Delete story',
       destructive: true,
       icon: <SymbolView name={{ ios: 'trash', android: 'delete', web: 'delete' }} size={sizes.compactIcon} tintColor={colors.danger} />,
       onPress: confirmDelete,
@@ -262,7 +262,7 @@ export default function NoteScreen() {
       <TopAppBar
         title=""
         left={<IconButton accessibilityLabel="Go back" disabled={leaving} onPress={leaveNote}><SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={sizes.standardIcon} tintColor={colors.action} /></IconButton>}
-        right={<IconButton accessibilityLabel="More memory actions" disabled={deleting || leaving || !draft.trim()} onPress={() => setActionsOpen(true)}><SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.action} /></IconButton>}
+        right={<IconButton accessibilityLabel="More story actions" disabled={deleting || leaving || !draft.trim()} onPress={() => setActionsOpen(true)}><SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.action} /></IconButton>}
       />
 
       <KeyboardAvoidingView behavior="height" style={styles.editorWrap}>
@@ -275,8 +275,8 @@ export default function NoteScreen() {
               setDraft(body);
               if (saveError) setSaveError('');
             }}
-            accessibilityLabel="Memory"
-            placeholder="Write what you want to keep…"
+            accessibilityLabel="Story"
+            placeholder="Write what’s worth telling…"
             editable={!deleting && !leaving}
             minHeight={420}
           />
@@ -292,7 +292,7 @@ export default function NoteScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <ActionSheet visible={actionsOpen} title="Memory" actions={sheetActions} onClose={() => setActionsOpen(false)} />
+      <ActionSheet visible={actionsOpen} title="Story" actions={sheetActions} onClose={() => setActionsOpen(false)} />
     </SafeAreaView>
   );
 }

@@ -23,7 +23,6 @@ import { Card } from '@/src/ui/components/Card';
 import { ErrorState } from '@/src/ui/components/ErrorState';
 import { IconButton } from '@/src/ui/components/IconButton';
 import { LoadingState } from '@/src/ui/components/LoadingState';
-import { SectionHeader } from '@/src/ui/components/SectionHeader';
 import { Snackbar } from '@/src/ui/components/Snackbar';
 
 type Stage = 'hidden' | 'revealed';
@@ -146,7 +145,7 @@ export default function TodayScreen() {
       finish();
       void offerReminder(firstReturn);
     } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : 'This memory could not be updated');
+      if (mounted.current) setError(cause instanceof Error ? cause.message : 'This story could not be updated');
     } finally {
       savingRef.current = false;
       if (mounted.current) setSaving(false);
@@ -167,7 +166,7 @@ export default function TodayScreen() {
       setStatus(`Moved to tomorrow. ${remainingStoryMessage(remaining)}`);
       finish();
     } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : 'This memory could not be moved');
+      if (mounted.current) setError(cause instanceof Error ? cause.message : 'This story could not be moved');
     } finally {
       savingRef.current = false;
       if (mounted.current) setSaving(false);
@@ -188,7 +187,7 @@ export default function TodayScreen() {
         finish();
       }
     } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : 'This memory could not be updated');
+      if (mounted.current) setError(cause instanceof Error ? cause.message : 'This story could not be updated');
     } finally {
       savingRef.current = false;
       if (mounted.current) setSaving(false);
@@ -196,7 +195,7 @@ export default function TodayScreen() {
   };
 
   const actions = (note: MemoryNote) => Alert.alert('Story', undefined, [
-    { text: 'Open memory', onPress: () => router.push({ pathname: '/note/[id]', params: { id: note.id } }) },
+    { text: 'Open story', onPress: () => router.push({ pathname: '/note/[id]', params: { id: note.id } }) },
     { text: 'Stop resurfacing', onPress: () => { void stop(); } },
     { text: 'Cancel', style: 'cancel' },
   ]);
@@ -220,21 +219,21 @@ export default function TodayScreen() {
   };
 
   if (!hydrated || !session) {
-    return <SafeAreaView style={sharedStyles.screen} edges={['top']}><LoadingState label="Opening your memories…" /></SafeAreaView>;
+    return <SafeAreaView style={sharedStyles.screen} edges={['top']}><LoadingState label="Opening your stories…" /></SafeAreaView>;
   }
   if (openError) {
-    return <SafeAreaView style={sharedStyles.screen} edges={['top']}><ErrorState title="Couldn't open your memories" body={openError} hint="Your memories were left unchanged. Close and reopen Stories to try again." /></SafeAreaView>;
+    return <SafeAreaView style={sharedStyles.screen} edges={['top']}><ErrorState title="Couldn't open your stories" body={openError} hint="Your stories were left unchanged. Close and reopen Stories to try again." /></SafeAreaView>;
   }
 
   const sessionDone = capped && due.length > 0;
   const tabBar = tabBarMetrics(insets.bottom, false);
   const subtitle = healthy.length === 0
-    ? 'Build a bank of stories you can actually remember.'
+    ? 'What will you tell today?'
     : current
-      ? (due.length > visibleDue ? 'A few stories are ready to tell.' : `${visibleDue} ${visibleDue === 1 ? 'story is' : 'stories are'} ready to tell.`)
+      ? (due.length > visibleDue ? 'Some stories came back.' : `${visibleDue} ${visibleDue === 1 ? 'story came back.' : 'stories came back.'}`)
       : sessionDone
-        ? 'That’s enough for today.'
-        : 'You’re caught up. Practice one anytime.';
+        ? 'That’s plenty for today.'
+        : 'All quiet. Try one anytime.';
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
@@ -247,18 +246,16 @@ export default function TodayScreen() {
         {healthy.length === 0 ? (
           <View style={styles.firstUse}>
             <View style={styles.hero}>{symbol('quote.bubble.fill', 'chat_bubble')}</View>
-            <AppText variant="title">Build your story bank</AppText>
-            <AppText variant="body" tone="secondary" style={styles.firstCopy}>Save moments, observations and ideas worth telling. Stories brings them back with a clue so they stay available when conversation gives you an opening.</AppText>
+            <AppText variant="title">Your story bank</AppText>
+            <AppText variant="body" tone="secondary" style={styles.firstCopy}>The best stories are the ones you actually remember.</AppText>
             <Button label="Save your first story" leading={symbol('plus', 'add', colors.onAction)} onPress={() => router.navigate('/capture')} style={styles.firstButton} />
           </View>
         ) : null}
 
         {current ? (
           <View style={styles.section}>
-            <SectionHeader>Ready to tell</SectionHeader>
             <Card accent>
               <View style={styles.reviewTop}>
-                <View style={styles.smallIcon}>{symbol('bubble.left.fill', 'chat_bubble')}</View>
                 <AppText variant="metadata" tone="secondary" style={styles.age}>{memoryAgeLabel(current.createdAt, now)}</AppText>
                 <IconButton accessibilityLabel="Story options" disabled={saving} onPress={() => actions(current)}>
                   <SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.textSecondary} />
@@ -269,25 +266,24 @@ export default function TodayScreen() {
                 <>
                   <AppText accessibilityRole="header" variant="title" style={styles.cue}>{storyCue(current.body)}</AppText>
                   <View style={styles.tell}>
-                    {symbol('quote.bubble', 'chat_bubble_outline', colors.textSecondary)}
-                    <AppText variant="supporting" tone="secondary" style={styles.flex}>Tell it in your own words before you look. Out loud if you can.</AppText>
+                    <AppText variant="supporting" tone="secondary" style={styles.flex}>Say it back before you look.</AppText>
                   </View>
                   <View style={[styles.actions, stackActions && styles.actionsStack]}>
-                    <Button disabled={saving} label="Reveal original" leading={symbol('eye', 'visibility', colors.onAction)} onPress={() => setStage('revealed')} style={stackActions ? styles.fullWidth : styles.flex} />
+                    <Button disabled={saving} label="See original" leading={symbol('eye', 'visibility', colors.onAction)} onPress={() => setStage('revealed')} style={stackActions ? styles.fullWidth : styles.flex} />
                     <Button disabled={saving} label="Tomorrow" leading={symbol('clock', 'schedule')} variant="text" onPress={() => { void tomorrow(); }} style={stackActions ? styles.fullWidth : undefined} />
                   </View>
                 </>
               ) : (
                 <View accessibilityLiveRegion="polite">
                   <View style={styles.original}><MemoryText body={current.body} /></View>
-                  <AppText variant="section" style={styles.ratingTitle}>Could you tell it naturally?</AppText>
+                  <AppText variant="section" style={styles.ratingTitle}>How did it go?</AppText>
                   <View style={[styles.ratings, stackRatings && styles.ratingsStack]}>
                     {(['forgot', 'partial', 'remembered'] as const).map((result) => (
                       <Button
                         key={result}
                         disabled={saving}
                         label={recallResultLabel(result)}
-                        variant={result === 'remembered' ? 'primary' : 'secondary'}
+                        variant="secondary"
                         onPress={() => { void complete(result); }}
                         style={stackRatings ? styles.fullWidth : styles.rating}
                       />
@@ -304,7 +300,7 @@ export default function TodayScreen() {
               <View style={styles.smallIcon}>{symbol('checkmark', 'check', colors.success)}</View>
               <View style={styles.flex}>
                 <AppText variant="section">Done for today</AppText>
-                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>Five is enough. The rest can wait until tomorrow.</AppText>
+                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>Plenty of stories for one sitting.</AppText>
               </View>
             </View>
           </Card>
@@ -313,8 +309,8 @@ export default function TodayScreen() {
             <View style={styles.doneRow}>
               <View style={styles.smallIcon}>{symbol('checkmark', 'check', colors.success)}</View>
               <View style={styles.flex}>
-                <AppText variant="section">You’re caught up</AppText>
-                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>{upcomingCopy || 'Nothing is scheduled yet. You can still practice a story anytime.'}</AppText>
+                <AppText variant="section">All quiet</AppText>
+                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>{upcomingCopy || 'Your stories are resting. Practice one anytime.'}</AppText>
               </View>
             </View>
             <View style={[styles.actions, stackActions && styles.actionsStack]}>
@@ -329,8 +325,8 @@ export default function TodayScreen() {
             <View style={styles.doneRow}>
               <View style={styles.smallIcon}>{symbol('bell', 'notifications')}</View>
               <View style={styles.flex}>
-                <AppText variant="section">Want a quiet reminder?</AppText>
-                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>We’ll only nudge you when something is ready to come back.</AppText>
+                <AppText variant="section">Get a nudge when stories come back?</AppText>
+                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>We’ll only remind you when something is ready.</AppText>
               </View>
             </View>
             <View style={[styles.actions, stackActions && styles.actionsStack]}>

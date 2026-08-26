@@ -68,11 +68,11 @@ export function storyCue(body: string): string {
   const clean = plainMemoryText(body);
   const allWords = clean.match(/[\p{L}\p{N}][\p{L}\p{N}'’.-]*/gu) || [];
   const words = meaningfulWords(body);
-  if (words.length === 0 || allWords.length === 0) return 'A memory worth bringing back';
+  if (words.length === 0 || allWords.length === 0) return 'Something worth telling…';
 
   const safeWordBoundary = Math.max(2, Math.floor(allWords.length * 0.55));
   const safe = words.filter((item) => item.index < safeWordBoundary);
-  if (safe.length === 0) return 'A memory worth bringing back';
+  if (safe.length === 0) return 'Something worth telling…';
 
   const cueCount = safe.length >= 2 && allWords.length >= 8 ? 2 : 1;
   const ranked = [...safe]
@@ -81,5 +81,5 @@ export function storyCue(body: string): string {
     .sort((a, b) => a.index - b.index)
     .map((item) => item.word);
 
-  return ranked.length === 1 ? `${ranked[0]} · What comes back?` : ranked.join(' · ');
+  return ranked.length === 1 ? `${ranked[0]}…` : `${ranked.join(', ')}…`;
 }
