@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import { clearCaptureDraft, readCaptureDraft, writeCaptureDraft } from '@/src/ca
 import { useUnsavedChangesGuard } from '@/src/navigation/unsaved-changes';
 import { useVault } from '@/src/vault/provider';
 import { MemoryEditor } from '@/src/ui/MemoryEditor';
-import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
+import { colors, radii, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { AppText } from '@/src/ui/components/AppText';
 import { Button } from '@/src/ui/components/Button';
 import { ErrorState } from '@/src/ui/components/ErrorState';
@@ -24,6 +24,7 @@ export default function CaptureScreen() {
   const [saveError, setSaveError] = useState('');
   const [recovered, setRecovered] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [savedId, setSavedId] = useState<string>();
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
   const restoreAttemptedRef = useRef(false);
@@ -50,7 +51,7 @@ export default function CaptureScreen() {
   const allowNextNavigation = useUnsavedChangesGuard(dirty, saving, clearCaptureDraft);
 
   useEffect(() => {
-    if (!draftLoaded || saving) return undefined;
+    if (!draftLoaded || saving || savedId) return undefined;
     if (!dirty) {
       void clearCaptureDraft();
       return undefined;
@@ -59,7 +60,7 @@ export default function CaptureScreen() {
       void writeCaptureDraft({ body: draft, savedAt: new Date().toISOString() });
     }, 700);
     return () => clearTimeout(timer);
-  }, [draft, draftLoaded, dirty, saving]);
+  }, [draft, draftLoaded, dirty, savedId, saving]);
 
   const leaveCapture = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -73,11 +74,12 @@ export default function CaptureScreen() {
     setSaving(true);
     setSaveError('');
     try {
-      await saveNote({ body: draft.trim(), nextRecallAt });
+      const saved = await saveNote({ body: draft.trim(), nextRecallAt });
       await clearCaptureDraft();
       if (!mountedRef.current) return;
-      allowNextNavigation();
-      router.replace({ pathname: '/(tabs)', params: { saved: '1', nextRecallAt } });
+      setDraft('');
+      setRecovered(false);
+      setSavedId(saved.id);
     } catch (error) {
       if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be saved');
     } finally {
@@ -94,9 +96,39 @@ export default function CaptureScreen() {
     );
   }
 
+  if (savedId) {
+    return (
+      <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
+        <TopAppBar title="Saved" />
+        <View style={styles.savedContent}>
+          <View style={styles.savedIcon}>
+            <SymbolView name={{ android: 'check', ios: 'checkmark', web: 'check' }} size={sizes.primaryIcon} tintColor={colors.success} />
+          </View>
+          <AppText accessibilityRole="header" variant="title">Memory saved</AppText>
+          <AppText variant="body" tone="secondary" style={styles.savedCopy}>It comes back in 3 days. Try the Stories loop now without changing that schedule.</AppText>
+          <Button
+            label="Try telling it now"
+            leading={<SymbolView name={{ android: 'chat_bubble', ios: 'quote.bubble', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.onAction} />}
+            onPress={() => router.push({ pathname: '/practice/[id]', params: { id: savedId, from: 'saved' } })}
+            style={styles.savedButton}
+          />
+          <Button
+            label="Done"
+            variant="secondary"
+            onPress={() => {
+              allowNextNavigation();
+              router.replace('/(tabs)');
+            }}
+            style={styles.doneButton}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView style={sharedStyles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={sharedStyles.screen} behavior="height">
         <TopAppBar
           title="New memory"
           left={(
@@ -128,7 +160,7 @@ export default function CaptureScreen() {
 
           <View style={styles.returnHint}>
             <SymbolView name={{ ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
-            <AppText variant="metadata" tone="secondary" style={styles.returnCopy}>We’ll bring this back in a few days.</AppText>
+            <AppText variant="metadata" tone="secondary" style={styles.returnCopy}>We’ll bring this back in 3 days.</AppText>
           </View>
           {saveError ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{saveError}</AppText> : null}
         </ScrollView>
@@ -164,4 +196,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   saveButton: { width: '100%' },
+  savedContent: { alignItems: 'stretch', flex: 1, justifyContent: 'center', paddingBottom: spacing.xxxl, paddingHorizontal: spacing.lg },
+  savedIcon: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: colors.actionMuted, borderRadius: radii.card, height: 64, justifyContent: 'center', marginBottom: spacing.lg, width: 64 },
+  savedCopy: { marginTop: spacing.sm },
+  savedButton: { marginTop: spacing.xl, width: '100%' },
+  doneButton: { marginTop: spacing.sm, width: '100%' },
 });
