@@ -22,6 +22,10 @@ export type MemoryNote = {
    * memory became stronger.
    */
   reviewStrengthDays?: number;
+  /** Number of times the user explicitly said they told this story in real life. */
+  toldCount?: number;
+  /** Most recent real-world telling event. Does not alter recall scheduling. */
+  lastToldAt?: string;
   frontmatter?: string[];
   schemaVersion?: number;
   parseStatus?: ParseStatus;
@@ -40,6 +44,8 @@ export type NoteDraft = {
   recallStatus?: RecallStatus;
   lastRecalledAt?: string;
   reviewStrengthDays?: number;
+  toldCount?: number;
+  lastToldAt?: string;
   frontmatter?: string[];
 };
 
