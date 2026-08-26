@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { MemoryNote } from '@core/model';
 import { librarySearchScore } from '@/src/navigation/library-search';
 import { useVault } from '@/src/vault/provider';
 import { colors, radii, sharedStyles, sizes, spacing, typography } from '@/src/ui/theme';
@@ -22,7 +23,7 @@ export default function FilesScreen() {
   const healthyStories = useMemo(() => notes.filter((note) => note.parseStatus !== 'quarantine'), [notes]);
   const visibleStories = useMemo(() => healthyStories
     .map((note) => ({ note, score: librarySearchScore(note, query) }))
-    .filter((item): item is { note: typeof healthyStories[number]; score: number } => item.score !== null)
+    .filter((item): item is { note: MemoryNote; score: number } => item.score !== null)
     .sort((a, b) => {
       if (query.trim() && a.score !== b.score) return a.score - b.score;
       const aTime = new Date(a.note.updatedAt).getTime() || 0;
