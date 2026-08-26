@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { VaultProvider } from '@/src/vault/provider';
 import { colors } from '@/src/ui/theme';
@@ -24,6 +24,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.paper } }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="capture" />
+            <Stack.Screen name="practice/[id]" />
             <Stack.Screen name="note/[id]" />
             <Stack.Screen name="privacy" />
           </Stack>
@@ -39,9 +40,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appFrame: {
-    alignSelf: 'center',
     flex: 1,
-    maxWidth: Platform.OS === 'web' ? 520 : undefined,
     width: '100%',
   },
 });
