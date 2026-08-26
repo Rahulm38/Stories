@@ -3,7 +3,7 @@
     "name": "Stories",
     "slug": "stories",
     "version": "1.0.0",
-    "platforms": ["android", "ios"],
+    "platforms": ["android"],
     "orientation": "portrait",
     "icon": "./assets/images/stories-icon.png",
     "scheme": "stories",
@@ -18,14 +18,18 @@
       },
       "predictiveBackGestureEnabled": true
     },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.rahulm.stories",
-      "buildNumber": "1"
-    },
     "plugins": [
       "expo-router",
       "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {
