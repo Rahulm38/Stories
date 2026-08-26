@@ -152,7 +152,8 @@ test('mobile flow contains the hardened Android storytelling contracts', async (
 
   const mobilePackage = JSON.parse(mobilePackageText);
   assert.equal(mobilePackage.dependencies['expo-build-properties'], '~57.0.13');
-  for (const removed of ['expo-dev-client', 'expo-font', 'react-native-reanimated', 'react-native-worklets', 'react-native-web', 'react-dom']) {
+  assert.equal(mobilePackage.dependencies['expo-font'], '~57.0.1');
+  for (const removed of ['expo-dev-client', 'react-native-reanimated', 'react-native-worklets', 'react-native-web', 'react-dom']) {
     assert.equal(mobilePackage.dependencies[removed], undefined);
   }
 
