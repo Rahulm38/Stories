@@ -1,62 +1,39 @@
----
-title: Product Brief
-status: approved
-last_reviewed: 2026-08-25
----
-
 # Product Brief
 
-## The Problem
+## North star
 
-People save ideas from books and lessons from lived experience, but retrieval fails at the moment those ideas would actually be useful. Existing note apps optimize capture, organization, or search—waiting passively for you to remember what to search for. Spaced-repetition tools improve memory, but require tedious card authoring, rigid study decks, and feel like homework.
+**Stories helps people keep moments, ideas, and experiences mentally available so they are there when the user has something worth telling.**
 
-Stories closes the gap between a private note and an active memory. It lets you capture a thought in ordinary words, prompts you with a contextual cue before revealing the answer, and schedules calm, non-judgmental return intervals.
+Remembering is the mechanism. Real-world storytelling and conversational availability are the outcome.
 
-## Product Promise
+## Problem
 
-> **Keep what mattered. Remember it when it can matter again.**
+People notice useful, funny, surprising, meaningful, or instructive things constantly. They may write them down, but ordinary note apps optimise storage and retrieval from a screen. When a conversation creates the perfect opening later, the story often does not come to mind.
 
-Stories is designed to be:
-- **Fast**: Capture an unplanned thought in under 20 seconds with zero friction.
-- **Calm**: A daily surface designed to feel restorative, not demanding. No streaks, badges, or backlogs.
-- **Reliable & Private**: 100% offline, local-only UTF-8 Markdown files, no account required.
-- **Durable**: One ordinary Markdown file per memory, with verified writes and recovery safeguards inside the local vault.
+## Product promise
 
-## Target Outcome
+Capture something naturally once. Stories quietly brings it back with a small clue, gives you a chance to tell it without looking, preserves the original memory as truth, and spaces future returns based on how available it felt.
 
-Within four weeks, a user can name concrete ideas and lessons they would have otherwise forgotten, easily retrieve the underlying memories, and trust that their thoughts are private and safe.
+## Core loop
 
-## Positioning: Memory Companion
+**Capture → Rest → Clue → Tell → Reveal → Not yet / Mostly / Yes → Resurface**
 
-Stories is a **local-first memory companion**. It is explicitly not:
-- A general knowledge base or wiki
-- An Anki/flashcard deck manager
-- A to-do list, habit tracker, or productivity dashboard
-- An AI chat surface or summarizer
-- A cloud sync or social publishing tool
+## What Stories is not
 
-## The Core Loop
+- Not a flashcard authoring system.
+- Not a journaling course.
+- Not a folder/tag knowledge-management system.
+- Not a writing assistant that rewrites personal memories.
+- Not a streak or gamification product.
 
-$$\text{Capture} \longrightarrow \text{Cue} \longrightarrow \text{Attempt} \longrightarrow \text{Reveal} \longrightarrow \text{Rate} \longrightarrow \text{Reuse}$$
+## Activation
 
-1. **Capture**: Save a single worthwhile thought in plain language.
-2. **Cue**: Contextual cue triggers retrieval ("What was the key lesson from *Thinking, Fast and Slow*?").
-3. **Attempt**: You attempt active recall in your own mind before seeing the stored text.
-4. **Reveal & Rate**: Reveal the original memory and rate your recall: *Not yet* (1d), *Partly* (4d), or *Got it* (14d).
-5. **Reuse & Reflect**: Optionally append a dated reflection or link to another memory.
+The key activation moment is the **first real resurfacing**: a memory saved days earlier returns, the clue brings it back, and the user recognises that Stories can keep good material available in their head.
 
-## Onboarding & Activation Strategy (Aha Moment)
+## Success
 
-- **The Day 1 Gap**: The biggest churn risk is saving a memory and waiting 3 days in silence.
-- **First-Session Loop**: On saving the very first memory, users are invited to try the recall interaction immediately. Practice does not change the already-promised scheduled return date.
-- **Warmth Over Jargon**: Prompts use human memory language ("memory", "recall", "returns on [Date]") rather than file-system abstractions ("Inbox", "UTF-8 parse").
+The strongest qualitative success question is:
 
-## Strategic Bets
+> Did something Stories resurfaced later come to mind in a real conversation?
 
-| Bet | Why It Matters | How to Validate / Falsify |
-|---|---|---|
-| **Cue-first recall > passive rereading** | Core product wedge and differentiator. | Users attempt recall before Reveal; report retrieval in real life. |
-| **Optional structure preserves capture speed** | Mandatory forms kill spontaneous capture. | Median capture remains under 20 seconds. |
-| **First-session practice drives retention** | Experiencing the full loop on Day 1 creates instant comprehension without changing the scheduled return. | Higher Day 7 retention for users completing Day 1 practice. |
-| **Calm UI improves daily habit** | Users avoid apps that induce guilt or pile up overdue tasks. | Users return regularly without coercive push notifications or red badges. |
-| **Local Markdown builds deep trust** | Users are sensitive about deeply personal thoughts. | Users trust the app with real book learnings and experiences. |
+Supporting product measures can include first capture, first real resurfacing, tellability response, repeated return sessions, and retention of older memories without creating large queues.

@@ -1,65 +1,44 @@
----
-title: Library, Search, and Links
-status: active
-last_reviewed: 2026-08-24
----
+# Library and Search
 
-# Library, Search, and Links
+## Goal
 
-## Overview & Outcome
+Help users find a memory even when they remember only fragments such as a person, place, topic, event or phrase.
 
-Users can effortlessly find, browse, and connect their durable memories without the cognitive overhead of maintaining a complex knowledge base. The Library reflects the underlying Markdown vault while maintaining a clean, human-centered UI.
+## Library
 
----
+- One simple chronological list of healthy memories.
+- No user-visible categories or folders.
+- Each row uses a familiar memory/note icon, readable title, short text clue/snippet and recent date.
+- A `New` action remains available but visually secondary to search.
 
-## Screen Structure & Layout
+## Search
 
-```
-┌────────────────────────────────────────┐
-│  Library                       + New   │
-│  12 memories                           │
-│                                        │
-│  🔍 Search memories…                   │  ← Real-time local search
-│                                        │
-│  [All memories]  [By folder]           │  ← Clean view toggle
-│                                        │
-│  ▾ 📚 Books                        (5) │
-│    • Atomic Habits                     │  ← Memory row with 1-line preview
-│      Small systems make consistent…    │
-│    • Thinking, Fast and Slow           │
-│                                        │
-│  ▸ 👤 Experiences                  (4) │
-│  ▸ 📝 Notes                        (3) │
-└────────────────────────────────────────┘
-```
+Placeholder: **Search people, places, moments…**
 
----
+Search should:
 
-## Library & Folder Capabilities
+- match title and original memory content;
+- support multiple query words in any order;
+- require all entered terms to be present somewhere in the searchable text;
+- ignore case, punctuation and common diacritic differences;
+- work for person + place, place + event, topic + phrase and similar fragment combinations;
+- not expose or depend on storage paths, legacy types or hidden implementation metadata.
 
-| Area | User-Facing Behavior |
-|---|---|
-| **Empty State** | When 0 memories exist, hides search and empty folder chrome. Displays: *"Your saved memories will appear here"* with a `+ New memory` button. |
-| **Clean Categorization** | Groups memories by kind: `Books/`, `Experiences/`, and `Notes/` (renamed from technical "Inbox"). |
-| **Folder Visibility** | Empty root folders are hidden by default to keep the screen uncluttered. The first non-empty folder is expanded on open. |
-| **Memory Rows** | Displays title, kind icon, date, and a subtle 1-line content snippet. |
-| **Sorting** | Newest-updated memories appear first by default. |
+Examples:
 
----
+- `Tokyo Ravi`
+- `taxi airport`
+- `customer interview`
+- `grandfather shoes`
 
-## Real-Time Search
+## Empty search
 
-- **Scope**: Instant, case-insensitive match across title, body Markdown, folder, memory kind, and source/author.
-- **Speed**: Results update in <200ms at 5,000 notes on device.
-- **Privacy**: 100% on-device string matching; zero network telemetry.
-- **Empty Query Result**: Clearly states *"No memories match '[query]'"* with a `Clear search` affordance.
+Use a visual search icon and copy:
 
----
+- **Nothing matched**
+- `Try a person, place, event, or phrase you remember.`
+- `Clear search`
 
-## Wikilinks & Internal Connections
+## Legacy links
 
-- **Autocompletion**: Typing `[[` inside any memory editor suggests up to 6 matching local memories.
-- **Disambiguation**: If two memories share a title, the link automatically includes the folder prefix (e.g. `[[Books/Atomic Habits.md]]`).
-- **Aliases**: Supports standard alias syntax `[[Target Note|Custom Label]]`.
-- **Rename Safety**: Renaming or moving a memory safely rewrites all inbound `[[wikilinks]]` across the vault in a single atomic transaction.
-- **External Links**: Standard `https://`, `mailto:`, `tel:`, and `sms:` links trigger safe OS handoff. Dangerous schemes (`javascript:`, `data:`) are strictly blocked.
+Older memories may contain legacy link syntax. The compatibility layer may continue to parse old data, but linking is not a current mobile product feature and must not appear in capture, reading, editing or onboarding.

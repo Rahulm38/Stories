@@ -1,9 +1,9 @@
-import type { MemoryKind, MemoryNote, RecallStatus } from '@core/model';
+import type { RecallStatus } from '@core/model';
 
 const RESULT_LABELS: Readonly<Record<RecallStatus, string>> = {
   forgot: 'Not yet',
-  partial: 'Partly',
-  remembered: 'Got it',
+  partial: 'Mostly',
+  remembered: 'Yes',
 };
 
 function localDate(value: string): Date | undefined {
@@ -20,64 +20,44 @@ export function timeGreeting(): string {
   return 'Good evening';
 }
 
-// Legacy helper retained for older data and tests. New mobile flows do not ask
-// people to create a separate reflection during review.
-export function reflectionPrompt(kind: MemoryKind): string {
-  if (kind === 'book-learning') return 'Where could this idea matter in your life now?';
-  if (kind === 'experience') return 'What would you do differently now?';
-  return 'Where could this matter now?';
-}
-
 export function shortDateLabel(value: string, locale?: string): string | undefined {
   const date = localDate(value) ?? new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
   return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
+export function memoryAgeLabel(value: string, now = new Date()): string {
+  const created = new Date(value);
+  if (!Number.isFinite(created.getTime())) return 'From earlier';
+  const days = Math.max(0, Math.floor((now.getTime() - created.getTime()) / 86_400_000));
+  if (days === 0) return 'From today';
+  if (days === 1) return 'From yesterday';
+  if (days < 14) return `From ${days} days ago`;
+  return `From ${created.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+}
+
 export function recallResultLabel(status: RecallStatus): string {
   return RESULT_LABELS[status];
 }
 
-// Legacy helper retained so older custom prompts continue to work. New review
-// surfaces use the memory title instead of exposing a "recall cue" concept.
-export function recallCue(note: Pick<MemoryNote, 'kind' | 'recallPrompt' | 'source'>): string {
-  if (note.recallPrompt?.trim()) return note.recallPrompt.trim();
-  if (note.kind === 'book-learning') {
-    return note.source?.trim()
-      ? `What idea from “${note.source.trim()}” did you want to remember?`
-      : 'What idea from this book did you want to remember?';
-  }
-  if (note.kind === 'experience') {
-    return note.source?.trim()
-      ? `What did you want to remember about “${note.source.trim()}”?`
-      : 'What changed in this experience?';
-  }
-  return 'What did you want to remember?';
-}
-
 export function savedMemoryMessage(nextRecallAt?: string, locale?: string): string {
   const returnDate = nextRecallAt ? shortDateLabel(nextRecallAt, locale) : undefined;
-  return returnDate ? `Saved. We’ll show it again on ${returnDate}.` : 'Saved.';
+  return returnDate ? `Saved. We’ll bring it back on ${returnDate}.` : 'Saved.';
 }
 
-export function practiceCompletionMessage(nextRecallAt?: string, locale?: string): string {
-  const returnDate = nextRecallAt ? shortDateLabel(nextRecallAt, locale) : undefined;
-  return returnDate ? `Review complete. It still returns on ${returnDate}.` : 'Review complete.';
-}
-
-export function remainingRecallMessage(remaining: number): string {
+export function remainingStoryMessage(remaining: number): string {
   const safeRemaining = Math.max(0, Math.floor(remaining));
-  if (safeRemaining === 0) return 'All caught up today.';
-  return `${safeRemaining} ${safeRemaining === 1 ? 'review' : 'reviews'} left today.`;
+  if (safeRemaining === 0) return 'Done for now.';
+  return `${safeRemaining} ${safeRemaining === 1 ? 'memory' : 'memories'} left for now.`;
 }
 
 export function recallCompletionMessage(nextRecallAt: string, remaining: number, locale?: string): string {
   const returnDate = shortDateLabel(nextRecallAt, locale);
-  return `Reviewed.${returnDate ? ` Back on ${returnDate}.` : ''} ${remainingRecallMessage(remaining)}`;
+  return `${returnDate ? `Nice. Back on ${returnDate}.` : 'Nice.'} ${remainingStoryMessage(remaining)}`;
 }
 
 export function nextUpcomingRecallMessage(nextRecallAt?: string, locale?: string): string | undefined {
   if (!nextRecallAt) return undefined;
   const returnDate = shortDateLabel(nextRecallAt, locale);
-  return returnDate ? `Next memory returns on ${returnDate}.` : undefined;
+  return returnDate ? `Next one comes back on ${returnDate}.` : undefined;
 }

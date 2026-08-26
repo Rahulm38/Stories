@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { Alert, AppState, StyleSheet, Switch, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { colors, sizes, spacing } from '@/src/ui/theme';
+import { colors, radii, sizes, spacing } from '@/src/ui/theme';
 import { useVault } from '@/src/vault/provider';
 import { DEFAULT_REMINDER_PREFS, reminderStatusCopy, type ReminderPreferences } from '@/src/notifications/reminder-service';
 import { readReminderPreferences, writeReminderPreferences } from '@/src/notifications/reminder-preferences';
@@ -55,7 +55,7 @@ export default function SettingsScreen() {
     if (currentStatus === 'blocked') {
       Alert.alert(
         'Enable notifications in Settings',
-        'Stories only uses local notifications when a memory is ready to review.',
+        'Stories only uses quiet local notifications when something is ready to come back.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Open Settings', onPress: () => { void openDeviceNotificationSettings(); } },
@@ -66,17 +66,20 @@ export default function SettingsScreen() {
 
     const result = currentStatus === 'granted' ? currentStatus : await requestNotificationPermission();
     setPermissionStatus(result);
-    if (result === 'granted') await persistReminders({ ...reminderPrefs, enabled: true });
+    if (result === 'granted') await persistReminders({ ...reminderPrefs, enabled: true, promptedAfterReview: true });
   };
 
   return (
     <AppScreen scroll scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <AppText accessibilityRole="header" variant="display">Settings</AppText>
-      <AppText variant="supporting" tone="secondary" style={styles.subtitle}>Private by default. Reviews on your terms.</AppText>
+      <AppText variant="supporting" tone="secondary" style={styles.subtitle}>Private by default. Quiet when you don’t need it.</AppText>
 
       <View style={styles.section}>
         <SectionHeader>Reminders</SectionHeader>
         <View style={styles.settingRow}>
+          <View style={styles.settingIcon}>
+            <SymbolView name={{ ios: 'bell', android: 'notifications', web: 'notifications' }} size={sizes.compactIcon} tintColor={colors.action} />
+          </View>
           <View style={styles.copy}>
             <AppText variant="action">Quiet reminder</AppText>
             <AppText variant="supporting" tone="secondary" style={styles.detail}>{reminderStatusCopy(reminderPrefs, permissionStatus === 'blocked')}</AppText>
@@ -90,7 +93,7 @@ export default function SettingsScreen() {
             ) : null}
           </View>
           <Switch
-            accessibilityLabel="Enable review reminders"
+            accessibilityLabel="Enable memory reminders"
             onValueChange={(value) => { void toggleReminders(value); }}
             thumbColor={colors.onAction}
             trackColor={{ false: colors.controlBorder, true: colors.action }}
@@ -102,9 +105,12 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <SectionHeader>Privacy</SectionHeader>
         <View style={styles.settingRow}>
+          <View style={styles.settingIcon}>
+            <SymbolView name={{ ios: 'lock', android: 'lock', web: 'lock' }} size={sizes.compactIcon} tintColor={colors.action} />
+          </View>
           <View style={styles.copy}>
-            <AppText variant="action">Stored on this device</AppText>
-            <AppText variant="supporting" tone="secondary" style={styles.detail}>Your memory content stays on this device. Stories does not require an account or upload your memories.</AppText>
+            <AppText variant="action">Stays on this device</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.detail}>Your memories stay local. Stories does not require an account or upload your content.</AppText>
           </View>
           <AppText variant="metadata" tone="success" style={styles.value}>Local</AppText>
         </View>
@@ -131,6 +137,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: sizes.rowMinimum,
     paddingVertical: spacing.md,
+  },
+  settingIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.actionMuted,
+    borderRadius: radii.compact,
+    height: 36,
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    width: 36,
   },
   copy: { flex: 1, paddingRight: spacing.md },
   detail: { marginTop: spacing.xxs },

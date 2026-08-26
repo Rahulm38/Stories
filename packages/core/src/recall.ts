@@ -1,5 +1,7 @@
 import type { MemoryNote, NoteDraft, RecallStatus } from './model.ts';
 
+export const MAX_SESSION_MEMORIES = 5;
+
 export const RECALL_INTERVAL_DAYS: Readonly<Record<RecallStatus, number>> = {
   remembered: 14,
   partial: 4,
@@ -38,6 +40,30 @@ function addDays(isoDate: string, days: number): string {
   return date.toISOString();
 }
 
+function daysBetween(from: string | undefined, to: string | undefined): number | undefined {
+  const fromDate = parseRecallDate(from);
+  const toDate = parseRecallDate(to);
+  if (!fromDate || !toDate) return undefined;
+  const difference = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000);
+  return difference > 0 ? difference : undefined;
+}
+
+function nextIntervalDays(note: MemoryNote, status: RecallStatus): number {
+  const previousInterval = daysBetween(note.lastRecalledAt, note.nextRecallAt);
+  if (!previousInterval) return RECALL_INTERVAL_DAYS[status];
+  if (status === 'forgot') return 1;
+  if (status === 'partial') {
+    if (previousInterval <= 7) return 7;
+    if (previousInterval <= 14) return 14;
+    if (previousInterval <= 30) return 30;
+    return 60;
+  }
+  if (previousInterval <= 14) return 30;
+  if (previousInterval <= 30) return 90;
+  if (previousInterval <= 90) return 180;
+  return 365;
+}
+
 export function normalizeRecallTimestamp(value: string | undefined): string | undefined {
   return parseRecallDate(value)?.toISOString();
 }
@@ -61,6 +87,7 @@ export function scheduleFirstRecall(now = new Date(), days = 1): string {
   return addDays(now.toISOString(), days);
 }
 
+// Kept for older stored memories and core compatibility. The mobile UI does not create reflections or instant practice.
 export function appendRecallReflection(body: string, reflection: string, now = new Date()): string {
   const content = reflection.trim();
   if (!content) return body;
@@ -82,7 +109,7 @@ export function gradeRecall(note: MemoryNote, status: RecallStatus, now = new Da
     recallPrompt: note.recallPrompt,
     recallStatus: status,
     lastRecalledAt: now.toISOString(),
-    nextRecallAt: isEarlyPractice ? note.nextRecallAt : addDays(now.toISOString(), RECALL_INTERVAL_DAYS[status]),
+    nextRecallAt: isEarlyPractice ? note.nextRecallAt : addDays(now.toISOString(), nextIntervalDays(note, status)),
   };
 }
 
@@ -113,5 +140,20 @@ export function deferRecall(note: MemoryNote, now = new Date()): NoteDraft {
     recallStatus: note.recallStatus,
     lastRecalledAt: note.lastRecalledAt,
     nextRecallAt: addDays(now.toISOString(), 1),
+  };
+}
+
+export function stopResurfacing(note: MemoryNote): NoteDraft {
+  return {
+    id: note.id,
+    title: note.title,
+    body: note.body,
+    kind: note.kind,
+    folder: note.folder,
+    source: note.source,
+    recallPrompt: note.recallPrompt,
+    recallStatus: note.recallStatus,
+    lastRecalledAt: note.lastRecalledAt,
+    nextRecallAt: undefined,
   };
 }

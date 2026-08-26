@@ -1,65 +1,61 @@
 # Stories
 
-Stories is a lightweight, mobile-first Markdown vault for remembering useful things—not just collecting notes.
+Stories is a private, mobile-first app for keeping moments, ideas, and experiences available in your memory — so they are there when you have something worth telling.
 
-## Product direction
+## The product loop
 
-- Notes are stored as Markdown documents with a small rebuildable local index.
-- Folders and `[[filename.md]]` links provide the Obsidian-like foundation.
-- A note can be a regular note, an experience, or a book learning.
-- Experience notes preserve context and lessons; book-learning notes preserve the source, idea, and how to use it.
-- The native build should map the vault to app-owned device storage without changing the Markdown format.
-- A global graph stays deferred until the file/link model earns it.
+1. **Capture naturally.** Write a moment, idea, observation, lesson, or detail without choosing a category or organising it.
+2. **Let it rest.** A new memory quietly comes back after a few days.
+3. **Use the clue.** Stories shows a small, non-revealing cue and asks you to try telling the memory before looking.
+4. **Reveal the original.** The user's saved memory is always the source of truth.
+5. **Answer one question.** `Not yet`, `Mostly`, or `Yes` tells Stories how available the memory felt.
+6. **Bring it back intelligently.** Weak memories return sooner; strong memories spread out. A session is capped so resurfacing never becomes homework.
 
-## Local prototype
+## Product principles
 
-```bash
-npm run dev
-```
+- Capture must feel easier than deciding not to capture.
+- The original memory is always the source of truth.
+- Stories helps people remember and tell; it does not write or embellish their memories.
+- Organisation is the system's job, not the user's.
+- A clue should trigger a memory without revealing the answer.
+- Speaking and natural recall matter more than exact wording.
+- Resurfacing should feel useful and calm, never like review debt.
+- Every additional field must justify the friction it creates.
+- Privacy is part of the product, not a premium feature.
 
-Open the local address printed by Next.js. Notes currently persist in the browser’s local vault adapter; the storage boundary is kept separate so it can move to native device files later.
+## Mobile experience
 
-## Native preview
-
-The Android-first native client lives in `apps/mobile` and uses Expo SDK 57, React Native, and Expo Router. It is a real native UI path, not a responsive wrapper around the web prototype. It stores Markdown files in app-private device storage and reuses the same vault contract on iOS later.
+The Android-first app lives in `apps/mobile` and uses Expo, React Native, and Expo Router. It keeps memory content in app-private device storage and does not require an account.
 
 ```bash
 cd apps/mobile
 npx expo start
 ```
 
-Use `A` with an Android Studio emulator or scan the development QR code from a physical device. This checkout does not currently include an Android SDK, so the native code is linted, type-checked, exported for web, and config-validated here; device verification is the next setup step.
-
 ### Android smoke check
 
-With the server running, check the same product slice on a device:
+On a device, verify the complete core loop:
 
-1. Open Capture and save a Note, Book learning, and Experience.
-2. Select text and exercise Heading, Bold, Italic, Quote, lists, Checklist, Code, Link, Increase indent, and Decrease indent. With a hardware keyboard, verify Tab and Shift+Tab.
-3. Expand Memory details, set a recall cue, save, and reopen the note.
-4. Open Library, expand each folder, search, open the note, edit it, and use the system Back action.
-5. Force-stop and relaunch to confirm the Markdown files and recall state remain.
+1. Fresh launch shows one clear explanation and one `Save your first memory` action.
+2. Capture accepts ordinary text with no categories, formatting tools, cue fields, or scheduling setup.
+3. Save returns to Today and confirms that the memory will come back later.
+4. Make a memory due, then verify the hidden card shows only a short clue — never the full title/answer.
+5. Try telling it, reveal it, and answer `Not yet`, `Mostly`, or `Yes`.
+6. Complete five due memories and verify the session ends instead of showing an overdue queue.
+7. Use `Tomorrow`, `Stop resurfacing`, edit, share, and delete.
+8. Search Library using combinations of people, places, topics, and words from the memory.
+9. Force-stop and relaunch; saved memories and return state must remain intact.
+10. Check Android Back, keyboard resize, large text, TalkBack labels, touch targets, and notification permission behaviour.
 
-For a physical Android phone, install Expo Go, enable USB debugging if using a cable, keep the phone and computer on the same network, then scan the QR code. For an emulator, install Android Studio with an API image, boot it, run `adb devices`, and press `A` in the Expo terminal. Android keyboard, TalkBack, font scaling, selection handles, and force-stop persistence are device checks; the current checkout cannot claim those without the SDK or a phone.
+## Compatibility
 
-### Expo Go SDK mismatch
-
-This client currently targets Expo SDK 57. Expo Go supports one SDK at a time, so the project and the installed Expo Go binary must match. If the Play Store build still reports an incompatibility, download the Android SDK 57 Expo Go binary and install that APK on the phone:
-
-```bash
-cd apps/mobile
-npx expo-go download android 57
-```
-
-After installing the downloaded APK, restart with `npx expo start --clear` and scan the QR code again. A development build is the longer-term path for production work; do not downgrade this project to SDK 54 just to match a store Expo Go build without deciding that tradeoff first.
-
-Read the native decision and storage boundary in [MOBILE-ARCHITECTURE.md](docs/product/MOBILE-ARCHITECTURE.md), and the execution order in [ANDROID-FIRST-SLICES.md](docs/product/ANDROID-FIRST-SLICES.md).
+Stories preserves a compatibility layer for memories created by older builds so existing user data is not destroyed. Those older storage concepts are not part of the current mobile UI or new-memory model.
 
 ## Verification
 
 ```bash
 npm run test:core
+npm run test:mobile
 npm run lint
-npm run build
-cd apps/mobile && npx tsc --noEmit && npx expo export --platform web
+cd apps/mobile && npx tsc --noEmit
 ```

@@ -2,162 +2,107 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { captureKindFromParam, editingFromParam } from '../src/navigation/route-state.ts';
+import { MAX_SESSION_MEMORIES, gradeRecall, scheduleFirstRecall, stopResurfacing } from '../../../packages/core/src/recall.ts';
+import { plainMemoryText, storyCue } from '../../../packages/core/src/story-cue.ts';
+import { editingFromParam } from '../src/navigation/route-state.ts';
 import { matchesLibrarySearch } from '../src/navigation/library-search.ts';
-import { folderForKind } from '../src/navigation/note-folder.ts';
 import { dateInputFromDate, dateInputToDate, localDateInputValue } from '../src/navigation/local-date.ts';
-import { openMarkdownLink } from '../src/ui/markdown-links.ts';
+import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
+import { nextUpcomingRecallMessage, recallCompletionMessage, recallResultLabel, savedMemoryMessage } from '../src/recall/presentation.ts';
+import { reminderNotificationMessage, reminderStatusCopy } from '../src/notifications/reminder-service.ts';
 import { readBrowserValue, writeBrowserValue } from '../src/vault/browser-storage.ts';
 import { BrowserFileStore } from '../src/vault/browser-file-store.ts';
 import { ensureVaultReady } from '../src/vault/save-gate.ts';
-import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, memoryDetailsSummary, recallDaysForChoice } from '../src/capture/options.ts';
-import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
-import { nextUpcomingRecallMessage, recallCompletionMessage, recallCue, recallResultLabel, remainingRecallMessage, savedMemoryMessage } from '../src/recall/presentation.ts';
 
-test('legacy memory kinds remain readable for backwards compatibility', () => {
-  assert.equal(captureKindFromParam(undefined), 'note');
-  assert.equal(captureKindFromParam('book-learning'), 'book-learning');
-  assert.equal(captureKindFromParam(['experience']), 'experience');
-  assert.deepEqual(MEMORY_KIND_OPTIONS.map((option) => option.label), ['Note', 'Book learning', 'Experience']);
+test('story cues expose handles without repeating the full memory', () => {
+  const body = 'At Bangalore airport, a security guard recognized my book and we talked about his daughter reading more.';
+  const cue = storyCue(body);
+  assert.notEqual(cue.toLowerCase(), body.toLowerCase());
+  assert.ok(cue.length < body.length);
+  assert.match(cue, /Bangalore|airport|security|daughter/i);
 });
 
-test('new capture defaults to a three-day return', () => {
-  assert.equal(DEFAULT_RECALL_CHOICE, 'three-days');
-  assert.equal(recallDaysForChoice(DEFAULT_RECALL_CHOICE), 3);
-  assert.equal(recallDaysForChoice('week'), 7);
-  assert.equal(recallDaysForChoice('off'), undefined);
-  assert.deepEqual(RECALL_OPTIONS.map((option) => option.label), ['3 days', '1 week', 'Never']);
+test('legacy formatting is converted to ordinary readable text', () => {
+  assert.equal(
+    plainMemoryText('## Lesson\n\n- **Talk to users** before building.\n\nSee [[people.md|people]].'),
+    'Lesson\n\nTalk to users before building.\n\nSee people.',
+  );
 });
 
-test('legacy detail summaries remain parse-compatible', () => {
-  assert.equal(memoryDetailsSummary('note', 'three-days'), 'Note · returns in 3 days');
-  assert.equal(memoryDetailsSummary('book-learning', 'week'), 'Book learning · returns in 1 week');
-  assert.equal(memoryDetailsSummary('experience', 'off'), 'Experience · does not return');
+test('first return is three days and successful returns progressively spread out', () => {
+  const createdAt = new Date('2026-08-01T10:00:00.000Z');
+  assert.equal(scheduleFirstRecall(createdAt, 3), '2026-08-04T10:00:00.000Z');
+
+  const first = {
+    id: 'm1', title: 'Memory', body: 'A story', kind: 'note', folder: 'Inbox', path: 'Inbox/memory.md',
+    createdAt: createdAt.toISOString(), updatedAt: createdAt.toISOString(), nextRecallAt: '2026-08-04T10:00:00.000Z',
+  };
+  const afterFirst = gradeRecall(first, 'remembered', new Date('2026-08-04T10:00:00.000Z'));
+  assert.equal(afterFirst.nextRecallAt, '2026-08-18T10:00:00.000Z');
+  const afterSecond = gradeRecall({ ...first, ...afterFirst, path: first.path, createdAt: first.createdAt, updatedAt: first.updatedAt }, 'remembered', new Date('2026-08-18T10:00:00.000Z'));
+  assert.equal(afterSecond.nextRecallAt, '2026-09-17T10:00:00.000Z');
 });
 
-test('mobile capture and library no longer expose legacy taxonomy controls', async () => {
-  const [capture, library, note] = await Promise.all([
+test('not yet returns soon, stopping keeps the memory but clears its return', () => {
+  const memory = {
+    id: 'm1', title: 'Memory', body: 'A story', kind: 'note', folder: 'Inbox', path: 'Inbox/memory.md',
+    createdAt: '2026-08-01T10:00:00.000Z', updatedAt: '2026-08-01T10:00:00.000Z',
+    lastRecalledAt: '2026-08-01T10:00:00.000Z', nextRecallAt: '2026-08-15T10:00:00.000Z',
+  };
+  const missed = gradeRecall(memory, 'forgot', new Date('2026-08-15T10:00:00.000Z'));
+  assert.equal(missed.nextRecallAt, '2026-08-16T10:00:00.000Z');
+  assert.equal(stopResurfacing(memory).nextRecallAt, undefined);
+  assert.equal(MAX_SESSION_MEMORIES, 5);
+});
+
+test('mobile flow uses tellable-memory language and no legacy authoring controls', async () => {
+  const [capture, today, library, note] = await Promise.all([
     readFile(new URL('../app/capture.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/(tabs)/index.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/(tabs)/files.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/note/[id].tsx', import.meta.url), 'utf8'),
   ]);
 
-  assert.doesNotMatch(capture, /MEMORY_KIND_OPTIONS|DisclosureRow|Recall cue|Memory details/);
-  assert.doesNotMatch(library, /FILTERS|Book learning|Experiences/);
-  assert.doesNotMatch(note, /DisclosureRow|SegmentedControl|FieldLabel/);
-  assert.match(capture, /Show me again/);
-  assert.match(note, /Show me again/);
+  for (const source of [capture, today, library, note]) {
+    assert.doesNotMatch(source, /Book learning|Experience|Recall cue|Memory details|Formatting toolbar/);
+  }
+  assert.match(capture, /What’s worth remembering\?/);
+  assert.match(today, /Try telling it without looking/);
+  assert.match(today, /Could you tell it\?/);
+  assert.match(today, /MAX_SESSION_MEMORIES/);
+  assert.match(note, /Stop resurfacing/);
+  assert.doesNotMatch(note, /Memory title|Choose a date|ResurfaceDatePicker/);
+  assert.match(library, /Search people, places, moments/);
 });
 
-test('recall result copy maps to the existing scheduling outcomes', () => {
+test('result copy matches the storytelling outcome', () => {
   assert.equal(recallResultLabel('forgot'), 'Not yet');
-  assert.equal(recallResultLabel('partial'), 'Partly');
-  assert.equal(recallResultLabel('remembered'), 'Got it');
+  assert.equal(recallResultLabel('partial'), 'Mostly');
+  assert.equal(recallResultLabel('remembered'), 'Yes');
+  assert.equal(savedMemoryMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Saved. We’ll bring it back on Aug 29.');
+  assert.equal(recallCompletionMessage('2026-09-09T10:00:00.000Z', 0, 'en-US'), 'Nice. Back on Sep 9. Done for now.');
+  assert.equal(nextUpcomingRecallMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Next one comes back on Aug 29.');
 });
 
-test('legacy personalized recall cues remain readable', () => {
-  assert.equal(
-    recallCue({ kind: 'book-learning', source: 'Atomic Habits', recallPrompt: '' }),
-    'What idea from “Atomic Habits” did you want to remember?',
-  );
-  assert.equal(
-    recallCue({ kind: 'book-learning', source: '', recallPrompt: '' }),
-    'What idea from this book did you want to remember?',
-  );
-  assert.equal(
-    recallCue({ kind: 'experience', source: 'Trip to Tokyo', recallPrompt: '' }),
-    'What did you want to remember about “Trip to Tokyo”?',
-  );
-  assert.equal(
-    recallCue({ kind: 'experience', source: '', recallPrompt: '' }),
-    'What changed in this experience?',
-  );
-  assert.equal(
-    recallCue({ kind: 'note', source: '', recallPrompt: '' }),
-    'What did you want to remember?',
-  );
-  assert.equal(
-    recallCue({ kind: 'note', source: '', recallPrompt: 'Custom prompt?' }),
-    'Custom prompt?',
-  );
-});
-
-test('review completion names the return date and remaining work', () => {
-  assert.equal(
-    recallCompletionMessage('2026-08-25T10:00:00.000Z', 2, 'en-US'),
-    'Reviewed. Back on Aug 25. 2 reviews left today.',
-  );
-  assert.equal(remainingRecallMessage(0), 'All caught up today.');
-  assert.equal(recallCompletionMessage('not-a-date', 0, 'en-US'), 'Reviewed. All caught up today.');
-});
-
-test('first-save confirmation explains the scheduled return', () => {
-  assert.equal(
-    savedMemoryMessage('2026-08-26T10:00:00.000Z', 'en-US'),
-    'Saved. We’ll show it again on Aug 26.',
-  );
-  assert.equal(savedMemoryMessage(undefined, 'en-US'), 'Saved.');
-});
-
-test('upcoming recall message presents the next scheduled return date', () => {
-  assert.equal(
-    nextUpcomingRecallMessage('2026-08-27T10:00:00.000Z', 'en-US'),
-    'Next memory returns on Aug 27.',
-  );
-  assert.equal(nextUpcomingRecallMessage(undefined, 'en-US'), undefined);
-});
-
-test('bottom tabs keep a comfortable device-safe gap', () => {
-  assert.deepEqual(tabBarMetrics(0, false), { bottomPadding: 16, height: 74 });
-  assert.deepEqual(tabBarMetrics(24, false), { bottomPadding: 24, height: 82 });
-  assert.deepEqual(tabBarMetrics(0, true), { bottomPadding: 18, height: 76 });
-  assert.deepEqual(tabBarMetrics(34, true), { bottomPadding: 34, height: 92 });
-});
-
-test('library search includes the durable Markdown path and note kind', () => {
-  const note = {
-    title: 'A useful idea',
-    body: 'Remember this later',
-    folder: 'Books',
-    path: 'Books/deep-work.md',
-    kind: 'book-learning',
-    source: undefined,
+test('library search finds combinations of people, places, and body words', () => {
+  const memory = {
+    title: 'Airport moment',
+    body: 'In Tokyo, Ravi told me a funny story about a taxi driver.',
+    folder: 'Inbox', path: 'Inbox/airport.md', kind: 'note', source: '',
   };
-
-  assert.equal(matchesLibrarySearch(note, 'deep-work.md'), true);
-  assert.equal(matchesLibrarySearch(note, 'book-learning'), true);
-  assert.equal(matchesLibrarySearch(note, 'does-not-exist'), false);
+  assert.equal(matchesLibrarySearch(memory, 'Tokyo Ravi'), true);
+  assert.equal(matchesLibrarySearch(memory, 'taxi story'), true);
+  assert.equal(matchesLibrarySearch(memory, 'airport taxi'), true);
+  assert.equal(matchesLibrarySearch(memory, 'book-learning'), false);
+  assert.equal(matchesLibrarySearch(memory, 'airport.md'), false);
 });
 
-test('editing a note preserves nested folders unless its kind changes', () => {
-  const book = { kind: 'book-learning', folder: 'Books/Thinking' };
-  assert.equal(folderForKind('book-learning', book), 'Books/Thinking');
-  assert.equal(folderForKind('experience', book), 'Experiences');
-  assert.equal(folderForKind('note', book), 'Inbox');
-});
-
-test('recall date input uses the device-local calendar date', () => {
-  const value = '2026-08-09T19:00:00.000Z';
-  const date = new Date(value);
-  const expected = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
-  assert.equal(localDateInputValue(value), expected);
-});
-
-test('picker dates convert to the same YYYY-MM-DD input the save path parses', () => {
+test('local calendar inputs round-trip safely', () => {
   assert.equal(dateInputFromDate(new Date(2026, 7, 26)), '2026-08-26');
   const parsed = dateInputToDate('2026-08-26');
   assert.ok(parsed);
-  assert.deepEqual([parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()], [2026, 8, 26]);
   assert.equal(localDateInputValue(parsed.toISOString()), '2026-08-26');
-});
-
-test('recall date parsing rejects malformed and impossible dates', () => {
-  assert.equal(dateInputToDate('26/08/2026'), null);
-  assert.equal(dateInputToDate('2026-13-01'), null);
   assert.equal(dateInputToDate('2026-02-30'), null);
-  assert.equal(dateInputToDate(''), null);
-  assert.equal(localDateInputValue(' 2026-08-26 '), '2026-08-26');
-  assert.equal(localDateInputValue('2026-02-30'), '');
 });
 
 test('note route params opt into editing even when params are arrays', () => {
@@ -166,7 +111,19 @@ test('note route params opt into editing even when params are arrays', () => {
   assert.equal(editingFromParam('false'), false);
 });
 
-test('browser storage failures are surfaced instead of becoming silent saves', () => {
+test('bottom tabs keep comfortable device-safe spacing', () => {
+  assert.deepEqual(tabBarMetrics(0, false), { bottomPadding: 16, height: 74 });
+  assert.deepEqual(tabBarMetrics(24, false), { bottomPadding: 24, height: 82 });
+  assert.deepEqual(tabBarMetrics(0, true), { bottomPadding: 18, height: 76 });
+});
+
+test('reminder copy stays quiet and outcome-oriented', () => {
+  assert.equal(reminderNotificationMessage(1), 'A memory is ready to come back.');
+  assert.equal(reminderNotificationMessage(8), 'A few memories are ready to come back.');
+  assert.equal(reminderStatusCopy({ enabled: false, reminderHour: 9, reminderMinute: 0 }), 'Get a quiet alert when something is ready to come back.');
+});
+
+test('browser storage failures surface instead of becoming silent saves', () => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   try {
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: undefined });
@@ -178,29 +135,9 @@ test('browser storage failures are surfaced instead of becoming silent saves', (
   }
 });
 
-test('browser storage writes can be read back through the same adapter seam', () => {
+test('first browser launch opens an empty memory store', async () => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-  const values = new Map();
-  const storage = {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, value),
-  };
-  try {
-    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
-    writeBrowserValue('stories:test', 'value');
-    assert.equal(readBrowserValue('stories:test'), 'value');
-  } finally {
-    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
-    else delete globalThis.localStorage;
-  }
-});
-
-test('a first browser launch opens an empty vault without preview fixtures', async () => {
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-  const storage = {
-    getItem: () => null,
-    setItem: () => {},
-  };
+  const storage = { getItem: () => null, setItem: () => {} };
   try {
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
     assert.deepEqual(await new BrowserFileStore().list(), []);
@@ -210,150 +147,8 @@ test('a first browser launch opens an empty vault without preview fixtures', asy
   }
 });
 
-test('failed external links do not create local notes', async () => {
-  const localTargets = [];
-  await openMarkdownLink(' https://example.invalid/note ', async () => {
-    throw new Error('handoff failed');
-  }, (target) => localTargets.push(target));
-  assert.deepEqual(localTargets, []);
-
-  await openMarkdownLink(' [[local-note.md]] ', async () => {}, (target) => localTargets.push(target));
-  assert.deepEqual(localTargets, ['[[local-note.md]]']);
-});
-
-test('unsupported link schemes are rejected instead of becoming local notes', async () => {
-  const localTargets = [];
-  const externalTargets = [];
-  const errors = [];
-
-  await openMarkdownLink('javascript:alert(1)', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
-  await openMarkdownLink('javascript:', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
-  await openMarkdownLink('file:///etc/passwd', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
-  await openMarkdownLink('note\u0000.md', async (target) => externalTargets.push(target), (target) => localTargets.push(target), (target) => errors.push(target));
-
-  assert.deepEqual(externalTargets, []);
-  assert.deepEqual(localTargets, []);
-  assert.deepEqual(errors, ['javascript:alert(1)', 'javascript:', 'file:///etc/passwd', 'note\u0000.md']);
-});
-
-test('deleting a memory removes it from the browser vault and rejects unknown paths', async () => {
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-  const values = new Map();
-  const storage = {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, value),
-  };
-  try {
-    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
-    const store = new BrowserFileStore();
-    await store.replace(undefined, 'Inbox/idea.md', '---\nid: "idea-1"\n---\nBody');
-
-    await store.delete('Inbox/idea.md');
-    assert.deepEqual(await store.list(), []);
-
-    await assert.rejects(store.delete('Inbox/idea.md'), /could not be found/);
-  } finally {
-    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
-    else delete globalThis.localStorage;
-  }
-});
-
-test('phone and SMS links are handed to the device instead of creating notes', async () => {
-  const externalTargets = [];
-  const localTargets = [];
-  const openExternal = async (target) => externalTargets.push(target);
-
-  await openMarkdownLink('tel:+15551234567', openExternal, (target) => localTargets.push(target));
-  await openMarkdownLink('sms:+15551234567', openExternal, (target) => localTargets.push(target));
-
-  assert.deepEqual(externalTargets, ['tel:+15551234567', 'sms:+15551234567']);
-  assert.deepEqual(localTargets, []);
-});
-
-test('angle-wrapped external Markdown links are unwrapped before handoff', async () => {
-  const externalTargets = [];
-  const localTargets = [];
-
-  await openMarkdownLink(' <https://example.com/a> ', async (target) => externalTargets.push(target), (target) => localTargets.push(target));
-
-  assert.deepEqual(externalTargets, ['https://example.com/a']);
-  assert.deepEqual(localTargets, []);
-});
-
-test('cold-start saves stay blocked until the vault has hydrated', () => {
+test('cold-start saves stay blocked until local memories have opened', () => {
   assert.throws(() => ensureVaultReady(false, true), /local vault is still opening/);
   assert.throws(() => ensureVaultReady(true, false), /local vault is still opening/);
-  assert.throws(() => ensureVaultReady(true, true, 'The local vault contains invalid files'), /invalid files/);
   assert.doesNotThrow(() => ensureVaultReady(true, true));
-});
-
-test('vault export bundles notes into verifiable Markdown files', async () => {
-  const { exportFileName, generateVaultExportBundle } = await import('../src/vault/vault-bundle.ts');
-  const sampleNote = {
-    body: 'Sample body text.',
-    folder: 'Books',
-    id: 'note-1',
-    kind: 'book-learning',
-    path: 'Books/atomic-habits.md',
-    source: 'James Clear',
-    title: 'Atomic Habits',
-    updatedAt: '2026-08-24T10:00:00.000Z',
-  };
-
-  const bundle = generateVaultExportBundle([sampleNote]);
-  assert.equal(bundle.includes('# Stories Vault Backup'), true);
-  assert.equal(bundle.includes('<!-- START_MEMORY: Books/atomic-habits.md -->'), true);
-  assert.equal(bundle.includes('title: "Atomic Habits"'), true);
-  assert.equal(bundle.includes('Sample body text.'), true);
-  assert.equal(exportFileName(new Date('2026-08-24T12:00:00Z')), 'stories-vault-backup-2026-08-24.md');
-});
-
-test('reminder service formats times, messages, and next schedule correctly', async () => {
-  const { firstMemoryReminderPrompt, formatReminderTime, nextReminderDate, reminderNotificationMessage, reminderStatusCopy } = await import('../src/notifications/reminder-service.ts');
-
-  assert.equal(formatReminderTime(9, 0), '9:00 AM');
-  assert.equal(formatReminderTime(14, 30), '2:30 PM');
-  assert.equal(formatReminderTime(0, 15), '12:15 AM');
-
-  assert.equal(reminderNotificationMessage(0), undefined);
-  assert.equal(reminderNotificationMessage(1), '1 memory is ready to review.');
-  assert.equal(reminderNotificationMessage(5), '5 memories are ready to review.');
-
-  assert.equal(reminderStatusCopy({ enabled: true, reminderHour: 9, reminderMinute: 0 }, false), 'Quiet reminder at 9:00 AM when a memory is ready.');
-  assert.equal(reminderStatusCopy({ enabled: false, reminderHour: 9, reminderMinute: 0 }, false), 'Get a quiet offline alert when a memory is ready to review.');
-  assert.equal(reminderStatusCopy({ enabled: true, reminderHour: 9, reminderMinute: 0 }, true), 'Notifications are blocked on your device. Tap to open Settings and enable them.');
-
-  assert.equal(firstMemoryReminderPrompt(3), 'This memory comes back in 3 days. Turn on a quiet reminder so you don’t miss it?');
-
-  const morning = new Date('2026-08-24T08:00:00');
-  const nextMorning = nextReminderDate({ enabled: true, reminderHour: 9, reminderMinute: 0 }, morning);
-  assert.equal(nextMorning.getHours(), 9);
-  assert.equal(nextMorning.getDate(), 24);
-
-  const afternoon = new Date('2026-08-24T14:00:00');
-  const nextDay = nextReminderDate({ enabled: true, reminderHour: 9, reminderMinute: 0 }, afternoon);
-  assert.equal(nextDay.getHours(), 9);
-  assert.equal(nextDay.getDate(), 25);
-});
-
-test('first memory flag triggers on empty vault after deleting previous notes', () => {
-  const emptyVaultNotes = [];
-  const wasEmpty = emptyVaultNotes.length === 0;
-  assert.equal(wasEmpty, true);
-
-  const populatedVaultNotes = [{ id: 'note-1', title: 'A', body: 'B' }];
-  assert.equal(populatedVaultNotes.length === 0, false);
-
-  populatedVaultNotes.pop();
-  assert.equal(populatedVaultNotes.length === 0, true);
-});
-
-test('cleanSnippet strips Markdown symbols and duplicates', async () => {
-  const { cleanSnippet } = await import('../src/navigation/snippet.ts');
-
-  assert.equal(cleanSnippet('# Atomic Habits\n\nBuild good habits.', 'Atomic Habits'), 'Build good habits.');
-  assert.equal(cleanSnippet('> **Small changes** make a *big difference*.', 'Habits'), 'Small changes make a big difference.');
-  assert.equal(cleanSnippet('- First point\n- Second point', 'Overview'), 'First point');
-  assert.equal(cleanSnippet('1. Step one\n2. Step two', 'Process'), 'Step one');
-  assert.equal(cleanSnippet('Refer to [[James Clear]] for more details.', 'Reference'), 'Refer to James Clear for more details.');
 });

@@ -1,21 +1,22 @@
 # Stories Privacy Policy
 
-Effective: 23 August 2026
+Effective: 26 August 2026
 
-Stories is a local-first note and recall app. It stores the notes you create as Markdown files in the app's private storage on your device.
+Stories is a private personal-memory app. Memory content is stored in the app's private storage on your device.
 
 ## Data handling
 
 - Stories does not require an account.
-- Stories does not collect, transmit, sell, or share your notes or personal data.
+- Stories does not collect, transmit, sell, or share your memory content or personal data.
 - Stories does not include advertising or analytics SDKs.
 - Android cloud backup is disabled for Stories.
+- Reminder notifications are scheduled locally on the device when enabled.
 
-The app accesses local notes only to provide capture, library, linking, editing, and recall features.
+The app accesses local memory content only to provide capture, Library search, editing, resurfacing, sharing actions initiated by you, and optional reminders.
 
 ## Retention and deletion
 
-Notes remain on your device until you edit or delete them, clear the app's storage, or uninstall the app. Because Stories does not receive your notes, the developer cannot retrieve or delete them remotely.
+Memories remain on your device until you edit or delete them, clear the app's storage, or uninstall the app. Stopping resurfacing does not delete a memory; it remains in your Library. Because Stories does not receive your memory content, the developer cannot retrieve or delete it remotely.
 
 ## Children
 
@@ -23,7 +24,7 @@ Stories is a general productivity app and is not directed to children.
 
 ## Policy changes
 
-If a future release adds accounts, sync, analytics, or another data practice, this policy and the Google Play Data safety declaration will be updated before that release is distributed.
+If a future release adds accounts, sync, analytics, or another data practice, this policy and the Google Play Data Safety declaration will be updated before that release is distributed.
 
 ## Contact
 

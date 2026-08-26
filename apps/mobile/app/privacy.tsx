@@ -36,22 +36,22 @@ export default function PrivacyScreen() {
       />
       <ScrollView contentContainerStyle={styles.content}>
         <AppText accessibilityRole="header" variant="title">Privacy policy</AppText>
-        <AppText variant="metadata" tone="secondary" style={styles.updated}>Effective 23 August 2026</AppText>
+        <AppText variant="metadata" tone="secondary" style={styles.updated}>Effective 26 August 2026</AppText>
 
         <PolicySection title="Your memories stay on your device">
-          Stories stores the notes you create as Markdown files in the app&apos;s private storage. The app does not create an account, show ads, use analytics, or send your notes to us or to third parties.
+          Stories keeps the memory content you create in the app&apos;s private storage. The app does not create an account, show ads, use analytics, or send your memories to us or to third parties.
         </PolicySection>
 
         <PolicySection title="Data access and sharing">
-          The app accesses only the notes needed to provide its capture, library, linking, and recall features. It does not sell, share, or collect personal data. Android cloud backup is disabled for this app.
+          The app accesses local memory content only for capture, Library search, editing, resurfacing, sharing actions you start, and optional local reminders. Android cloud backup is disabled for Stories.
         </PolicySection>
 
         <PolicySection title="Retention and deletion">
-          Notes remain on the device until you edit or delete them, clear the app&apos;s data, or uninstall the app. Because we do not receive your notes, we cannot retrieve or delete them remotely.
+          Memories remain on the device until you edit or delete them, clear the app&apos;s data, or uninstall the app. Stopping resurfacing does not delete a memory; it remains in Library. Because we do not receive your memories, we cannot retrieve or delete them remotely.
         </PolicySection>
 
         <PolicySection title="Children and changes">
-          Stories is a general productivity app and is not directed to children. If a future version adds sync, analytics, accounts, or another data practice, this policy and the Google Play Data safety declaration will be updated before release.
+          Stories is a general productivity app and is not directed to children. If a future version adds sync, analytics, accounts, or another data practice, this policy and the Google Play Data Safety declaration will be updated before release.
         </PolicySection>
 
         <PolicySection title="Contact">

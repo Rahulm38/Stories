@@ -1,55 +1,42 @@
----
-title: Settings and Privacy
-status: active
-last_reviewed: 2026-08-25
----
-
 # Settings and Privacy
 
-## Overview & Screen Layout
+## Goal
 
-Settings gives users **direct, honest control** over recall behavior, quiet local reminders, and the privacy of their local data. It is deliberately not a progress dashboard.
+Keep Settings small. Only preferences and trust information that materially affect the user belong here.
 
-```
-┌────────────────────────────────────────┐
-│  Settings                              │
-│  Local by default. Recall on your      │
-│  terms.                                │
-│                                        │
-│  REMEMBERING                           │
-│  New memories return in 3 days         │
-│  Quiet reminder              [Enabled] │
-│                                        │
-│  STORAGE & PRIVACY                     │
-│  Stored on this device          Local  │
-│  Vault location        app-private path│
-│                                        │
-│  ABOUT                                 │
-│  Privacy policy                  Read  │
-└────────────────────────────────────────┘
-```
+## Reminders
 
----
+One setting: **Quiet reminder**.
 
-## Functional Specifications
+- Default off.
+- Do not request notification permission during onboarding or first capture.
+- After the first real resurfacing, offer the reminder contextually once.
+- If enabled, schedule quiet local notifications only when something is ready to come back.
+- If blocked, provide `Open device settings`.
 
-### 1. Memory Management & Defaults
-- **Default Recall Timing**: New memories return in 3 days by default. Capture can choose 1 week or Off for an individual memory.
-- **Quiet Device Reminders & Android Permissions**:
-  - Toggle schedules a local notification at the reminder time when a memory is ready to return.
-  - Reminder preference persists locally across app restarts.
-  - Requests Android 13+ `POST_NOTIFICATIONS` permission only when the user enables reminders.
-  - If permissions are blocked at the OS level, provides clear feedback and a direct action to Android App Settings.
-  - Returning from device settings refreshes permission state and reconciles the next local reminder.
-  - Lock-screen copy never includes memory contents.
+## Privacy
 
-### 2. Privacy Guarantees (Local Memory Content)
-- **Local Memory Content**: Notes, search queries, cues, and reflections remain in app-private device storage (`stories-vault/`).
-- **No Account Required**: Stories does not require sign-in or a cloud identity.
-- **No Third-Party Trackers**: No advertising or analytics SDKs are part of the v1 memory experience.
-- **Local Reminders**: Reminder scheduling is performed on-device and notification copy is generic.
+Use a familiar lock icon and clear copy:
 
-### 3. Storage Transparency
-- Settings identifies the vault as local and app-private and shows its device location for transparency.
-- Stories must never imply that an in-app private file is an external backup.
-- If a Markdown file cannot be read, Stories leaves it unchanged, continues opening healthy memories, and surfaces the affected path in Library.
+**Stays on this device**
+
+`Your memories stay local. Stories does not require an account or upload your content.`
+
+Do not expose internal storage locations, paths, data-format terminology or developer implementation details.
+
+## Privacy policy
+
+The in-app policy and hosted policy must remain aligned with the shipped app and Play Data Safety answers.
+
+Current claims:
+
+- no account;
+- no ads;
+- no analytics SDK;
+- no developer collection or sharing of memory content;
+- Android cloud backup disabled;
+- local reminder scheduling only when enabled.
+
+## Portability
+
+Do not promise export, cloud backup, sync or migration until a user-visible, tested feature exists. Older local data remains readable through an internal compatibility layer.

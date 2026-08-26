@@ -2,53 +2,36 @@
 title: Stories Product Home
 product: Stories
 status: active
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 ---
 
 # Stories Product Home
 
-> Stories helps people turn book learnings and lived experiences into memories they can retrieve and reuse—privately, from ordinary local Markdown.
+> Stories helps people keep moments, ideas and experiences mentally available so they are there when the user has something worth telling.
 
-## The Product in One Minute
+## The product in one minute
 
-- **The Problem**: People save ideas from books and lessons from life, but retrieval fails when those ideas would actually be useful. Notes apps wait for you to remember to search; flashcard apps feel like homework.
-- **The Promise**: *Keep what mattered. Remember it when it can matter again.*
-- **The Core Loop**: **Capture → Cue → Attempt → Reveal → Rate → Reuse**
-- **The Experience**: A calm, Android-first native app centered around Today, Library, and Settings.
-- **Data Ownership**: App-private UTF-8 Markdown files on your device. Zero accounts, zero tracking, 100% offline.
-- **Explicit Non-Goals**: No AI chat, global graph dashboards, cloud-sync dependency, social feeds, task lists, or habit streaks.
+- **Problem**: People save good moments and ideas, but they rarely come to mind at the conversational moment when they would be useful or enjoyable to tell.
+- **Promise**: *Save it now. Tell it later.*
+- **Core loop**: **Capture → Rest → Clue → Tell → Reveal → Not yet / Mostly / Yes → Resurface**
+- **Experience**: Calm Android-first native app centred on Today, Library and Settings.
+- **Trust**: Memory content stays in app-private device storage. No account, ads or analytics.
+- **Non-goals**: No categories, folder management, formatting tools, manual cue authoring, streaks, social feed, or automatic rewriting of personal memories.
 
----
+## Product pillars
 
-## Vault Map
+1. **Conversation availability over note collection** — success happens when a memory comes to mind outside the app.
+2. **Original memory is truth** — Stories can cue and resurface, but never invents details.
+3. **Tell before reveal** — the hidden state should help reconstruct the memory without exposing the answer.
+4. **System does the organising** — users capture naturally; they do not classify or tune scheduling.
+5. **Calm over compulsion** — five-memory sessions, no overdue debt, badges or streak pressure.
+6. **Private by default** — the core loop works locally without an account or network.
 
-| Section | Focus | Start Here |
-|---|---|---|
-| **01 Strategy** | Problem, vision, users, jobs, scope boundaries | [[01 Strategy/01 Product Brief]] |
-| **02 Requirements** | Core product and surface requirements | [[02 Requirements/00 Master PRD]] |
-| **03 Quality** | Edge cases, accessibility, reliability, content voice | [[03 Quality/01 Edge Cases and Error Handling]] |
-| **04 Delivery** | Release gates, current gaps, decisions, future hypotheses | [[04 Delivery/01 Release Plan and Acceptance]] |
+## Status vocabulary
 
-For the next bets worth considering later, see [[04 Delivery/05 Future Product Decisions]].
-
----
-
-## Key Product Pillars
-
-1. **Memory Before Notes**: Today is for remembering and capturing. Library is durable retrieval infrastructure, not a filing dashboard.
-2. **First-Session Value**: Users should understand the recall loop on day one without changing the promised scheduled return date.
-3. **Attempt Before Answer**: The cue should trigger retrieval before the stored memory is revealed.
-4. **Warmth Over Machinery**: Human prompts beat system-like study language.
-5. **Calm Over Compulsion**: No streaks, overdue warnings, scores, badges, or guilt.
-6. **Honest Local-First Trust**: Keep data local and make only claims the current build actually supports. No export, backup, sync, or portability promise unless those features exist.
-
----
-
-## Status Vocabulary
-
-- **Required**: Normative behavior for the release.
+- **Required**: Normative behaviour for the release.
 - **Implemented**: Present in the active codebase.
-- **Partial**: Some behavior exists, but full verification is pending.
+- **Partial**: Some behaviour exists, but device verification is pending.
 - **Not built**: Defined but not implemented.
 - **Hypothesis**: Worth testing; not committed roadmap.
 - **Deferred**: Intentionally out of scope.

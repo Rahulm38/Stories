@@ -3,7 +3,8 @@ import * as Notifications from 'expo-notifications';
 import type { MemoryNote } from '@core/model';
 import { readReminderPreferences } from './reminder-preferences';
 
-const REMINDER_ID_KEY = 'stories-recall-reminder';
+const REMINDER_ID_KEY = 'stories-return-reminder';
+const LEGACY_REMINDER_ID_KEY = 'stories-recall-reminder';
 
 function localDateFromRecall(value: string): Date | undefined {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -24,7 +25,7 @@ export async function configureReminderPresentation(): Promise<void> {
   });
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('recall', {
-      name: 'Recall reminders',
+      name: 'Story reminders',
       importance: Notifications.AndroidImportance.DEFAULT,
       sound: null,
       vibrationPattern: null,
@@ -38,7 +39,7 @@ export async function reconcileRecallReminder(notes: MemoryNote[], now = new Dat
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
-      .filter((item) => item.content.data?.[REMINDER_ID_KEY] === true)
+      .filter((item) => item.content.data?.[REMINDER_ID_KEY] === true || item.content.data?.[LEGACY_REMINDER_ID_KEY] === true)
       .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier)),
   );
   if (!prefs.enabled) return;
@@ -53,14 +54,12 @@ export async function reconcileRecallReminder(notes: MemoryNote[], now = new Dat
 
   const target = new Date(nextDate);
   target.setHours(prefs.reminderHour, prefs.reminderMinute, 0, 0);
-  if (target.getTime() <= now.getTime()) {
-    target.setTime(now.getTime() + 60_000);
-  }
+  if (target.getTime() <= now.getTime()) target.setTime(now.getTime() + 60_000);
 
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Stories',
-      body: 'A memory is ready to return.',
+      body: 'A memory is ready to come back.',
       data: { [REMINDER_ID_KEY]: true },
       sound: false,
     },

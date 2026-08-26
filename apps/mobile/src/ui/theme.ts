@@ -35,8 +35,6 @@ export const colors = {
   controlLine: semanticColors.controlBorder,
   accent: semanticColors.action,
   accentSoft: semanticColors.actionMuted,
-  bookSoft: '#EDF2F7',
-  experienceSoft: '#F1F2F4',
   green: semanticColors.success,
 } as const;
 

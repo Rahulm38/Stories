@@ -6,9 +6,9 @@ import { colors, sizes, spacing } from '@/src/ui/theme';
 import { tabBarMetrics } from '@/src/navigation/tab-bar';
 
 type TabIconProps = {
-  android: 'today' | 'book_2' | 'settings';
+  android: 'today' | 'inventory_2' | 'settings';
   color: ColorValue;
-  ios: 'calendar' | 'calendar.circle.fill' | 'books.vertical' | 'books.vertical.fill' | 'gearshape' | 'gearshape.fill';
+  ios: 'calendar' | 'calendar.circle.fill' | 'archivebox' | 'archivebox.fill' | 'gearshape' | 'gearshape.fill';
 };
 
 function TabIcon({ android, color, ios }: TabIconProps) {
@@ -46,7 +46,7 @@ export default function TabLayout() {
         name="files"
         options={{
           title: 'Library',
-          tabBarIcon: ({ color, focused }) => <TabIcon android="book_2" color={color} ios={focused ? 'books.vertical.fill' : 'books.vertical'} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon android="inventory_2" color={color} ios={focused ? 'archivebox.fill' : 'archivebox'} />,
         }}
       />
       <Tabs.Screen

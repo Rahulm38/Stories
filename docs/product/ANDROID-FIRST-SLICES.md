@@ -1,63 +1,50 @@
-# Android-first vertical slices
+# Android-first slices
 
-These are tracer-bullet slices. Each one should be demoable on Android and type-check on iOS before the next slice starts.
+## Slice 1 — capture
 
-## 01 — Capture to a local file
+Fresh launch → `Save your first memory` → plain text → Save → Today confirmation.
 
-**Blocked by:** none
+Acceptance:
+- no category or organisation choices;
+- no formatting controls;
+- no cue authoring;
+- no scheduling setup;
+- unfinished text recovers safely;
+- first return is scheduled automatically.
 
-**What it delivers:** Today opens a focused native composer, saves a Note, Book learning, or Experience as Markdown in app-private storage, and shows a saved state.
+## Slice 2 — real resurfacing
 
-- [x] one dominant capture action
-- [x] no modal editor or hover-only interaction
-- [x] keyboard-safe writing space
-- [x] body-only save works
-- [x] kind selects folder (`Inbox`, `Books`, `Experiences`)
-- [x] app restart reads the Markdown files back
+After time has passed: short clue → try telling → Reveal → Not yet / Mostly / Yes.
 
-## 02 — Library to note
+Acceptance:
+- hidden state cannot expose the full title/body;
+- clue is deterministic and made only from original content;
+- `Tomorrow` works;
+- return intervals spread out after successful recalls;
+- at five completed memories the session ends calmly.
 
-**Blocked by:** 01 — Capture to a local file
+## Slice 3 — Library
 
-**What it delivers:** Library shows book learnings, experiences, and Inbox notes from the local Markdown vault; tapping a memory opens a compact reading screen and returns through an explicit Library action.
+Library → search → memory → edit/share/stop/delete.
 
-- [x] folder-first list
-- [x] search by title, body, folder, and kind
-- [x] no empty default-folder wall
-- [x] basic headings, bullets, tasks, and paragraphs render in reading mode
-- [x] edit stays on the note screen
+Acceptance:
+- search supports combinations of people, places, topics, and body words;
+- search ignores punctuation/case/diacritics;
+- editing is ordinary text;
+- stop resurfacing preserves the memory in Library;
+- no category/folder/storage-path concepts appear.
 
-## 03 — Link another file
+## Slice 4 — reminders and privacy
 
-**Blocked by:** 02 — Library to note
+After the first real resurfacing, offer one contextual reminder prompt.
 
-**What it delivers:** Typing `[[` in the editor suggests existing local files; selecting one inserts a canonical path and tapping it opens the intended note.
+Acceptance:
+- permission is not requested on first launch;
+- reminders are quiet and local;
+- Settings clearly says memory content stays on device;
+- blocked notification permission links to device settings;
+- declining does not interrupt the core loop.
 
-- [x] suggestions exclude the current note
-- [x] duplicate filenames use a folder-qualified path
-- [x] resolved links use native stack navigation
-- [x] unresolved links create a draft in the target folder
-- [x] rename/move preserves all path-qualified links
+## Device QA
 
-## 04 — Recall that earns its place
-
-**Blocked by:** 01 — Capture to a local file
-
-**What it delivers:** A book learning or experience due for recall appears on Today, asks for an attempt before reveal, and persists the next due date.
-
-- [x] due queue checks `nextRecallAt`
-- [x] Later moves the cue without losing it
-- [x] Remembered / Partly / Forgot choose deterministic intervals
-- [x] relaunch preserves recall state
-
-## 05 — Android hardening, then iOS parity
-
-**Blocked by:** 01, 02, 03, and 04
-
-**What it delivers:** The same app code passes forced-relaunch, keyboard, deep-link, backup, and migration checks on Android and launches on iOS without a feature rewrite.
-
-- [ ] Android device/emulator test
-- [ ] iOS simulator compile/test
-- [ ] rebuildable SQLite index
-- [ ] backup/restore of Markdown and stable IDs
-- [ ] local notification adapter
+Test on physical Android for keyboard resize, Back behaviour, safe areas, edge-to-edge, large font, TalkBack, 48dp touch targets, notification channel behaviour, force-stop persistence, offline use, rotation policy, and slow-storage/error states.

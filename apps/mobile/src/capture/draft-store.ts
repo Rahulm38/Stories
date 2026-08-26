@@ -1,14 +1,8 @@
 import { Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
-import type { MemoryKind } from '@core/model';
-import type { RecallChoice } from './options';
 
 export type CaptureDraft = {
   body: string;
-  source: string;
-  recallPrompt: string;
-  kind: MemoryKind;
-  recallChoice: RecallChoice;
   savedAt: string;
 };
 
@@ -28,8 +22,10 @@ export async function readCaptureDraft(): Promise<CaptureDraft | undefined> {
       raw = file.exists ? await file.text() : null;
     }
     if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as CaptureDraft;
-    return parsed && typeof parsed.body === 'string' ? parsed : undefined;
+    const parsed = JSON.parse(raw) as Partial<CaptureDraft>;
+    return parsed && typeof parsed.body === 'string'
+      ? { body: parsed.body, savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString() }
+      : undefined;
   } catch {
     return undefined;
   }

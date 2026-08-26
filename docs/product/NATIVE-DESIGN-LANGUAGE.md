@@ -1,51 +1,54 @@
-# Stories Native Design Language
+# Stories native design language
 
-> This document defines runtime and platform mapping. The product UI source of
-> truth is the [Stories Design System](./STORIES-DESIGN-SYSTEM.md).
+## Character
 
-## Direction
+Calm, modern, warm and lightweight. The app should feel closer to a beautifully restrained journal or reading app than a dashboard or study tool.
 
-Stories should feel like a quiet system app for remembering, not a responsive website inside a phone frame. The product identity comes from its language, recall behavior, and restrained ink-blue palette; platform behavior should remain native.
+## Hierarchy
 
-## Runtime choice
+- One dominant task per screen.
+- Large type is reserved for the screen's emotional or task anchor.
+- Cards are used only when grouping improves comprehension.
+- Dividers and whitespace do more work than containers.
+- Supporting copy is short and secondary.
 
-The first store client uses Expo SDK 57, React Native, and Expo Router. Android and iOS therefore share one screen implementation, navigation model, and TypeScript vault contract. Storage, notifications, and deep links remain platform adapters. The Next.js app is a behavior prototype, not a responsive wrapper around the native client.
+## Icons
 
-## Shared principles
+Use native symbols through `expo-symbols` with text when an action could be ambiguous. Icons improve scanning; they do not create extra actions.
 
-- Full-screen app surfaces with safe-area-aware top and bottom navigation.
-- System typography first: San Francisco on iOS and Roboto on Android.
-- One primary action per screen and 44pt/48dp minimum touch targets.
-- Inline capture and editing; no modal or bottom-sheet editor for the core writing flow.
-- Flat grouped lists, separators, and subtle surface tints before cards, borders, or elevation.
-- No hover states, ornamental animation, gradients, floating action button, or pill-shell navigation.
-- Motion, when later added, is limited to platform-standard navigation and state transitions and respects reduced-motion settings.
+- standard action icon: about 20–24dp;
+- interactive target: at least 48dp;
+- use familiar platform metaphors: add, search, edit, reveal/eye, clock, archive, bell, lock, overflow.
 
-## Platform mapping
+## Core screens
 
-| Product pattern | iOS / SwiftUI | Android / Jetpack Compose |
-| --- | --- | --- |
-| Screen hierarchy | `NavigationStack` with large/inline title | `Scaffold` with `TopAppBar` |
-| Primary navigation | `TabView` | `NavigationBar` |
-| Capture field | Inline `TextEditor` and native buttons | Inline `BasicTextField`/`OutlinedTextField` and Material buttons |
-| Memory rows | `List` or lazy stack with semantic separators | `LazyColumn` with list items and dividers |
-| Recall outcome | Native segmented actions or accessible buttons | Material segmented buttons or accessible buttons |
-| Icons | SF Symbols by semantic name | Material Symbols by semantic name |
-| Colors | Semantic system backgrounds, labels, separators plus Stories accent | Material color roles plus Stories accent |
-| Local notifications | `UNUserNotificationCenter` | `NotificationManager` / `WorkManager` as appropriate |
+### Today
 
-The shared React Native shell uses `SafeAreaView`, `KeyboardAvoidingView`, `TextInput`, `ScrollView`/`FlatList`, Expo Router's `Stack`/`Tabs`, and Expo FileSystem. These primitives provide native keyboard, safe-area, and navigation behavior while keeping platform-specific code at adapter seams.
+New user: one visual mark, `Save it now. Tell it later.`, one primary action.
 
-## Navigation
+Due memory: age → story cue → verbal instruction → Reveal / Tomorrow. After reveal: original text → `Could you tell it?` → Not yet / Mostly / Yes.
 
-The first release has three destinations:
+### Capture
 
-1. **Today:** quick capture and due recall.
-2. **Library:** book learnings, experiences, Inbox items, search, and their underlying Markdown files.
-3. **Settings:** capture prompts, recall preferences, privacy, and local storage.
+One prompt, one plain text surface, one Save action. No advanced section.
 
-Note links open through the native navigation stack. The back gesture/button remains platform-owned. A global graph is not a primary destination.
+### Library
 
-## Web prototype boundary
+Header, search, simple rows. Search placeholder should teach the mental model: `Search people, places, moments…`.
 
-The Next.js prototype validates hierarchy, copy, density, and the Capture → Cue → Recall interaction. It is not the runtime plan for the store apps. The Expo client implements the same contracts in native UI, backed by app-private Markdown files and a later rebuildable SQLite index.
+### Memory
+
+Readable original content with one lightweight return-state line. Edit and overflow actions remain obvious but secondary.
+
+### Settings
+
+Only real preferences. Reminders and privacy are visually scannable with familiar icons.
+
+## Interaction rules
+
+- Never use colour alone to communicate state.
+- Minimum touch target 48dp.
+- Prefer familiar native transitions and press feedback.
+- Avoid modal chains; use alerts only for destructive/secondary actions.
+- No celebration theatre, streaks, red debt counts, or gamified pressure.
+- Keep content inside safe insets while allowing surfaces/backgrounds to feel edge-to-edge where appropriate.
