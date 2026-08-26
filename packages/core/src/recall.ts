@@ -50,7 +50,6 @@ function daysBetween(from: string | undefined, to: string | undefined): number |
 
 function storedStrength(note: MemoryNote): number | undefined {
   if (Number.isInteger(note.reviewStrengthDays) && (note.reviewStrengthDays || 0) > 0) return note.reviewStrengthDays;
-  // Compatibility fallback for memories saved by builds before reviewStrengthDays existed.
   return daysBetween(note.lastRecalledAt, note.nextRecallAt);
 }
 
@@ -93,7 +92,7 @@ export function scheduleFirstRecall(now = new Date(), days = 1): string {
   return addDays(now.toISOString(), days);
 }
 
-// Kept only to read and preserve older stored memories. The mobile UI does not create reflections.
+// Compatibility only: older beta memories may contain recall-reflection sections.
 export function appendRecallReflection(body: string, reflection: string, now = new Date()): string {
   const content = reflection.trim();
   if (!content) return body;
@@ -121,6 +120,7 @@ export function gradeRecall(note: MemoryNote, status: RecallStatus, now = new Da
   };
 }
 
+// Compatibility only: the current Android practice screen never calls this because voluntary practice must not write recall state.
 export function practiceRecall(note: MemoryNote, status: RecallStatus, reflection = '', now = new Date()): NoteDraft {
   return {
     id: note.id,
@@ -148,7 +148,7 @@ export function deferRecall(note: MemoryNote, now = new Date()): NoteDraft {
     recallPrompt: note.recallPrompt,
     recallStatus: note.recallStatus,
     lastRecalledAt: note.lastRecalledAt,
-    reviewStrengthDays: note.reviewStrengthDays,
+    reviewStrengthDays: storedStrength(note),
     nextRecallAt: addDays(now.toISOString(), 1),
   };
 }
@@ -164,7 +164,7 @@ export function stopResurfacing(note: MemoryNote): NoteDraft {
     recallPrompt: note.recallPrompt,
     recallStatus: note.recallStatus,
     lastRecalledAt: note.lastRecalledAt,
-    reviewStrengthDays: note.reviewStrengthDays,
+    reviewStrengthDays: storedStrength(note),
     nextRecallAt: undefined,
   };
 }
