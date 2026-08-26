@@ -36,9 +36,9 @@ snapshot_date: 2026-08-26
 ## Current candidate changes
 
 ### Product identity
-- First save now demonstrates clue → tell → reveal immediately through `Try telling it now` while preserving the real +3-day return.
+- First save demonstrates clue → tell → reveal immediately through `Try telling it now` while preserving the real +3-day return.
 - Today no longer duplicates Library with a Recent feed.
-- Nothing-due Today state offers `Try one now` so the core product remains usable between scheduled returns.
+- Nothing-due Today offers `Try one now` so the core product remains useful between scheduled returns.
 - Saved memories expose `Try telling` in the action sheet.
 - Voluntary practice never calls save/rating/session APIs and therefore cannot alter recall status, strength, due date or the five-item scheduled cap.
 
@@ -55,7 +55,8 @@ snapshot_date: 2026-08-26
 - App config targets Android only.
 - Release builds enable R8/code minification and Android resource shrinking through `expo-build-properties`.
 - Preview stays APK; production stays AAB.
-- Removed unused `expo-dev-client`, `expo-font`, `react-native-reanimated` and `react-native-worklets` dependencies.
+- Removed unused `expo-dev-client`, `react-native-reanimated` and `react-native-worklets` dependencies.
+- `expo-font` remains because `expo-symbols` declares it as a required peer; Expo Doctor protects this dependency.
 - Removed obsolete `Chip` component and web/iOS runtime branches from shipping persistence, notification, editor, tab and navigation paths.
 - Generated `apps/mobile/android` remains ignored; cloud/prebuild generation is authoritative rather than stale committed native files.
 
