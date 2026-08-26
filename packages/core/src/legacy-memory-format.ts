@@ -15,7 +15,10 @@ const KNOWN_FRONTMATTER_FIELDS = new Set([
   'nextRecallAt', 'recallPrompt', 'recallStatus', 'lastRecalledAt', 'reviewStrengthDays',
 ]);
 
-export const SCHEMA_VERSION = 2;
+// reviewStrengthDays is additive metadata, not a structural migration. Staying on
+// schema v1 keeps memories writable by current builds and readable by earlier beta
+// builds if a tester temporarily rolls back the APK.
+export const SCHEMA_VERSION = 1;
 
 function hasMalformedFrontmatterStructure(content: string): boolean {
   const seenKeys = new Set<string>();
