@@ -70,15 +70,14 @@ export async function reconcileRecallReminder(notes: MemoryNote[], now = new Dat
   const dueCount = recallDates.filter((date) => date.getTime() <= today.getTime()).length;
   const dailySession = await readDailyReviewSession(now);
 
-  let target: Date;
-  if (dueCount > 0 && dailySession.handled > 0) {
-    // Once the user has engaged with Today's session, never nag again a minute later.
-    // Any remaining backlog gets one calm opportunity tomorrow.
+  let target = new Date(recallDates[0]);
+  target.setHours(prefs.reminderHour, prefs.reminderMinute, 0, 0);
+
+  if (dueCount > 0 && (dailySession.handled > 0 || target.getTime() <= now.getTime())) {
+    // When Stories is already open, an overdue reminder should never turn into a
+    // one-minute-later nag. Once today's reminder window has passed or the user
+    // has engaged, defer the next generic nudge to tomorrow.
     target = tomorrowAt(prefs.reminderHour, prefs.reminderMinute, now);
-  } else {
-    target = new Date(recallDates[0]);
-    target.setHours(prefs.reminderHour, prefs.reminderMinute, 0, 0);
-    if (target.getTime() <= now.getTime()) target.setTime(now.getTime() + 60_000);
   }
 
   await Notifications.scheduleNotificationAsync({
