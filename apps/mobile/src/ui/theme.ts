@@ -24,6 +24,7 @@ export const semanticColors = {
   danger: '#A84848',
   onAction: '#FFFFFF',
   accentWarm: '#D4A574',
+  scrim: 'rgba(0, 0, 0, 0.28)',
 } as const;
 
 export const colors = {
