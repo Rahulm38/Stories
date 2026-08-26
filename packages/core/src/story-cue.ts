@@ -98,6 +98,10 @@ function overlaps(a: TriggerCandidate, b: TriggerCandidate): boolean {
   return a.start <= b.end && b.start <= a.end;
 }
 
+function phraseFriendlyEnding(word: TriggerWord): boolean {
+  return !/(?:ed|ing)$/u.test(word.normalized);
+}
+
 function buildCandidates(words: TriggerWord[], safeBoundary: number): TriggerCandidate[] {
   const safe = words.filter((word) => word.index < safeBoundary);
   const candidates: TriggerCandidate[] = safe.map((word) => ({
@@ -110,7 +114,7 @@ function buildCandidates(words: TriggerWord[], safeBoundary: number): TriggerCan
   for (let index = 0; index < safe.length - 1; index += 1) {
     const first = safe[index];
     const second = safe[index + 1];
-    if (second.index !== first.index + 1) continue;
+    if (second.index !== first.index + 1 || !phraseFriendlyEnding(second)) continue;
     candidates.push({
       text: `${first.word} ${second.word}`,
       score: first.score + second.score + 5,
