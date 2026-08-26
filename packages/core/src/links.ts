@@ -1,4 +1,4 @@
-import { fileNameForNote, normalizeFolder, pathForNote } from './markdown.ts';
+import { fileNameForNote, normalizeFolder, pathForNote } from './legacy-memory-format.ts';
 import type { LinkCandidate, LinkResolution, MemoryNote, NoteDraft } from './model.ts';
 
 function normalizeTarget(value: string): string {
@@ -123,7 +123,7 @@ export function draftForMissingLink(target: string, fromFolder = 'Inbox'): NoteD
   const normalized = target.trim().replace(/^\[\[|\]\]$/g, '').replace(/\\/g, '/');
   const targetWithoutAlias = normalized.split('|', 1)[0].trim();
   const parts = targetWithoutAlias.split('/').map((part) => part.trim()).filter(Boolean);
-  const fileName = parts.pop()?.replace(/\.md$/i, '').trim() || 'Untitled note';
+  const fileName = parts.pop()?.replace(/\.md$/i, '').trim() || 'Untitled memory';
   const folder = parts.length ? normalizeFolder(parts.join('/')) : normalizeFolder(fromFolder);
   return { title: fileName, body: '', folder, kind: 'note' };
 }
