@@ -10,7 +10,8 @@ const STOP_WORDS = new Set([
 export function plainMemoryText(body: string): string {
   return body
     .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target: string, label: string | undefined) => (label || target).replace(/\.md$/i, ''))
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/gi, '$1 — $2')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
     .split('\n')
     .map((line) => line
       .replace(/^\s{0,3}#{1,6}\s+/, '')
@@ -40,7 +41,9 @@ function normalizedWord(value: string): string {
     .replace(/[^\p{L}\p{N}-]/gu, '');
 }
 
-function meaningfulWords(body: string) {
+type CueWord = { word: string; score: number; index: number };
+
+function meaningfulWords(body: string): CueWord[] {
   const clean = plainMemoryText(body);
   const matches = clean.match(/[\p{L}\p{N}][\p{L}\p{N}'’.-]*/gu) || [];
   const seen = new Set<string>();
@@ -57,16 +60,22 @@ function meaningfulWords(body: string) {
 }
 
 /**
- * Builds a short deterministic retrieval clue from the user's own words.
- * It never generates facts and intentionally reveals only a few handles.
+ * Builds a conservative local retrieval clue using only the user's own words.
+ * Candidates are intentionally limited to the contextual opening of a memory so
+ * a distinctive punchline or answer near the end is not shown before Reveal.
  */
 export function storyCue(body: string): string {
+  const clean = plainMemoryText(body);
+  const allWords = clean.match(/[\p{L}\p{N}][\p{L}\p{N}'’.-]*/gu) || [];
   const words = meaningfulWords(body);
-  if (words.length === 0) return 'A memory worth bringing back';
+  if (words.length === 0 || allWords.length === 0) return 'A memory worth bringing back';
 
-  const cleanWordCount = plainMemoryText(body).split(/\s+/).filter(Boolean).length;
-  const cueCount = words.length <= 4 ? 1 : cleanWordCount >= 18 ? 3 : 2;
-  const ranked = [...words]
+  const safeWordBoundary = Math.max(2, Math.floor(allWords.length * 0.55));
+  const safe = words.filter((item) => item.index < safeWordBoundary);
+  if (safe.length === 0) return 'A memory worth bringing back';
+
+  const cueCount = safe.length >= 2 && allWords.length >= 8 ? 2 : 1;
+  const ranked = [...safe]
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, cueCount)
     .sort((a, b) => a.index - b.index)
