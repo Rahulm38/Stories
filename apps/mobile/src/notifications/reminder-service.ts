@@ -21,8 +21,8 @@ export function formatReminderTime(hour: number, minute: number): string {
 
 export function reminderNotificationMessage(dueCount: number): string | undefined {
   if (dueCount <= 0) return undefined;
-  if (dueCount === 1) return 'A memory is ready to come back.';
-  return 'A few memories are ready to come back.';
+  if (dueCount === 1) return 'A story is ready to come back.';
+  return 'A few stories are ready to come back.';
 }
 
 export function nextReminderDate(prefs: ReminderPreferences, now = new Date()): Date {
@@ -34,10 +34,10 @@ export function nextReminderDate(prefs: ReminderPreferences, now = new Date()): 
 
 export function reminderStatusCopy(prefs: ReminderPreferences, isBlocked = false): string {
   if (isBlocked) return 'Notifications are blocked on your device. Tap to open Settings and enable them.';
-  if (prefs.enabled) return `Quiet reminder at ${formatReminderTime(prefs.reminderHour, prefs.reminderMinute)} when something is ready to come back.`;
-  return 'Get a quiet alert when something is ready to come back.';
+  if (prefs.enabled) return `Reminder at ${formatReminderTime(prefs.reminderHour, prefs.reminderMinute)} when a story is ready.`;
+  return 'Get a quiet alert when a story is ready to come back.';
 }
 
 export function firstMemoryReminderPrompt(): string {
-  return 'Want a quiet reminder when something is ready to come back?';
+  return 'Want a reminder when a story is ready to come back?';
 }
