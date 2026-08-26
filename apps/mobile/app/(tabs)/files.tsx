@@ -3,10 +3,7 @@ import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { MemoryNote } from '@core/model';
-import { memoryTitle, storyCue } from '@core/story-cue';
 import { librarySearchScore } from '@/src/navigation/library-search';
-import { cleanSnippet } from '@/src/navigation/snippet';
 import { useVault } from '@/src/vault/provider';
 import { colors, radii, sharedStyles, sizes, spacing, typography } from '@/src/ui/theme';
 import { shortDateLabel } from '@/src/recall/presentation';
@@ -14,81 +11,58 @@ import { AppText } from '@/src/ui/components/AppText';
 import { Button } from '@/src/ui/components/Button';
 import { EmptyState } from '@/src/ui/components/EmptyState';
 import { ErrorState } from '@/src/ui/components/ErrorState';
-import { ListRow } from '@/src/ui/components/ListRow';
 import { LoadingState } from '@/src/ui/components/LoadingState';
+import { StoryListItem } from '@/src/ui/story/StoryListItem';
 
 export default function FilesScreen() {
   const router = useRouter();
   const { hydrated, notes, openError, readIssues } = useVault();
   const [query, setQuery] = useState('');
 
-  const healthyNotes = useMemo(() => notes.filter((note) => note.parseStatus !== 'quarantine'), [notes]);
-  const visibleNotes = useMemo(() => healthyNotes
+  const healthyStories = useMemo(() => notes.filter((note) => note.parseStatus !== 'quarantine'), [notes]);
+  const visibleStories = useMemo(() => healthyStories
     .map((note) => ({ note, score: librarySearchScore(note, query) }))
-    .filter((item): item is { note: MemoryNote; score: number } => item.score !== null)
+    .filter((item): item is { note: typeof healthyStories[number]; score: number } => item.score !== null)
     .sort((a, b) => {
       if (query.trim() && a.score !== b.score) return a.score - b.score;
       const aTime = new Date(a.note.updatedAt).getTime() || 0;
       const bTime = new Date(b.note.updatedAt).getTime() || 0;
-      return bTime - aTime || a.note.title.localeCompare(b.note.title);
+      return bTime - aTime || a.note.id.localeCompare(b.note.id);
     })
-    .map((item) => item.note), [healthyNotes, query]);
+    .map((item) => item.note), [healthyStories, query]);
 
   if (!hydrated) {
-    return <SafeAreaView style={sharedStyles.screen} edges={['top']}><LoadingState label="Opening your memories…" /></SafeAreaView>;
+    return <SafeAreaView style={sharedStyles.screen} edges={['top']}><LoadingState label="Opening your stories…" /></SafeAreaView>;
   }
 
   if (openError) {
     return (
       <SafeAreaView style={sharedStyles.screen} edges={['top']}>
-        <ErrorState title="Couldn't open your memories" body={openError} hint="Your memories were left unchanged. Close and reopen Stories to try again." />
+        <ErrorState title="Couldn't open your stories" body={openError} hint="Your stories were left unchanged. Close and reopen Stories to try again." />
       </SafeAreaView>
     );
   }
 
-  if (healthyNotes.length === 0 && readIssues.length === 0) {
+  if (healthyStories.length === 0 && readIssues.length === 0) {
     return (
       <SafeAreaView style={sharedStyles.screen} edges={['top']}>
         <View style={[sharedStyles.scrollContent, styles.emptyScreen]}>
           <AppText accessibilityRole="header" variant="display">Library</AppText>
           <EmptyState
-            icon={<SymbolView name={{ ios: 'bubble.left.and.bubble.right', android: 'chat_bubble', web: 'chat_bubble' }} size={sizes.primaryIcon} tintColor={colors.action} />}
             title="Nothing saved yet"
-            body="The best stories are the ones you actually remember."
-            action={<Button label="Save your first story" leading={<SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={sizes.compactIcon} tintColor={colors.onAction} />} onPress={() => router.navigate('/capture')} />}
+            body="Stories you save will stay easy to find here."
+            action={<Button label="Save your first story" onPress={() => router.navigate('/capture')} />}
           />
         </View>
       </SafeAreaView>
     );
   }
 
-  const renderMemory = ({ item, index }: { item: MemoryNote; index: number }) => {
-    const title = memoryTitle(item.body);
-    const snippet = cleanSnippet(item.body, title) || storyCue(item.body);
-    const updated = shortDateLabel(item.updatedAt);
-    return (
-      <ListRow
-        accessibilityLabel={`Open ${title}`}
-        leading={(
-          <View style={styles.memoryIcon}>
-            <SymbolView name={{ ios: 'quote.bubble', android: 'chat_bubble', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.action} />
-          </View>
-        )}
-        metadata={updated}
-        onPress={() => router.push({ pathname: '/note/[id]', params: { id: item.id } })}
-        showTopDivider={index > 0}
-        subtitle={snippet}
-        title={title}
-        trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />}
-      />
-    );
-  };
-
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
       <FlatList
-        data={visibleNotes}
-        keyExtractor={(note) => note.id}
+        data={visibleStories}
+        keyExtractor={(story) => story.id}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={sharedStyles.scrollContent}
@@ -97,31 +71,26 @@ export default function FilesScreen() {
             <View style={styles.header}>
               <View style={styles.headerCopy}>
                 <AppText accessibilityRole="header" variant="display">Library</AppText>
-                <AppText accessibilityLabel={`${healthyNotes.length} memories`} variant="supporting" tone="secondary" style={styles.count}>
-                  {healthyNotes.length} {healthyNotes.length === 1 ? 'memory' : 'memories'}
+                <AppText accessibilityLabel={`${healthyStories.length} stories`} variant="supporting" tone="secondary" style={styles.count}>
+                  {healthyStories.length} {healthyStories.length === 1 ? 'story' : 'stories'}
                 </AppText>
               </View>
-              <Button
-                label="New"
-                variant="text"
-                leading={<SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={sizes.compactIcon} tintColor={colors.action} />}
-                onPress={() => router.navigate('/capture')}
-              />
+              <Button label="New" variant="text" onPress={() => router.navigate('/capture')} />
             </View>
 
             {readIssues.length > 0 ? (
               <View accessibilityRole="alert" style={styles.issueBanner}>
                 <AppText variant="supporting" tone="danger" style={styles.issueTitle}>
-                  {readIssues.length === 1 ? 'One memory could not be opened' : `${readIssues.length} memories could not be opened`}
+                  {readIssues.length === 1 ? 'One story could not be opened' : `${readIssues.length} stories could not be opened`}
                 </AppText>
-                <AppText variant="metadata" tone="secondary" style={styles.issueCopy}>The affected memory was left unchanged. Reopen Stories to retry.</AppText>
+                <AppText variant="metadata" tone="secondary" style={styles.issueCopy}>The affected story was left unchanged. Reopen Stories to retry.</AppText>
               </View>
             ) : null}
 
             <View style={styles.searchField}>
               <SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
               <TextInput
-                accessibilityLabel="Search memories"
+                accessibilityLabel="Search stories"
                 autoCapitalize="none"
                 autoCorrect={false}
                 clearButtonMode="while-editing"
@@ -138,13 +107,19 @@ export default function FilesScreen() {
         )}
         ListEmptyComponent={(
           <EmptyState
-            icon={<SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={sizes.primaryIcon} tintColor={colors.action} />}
             title="Nothing matched"
             body="Try a name, place, or shorter phrase. Small typos are okay."
-            action={<Button label="Clear search" variant="secondary" onPress={() => setQuery('')} />}
+            action={<Button label="Clear search" variant="tonal" onPress={() => setQuery('')} />}
           />
         )}
-        renderItem={renderMemory}
+        renderItem={({ item, index }) => (
+          <StoryListItem
+            body={item.body}
+            dateLabel={shortDateLabel(item.updatedAt)}
+            onPress={() => router.push({ pathname: '/note/[id]', params: { id: item.id } })}
+            showTopDivider={index > 0}
+          />
+        )}
       />
     </SafeAreaView>
   );
@@ -178,12 +153,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   searchInput: { color: colors.textPrimary, flex: 1, paddingVertical: spacing.none, ...typography.action, fontWeight: '400' },
-  memoryIcon: {
-    alignItems: 'center',
-    backgroundColor: colors.actionMuted,
-    borderRadius: radii.compact,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
 });
