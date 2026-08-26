@@ -1,143 +1,88 @@
 ---
 title: Future Product Decisions
 status: hypotheses
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 ---
 
 # Future Product Decisions
 
-These are **not committed roadmap**. They are the next bets worth considering after the core Android loop is proven.
+These are **not committed roadmap**. Do not build them until the hardened Android capture -> return -> tell -> reveal -> search loop has been tested by real users.
 
-## Decision order
+## Recommended order after core stability
 
-| Priority | Decision | Recommendation |
+| Priority | Candidate | Recommendation |
 |---|---|---|
-| 1 | Progressive recall schedule | **Test after beta** |
-| 2 | Stronger reuse / reflection loop | **Likely yes** |
-| 3 | Related memory after recall | **Likely yes, local-first** |
-| 4 | Android Share-to-Stories | **Likely yes** |
-| 5 | Local-only product diagnostics | **Useful for beta** |
-| 6 | Dark mode | **Do when demanded** |
-| 7 | Launcher shortcut / widget | **Later** |
-| 8 | Sync / AI | **Defer** |
+| 1 | Android Share-to-Stories | Strong next feature after stability |
+| 2 | Better local search ranking/highlighting | Improve only if users still fail to recover memories |
+| 3 | Launcher capture shortcut | Small Android convenience after Share-to-Stories |
+| 4 | Dark mode | Polish when there is repeated demand |
+| 5 | Local-only content-free diagnostics | Only if beta decisions cannot be made from qualitative feedback |
+| 6 | Device migration / export | Revisit when portability becomes a repeated pain |
+| 7 | Sync | Defer until multi-device demand is proven |
+| 8 | AI | Defer; only revisit for a narrow, user-controlled job |
 
----
+## FPD-001 — Android Share-to-Stories
 
-## FPD-001 — Progressive recall scheduling
+**Hypothesis:** useful ideas often originate in Chrome, Kindle/reader apps, messages or another app, and switching apps creates capture friction.
 
-**Hypothesis:** Fixed 1/4/14-day intervals will eventually feel repetitive and fail to adapt as a memory becomes stronger.
+**Recommended first version:** Android Share sheet -> Stories capture screen with shared text shown as context -> user writes what is actually worth remembering -> Save.
 
-**Recommendation:** Keep v1 simple. After beta, move to a transparent progressive schedule before considering FSRS or other study-grade algorithms.
+Do not blindly save copied content as the memory. User intent stays required.
 
-**How I would do it:**
-- Keep *Not yet* ≈ 1 day.
-- *Partly* grows the previous interval modestly.
-- *Got it* grows it more strongly, capped around 6 months.
-- Example path: 3 → 8 → 18 → 40 → 90 → 180 days.
+## FPD-002 — Search quality
 
-**Decide yes if:** regular users are completing recalls but say strong memories return too often.
+Current Library search is local, ranks exact matches ahead of fragment matches and tolerates small typos. Revisit only if users still say, “I know I saved this but can’t find it.”
 
-**Avoid:** exposing algorithm settings or making Stories feel like Anki.
+Possible next steps without AI:
+- highlight matching terms;
+- rank recent + exact person/place matches more strongly;
+- tolerate transpositions and phonetic spelling selectively;
+- maintain a small local index if library scale requires it.
 
----
+Avoid folders/tags as a workaround for weak retrieval.
 
-## FPD-002 — Make “Reuse” real
+## FPD-003 — Launcher shortcut
 
-**Hypothesis:** Remembering is useful, but the emotional payoff comes when an old idea changes a current decision, action, or perspective.
+A launcher shortcut directly to `New memory` is low complexity and aligned with intentional fast capture. Build after Share-to-Stories because Share solves a stronger cross-app capture job.
 
-**Recommendation:** Strengthen the post-recall reflection before adding more surfaces.
+## FPD-004 — Dark mode
 
-**How I would do it:** one optional prompt after a successful recall:
-- General: “Where could this matter now?”
-- Experience: “Would you do anything differently today?”
-- Book learning: “Where could you apply this?”
+Follow system appearance by default when implemented. Preserve the same semantic color roles and calm hierarchy; do not create a separate visual language.
 
-Later, show past reflections as a simple timeline inside the memory.
+## FPD-005 — Local-only diagnostics
 
-**Success signal:** users add reflections and later revisit memories with multiple dated reflections.
+If beta feedback becomes hard to interpret, content-free counters may be stored locally, such as captures saved, reviews completed, Tomorrow used and search result opened.
 
----
+Rules:
+- no memory text;
+- no cue text;
+- no search query text;
+- no remote analytics SDK by default.
 
-## FPD-003 — Related memory after recall
+## FPD-006 — Portability
 
-**Hypothesis:** A second relevant memory can create useful connections without turning Stories into a graph or knowledge-management tool.
+Do not expose the current internal compatibility file representation as a user-facing “vault” feature. If portability becomes important, design a stable neutral export format and a tested import path independent of the legacy beta codec.
 
-**Recommendation:** Strong post-launch candidate, but start deterministic and fully local.
+## FPD-007 — Sync
 
-**How I would do it:** after recall completion, optionally show **“This reminds you of…”** with one memory selected from shared source, wikilinks, kind, or strong shared terms.
+Only consider sync after repeated demand for migration or multi-device use. If built, local data should remain usable offline and conflict handling must preserve the user's original memory text.
 
-**Success signal:** users open the suggested memory often enough to justify the extra step.
+## FPD-008 — AI
 
-**Avoid:** feeds, graphs, endless recommendations, or AI dependency in the first version.
+Do not add generic chat, rewriting, story generation or silent cue generation. Revisit only if there is a narrow job that users repeatedly ask for and where output is clearly separated from the original memory.
 
----
+Examples that might eventually be worth research:
+- user-requested alternative retrieval cues;
+- optional search expansion when local deterministic search fails.
 
-## FPD-004 — Android Share-to-Stories
+Any future AI must be opt-in, transparent about data handling, and must never silently alter the source memory.
 
-**Hypothesis:** Capture friction is highest when the useful thought starts in Kindle, Chrome, Reader apps, or another notes surface.
+## Explicitly avoid
 
-**Recommendation:** Add after the core capture/recall loop is stable.
-
-**How I would do it:** Android Share sheet → Stories opens Capture with selected text as context, then asks **“What about this is worth remembering?”**
-
-The shared text should not be blindly saved as the memory. User intent remains the required step.
-
-**Success signal:** meaningful increase in completed captures without lower-quality, copy-pasted memories.
-
----
-
-## FPD-005 — Local-only product diagnostics
-
-**Hypothesis:** Without any product signals, beta decisions will depend too much on anecdotes.
-
-**Recommendation:** If needed during beta, track only content-free counters locally. No automatic network analytics.
-
-**Possible events:** capture started/saved, capture duration, recall shown/completed, result selected, recall deferred, practice completed.
-
-**Rule:** never store memory text, prompts, sources, or reflection content in diagnostics.
-
-**Decide yes if:** beta feedback becomes hard to interpret without knowing where people drop off.
-
----
-
-## FPD-006 — Dark mode
-
-**Hypothesis:** Readers often use reflective tools at night and may expect system dark mode.
-
-**Recommendation:** Useful polish, not a strategic feature. Add when there is repeated demand or when visual QA bandwidth is available.
-
-**How:** follow system appearance by default; preserve contrast and calm hierarchy rather than introducing a second visual language.
-
----
-
-## FPD-007 — Launcher shortcut / widget
-
-**Hypothesis:** A one-tap entry point can make intentional capture faster without adding product complexity.
-
-**Recommendation:** Later than Share-to-Stories because the share flow solves a stronger real-world capture job.
-
-**Best first version:** Android launcher shortcut directly to Capture. Widget only if shortcut usage proves valuable.
-
----
-
-## FPD-008 — Sync and AI
-
-### Sync
-**Recommendation:** Defer until repeated user demand makes device migration or multi-device access a real retention problem. If built, local Markdown should remain the source of truth; sync is transport, not the product model.
-
-### AI
-**Recommendation:** Do not add generic chat or summarization. Revisit only for a narrow job where AI clearly improves recall or reuse without replacing the user's thinking.
-
-Good trigger: users repeatedly ask for help forming better recall cues from their own memory.
-
-Bad trigger: competitors have AI.
-
----
-
-## Engineering follow-ups when the next feature forces them
-
-- **Recall Session module — strong candidate:** centralize scheduled recall, practice, grading, reflection, deferral, and completion when another recall entry point is added.
-- **Vault Health module — strong candidate:** deepen diagnostics/recovery if import, migration, or more storage failure modes appear.
-- **Memory Composition module — wait:** only extract shared capture/edit behavior when duplication becomes costly.
-
-Do not create generic abstractions just for cleanliness. Add a seam when there are two real behaviors that need it.
+- streaks, XP, badges or review debt;
+- study-grade algorithm controls;
+- folders/tags/categories as required capture decisions;
+- public social feed;
+- graph visualization;
+- custom voice recorder before there is a proven need;
+- storytelling lessons/tutorials in the core loop.
