@@ -7,16 +7,17 @@ import { colors, sizes, spacing } from '../theme';
 type StoryListItemProps = {
   body: string;
   dateLabel?: string;
+  readinessLabel?: string;
   onPress: () => void;
   showTopDivider?: boolean;
 };
 
-export function StoryListItem({ body, dateLabel, onPress, showTopDivider = true }: StoryListItemProps) {
+export function StoryListItem({ body, dateLabel, readinessLabel, onPress, showTopDivider = true }: StoryListItemProps) {
   const preview = storyPreview(body) || 'Untitled story';
 
   return (
     <Pressable
-      accessibilityLabel={`Open story: ${preview}`}
+      accessibilityLabel={`Open story: ${preview}${readinessLabel ? `. ${readinessLabel}` : ''}`}
       accessibilityRole="button"
       android_ripple={{ color: colors.actionMuted }}
       onPress={onPress}
@@ -24,7 +25,12 @@ export function StoryListItem({ body, dateLabel, onPress, showTopDivider = true 
     >
       <View style={styles.copy}>
         <AppText variant="body" numberOfLines={2} style={styles.preview}>{preview}</AppText>
-        {dateLabel ? <AppText variant="metadata" tone="secondary" style={styles.date}>{dateLabel}</AppText> : null}
+        {dateLabel || readinessLabel ? (
+          <View style={styles.metadata}>
+            {dateLabel ? <AppText variant="metadata" tone="secondary">{dateLabel}</AppText> : null}
+            {readinessLabel ? <AppText variant="metadata" tone="action">{readinessLabel}</AppText> : null}
+          </View>
+        ) : null}
       </View>
       <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
     </Pressable>
@@ -42,5 +48,5 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.surfaceMuted },
   copy: { flex: 1, paddingRight: spacing.sm },
   preview: { fontWeight: '500' },
-  date: { marginTop: spacing.xs },
+  metadata: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs },
 });
