@@ -3,29 +3,29 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { deferRecall, gradeRecall, MAX_SESSION_MEMORIES, scheduleFirstRecall, stopResurfacing } from '../../../packages/core/src/recall.ts';
-import { plainMemoryText, storyCue } from '../../../packages/core/src/story-cue.ts';
+import { plainStoryText, storyTrigger } from '../../../packages/core/src/story-cue.ts';
 import { librarySearchScore, matchesLibrarySearch } from '../src/navigation/library-search.ts';
 import { dailyReviewComplete, incrementDailyReviewSession, remainingDailyReviewCapacity, sessionForDay } from '../src/recall/daily-session.ts';
-import { selectPracticeMemory } from '../src/recall/practice.ts';
+import { nextPracticeMemory, selectPracticeMemory } from '../src/recall/practice.ts';
 import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
 import { nextUpcomingRecallMessage, recallCompletionMessage, recallResultLabel, savedMemoryMessage } from '../src/recall/presentation.ts';
 import { reminderNotificationMessage, reminderStatusCopy } from '../src/notifications/reminder-service.ts';
 import { ensureVaultReady } from '../src/vault/save-gate.ts';
 
-test('story cues use contextual handles without leaking a short-memory answer', () => {
+test('story triggers use contextual handles without leaking a short answer', () => {
   const story = 'At Bangalore airport, a security guard recognized my book and we talked about his daughter reading more.';
-  const cue = storyCue(story);
-  assert.notEqual(cue.toLowerCase(), story.toLowerCase());
-  assert.ok(cue.length < story.length);
-  assert.match(cue, /Bangalore|airport|security/i);
+  const trigger = storyTrigger(story);
+  assert.equal(trigger.primary, 'Bangalore airport');
+  assert.ok(trigger.primary.length < story.length);
+  assert.doesNotMatch(`${trigger.primary} ${trigger.secondary || ''}`, /daughter reading more/i);
 
-  const factual = storyCue('The capital of France is Paris.');
-  assert.doesNotMatch(factual, /Paris/i);
+  const factual = storyTrigger('The capital of France is Paris.');
+  assert.doesNotMatch(`${factual.primary} ${factual.secondary || ''}`, /Paris/i);
 });
 
-test('legacy formatting becomes readable plain text without losing useful URLs', () => {
+test('legacy and unicode formatting becomes readable plain story text without losing useful URLs', () => {
   assert.equal(
-    plainMemoryText('## Lesson\n\n- **Talk to users** before building.\n\n[Reference](https://example.com).'),
+    plainStoryText('## Lesson\n\n• **Talk to users** before building.\n\n[Reference](https://example.com).'),
     'Lesson\n\nTalk to users before building.\n\nReference — https://example.com.',
   );
 });
@@ -35,7 +35,7 @@ test('first return is three days and successful returns progressively spread out
   assert.equal(scheduleFirstRecall(createdAt, 3), '2026-08-04T10:00:00.000Z');
 
   const first = {
-    id: 'm1', title: 'Memory', body: 'A story', kind: 'note', folder: 'Inbox', path: 'Inbox/memory.md',
+    id: 'm1', title: 'Story', body: 'A story', kind: 'note', folder: 'Inbox', path: 'Inbox/story.md',
     createdAt: createdAt.toISOString(), updatedAt: createdAt.toISOString(), nextRecallAt: '2026-08-04T10:00:00.000Z',
   };
   const afterFirst = gradeRecall(first, 'remembered', new Date('2026-08-04T10:00:00.000Z'));
@@ -47,22 +47,22 @@ test('first return is three days and successful returns progressively spread out
 });
 
 test('Tomorrow moves only the due date and freezes legacy strength before moving it', () => {
-  const memory = {
-    id: 'm1', title: 'Memory', body: 'A story', kind: 'note', folder: 'Inbox', path: 'Inbox/memory.md',
+  const story = {
+    id: 'm1', title: 'Story', body: 'A story', kind: 'note', folder: 'Inbox', path: 'Inbox/story.md',
     createdAt: '2026-08-01T10:00:00.000Z', updatedAt: '2026-08-01T10:00:00.000Z',
     lastRecalledAt: '2026-08-10T10:00:00.000Z', nextRecallAt: '2026-08-24T10:00:00.000Z', reviewStrengthDays: 14,
   };
-  const deferred = deferRecall(memory, new Date('2026-08-24T10:00:00.000Z'));
+  const deferred = deferRecall(story, new Date('2026-08-24T10:00:00.000Z'));
   assert.equal(deferred.nextRecallAt, '2026-08-25T10:00:00.000Z');
   assert.equal(deferred.reviewStrengthDays, 14);
 
-  const legacy = { ...memory, reviewStrengthDays: undefined };
+  const legacy = { ...story, reviewStrengthDays: undefined };
   const legacyDeferred = deferRecall(legacy, new Date('2026-08-24T10:00:00.000Z'));
   assert.equal(legacyDeferred.reviewStrengthDays, 14);
 
-  const remembered = gradeRecall({ ...memory, ...deferred }, 'remembered', new Date('2026-08-25T10:00:00.000Z'));
+  const remembered = gradeRecall({ ...story, ...deferred }, 'remembered', new Date('2026-08-25T10:00:00.000Z'));
   assert.equal(remembered.reviewStrengthDays, 30);
-  assert.equal(stopResurfacing(memory).nextRecallAt, undefined);
+  assert.equal(stopResurfacing(story).nextRecallAt, undefined);
 });
 
 test('daily review limit persists conceptually for the whole local day and resets tomorrow', () => {
@@ -85,27 +85,35 @@ test('voluntary practice prioritizes useful stories and rotates without changing
   assert.equal(selectPracticeMemory(notes, 1)?.id, 'unseen-new');
   assert.equal(selectPracticeMemory(notes, 2)?.id, 'recent');
   assert.equal(selectPracticeMemory(notes, 3)?.id, 'unseen-old');
+  assert.equal(nextPracticeMemory(notes, 'unseen-old')?.id, 'unseen-new');
 });
 
 test('Library search combines fragments, ranks exact matches, and tolerates small typos', () => {
-  const memory = {
+  const story = {
     title: 'Airport moment', body: 'In Bangalore, Ravi told me a funny story about a taxi driver.',
     folder: 'Inbox', path: 'Inbox/airport.md', kind: 'note', source: '',
   };
-  assert.equal(matchesLibrarySearch(memory, 'Bangalore Ravi'), true);
-  assert.equal(matchesLibrarySearch(memory, 'Bangalor taxi'), true);
-  assert.equal(matchesLibrarySearch(memory, 'airport taxi'), true);
-  assert.equal(matchesLibrarySearch(memory, 'book learning'), false);
-  assert.ok(librarySearchScore(memory, 'Bangalore taxi') < librarySearchScore(memory, 'Bangalor taxi'));
+  assert.equal(matchesLibrarySearch(story, 'Bangalore Ravi'), true);
+  assert.equal(matchesLibrarySearch(story, 'Bangalor taxi'), true);
+  assert.equal(matchesLibrarySearch(story, 'airport taxi'), true);
+  assert.equal(matchesLibrarySearch(story, 'book learning'), false);
+  assert.ok(librarySearchScore(story, 'Bangalore taxi') < librarySearchScore(story, 'Bangalor taxi'));
 });
 
-test('mobile flow contains the hardened Android storytelling contracts', async () => {
-  const [capture, today, library, note, practice, provider, appJsonText, mobilePackageText, easText, draftStore, reminderPrefs] = await Promise.all([
+test('mobile flow contains the storyteller-first Android contracts', async () => {
+  const [
+    capture, today, library, note, practice, triggerCard, revealSurface, choices, storyListItem,
+    provider, appJsonText, mobilePackageText, easText, draftStore, reminderPrefs,
+  ] = await Promise.all([
     readFile(new URL('../app/capture.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/(tabs)/index.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/(tabs)/files.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/note/[id].tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/practice/[id].tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/ui/story/StoryTriggerCard.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/ui/story/StoryRevealSurface.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/ui/story/RecallChoiceGroup.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/ui/story/StoryListItem.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/vault/provider.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app.json', import.meta.url), 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8'),
@@ -118,30 +126,54 @@ test('mobile flow contains the hardened Android storytelling contracts', async (
     assert.doesNotMatch(source, /Book learning|Experience|Recall cue|Memory details|Formatting toolbar/);
   }
 
-  assert.match(capture, /Try telling it now/);
+  assert.match(capture, /What would you want to tell later\?/);
+  assert.match(capture, /Need an idea\?/);
+  assert.match(capture, /STORY_STARTER_PROMPTS/);
+  assert.match(capture, /Try it now/);
   assert.match(capture, /scheduleFirstRecall\(new Date\(\), 3\)/);
   assert.match(capture, /clearCaptureDraft/);
 
-  assert.match(today, /Try one now/);
+  assert.match(today, /StoryTriggerCard/);
+  assert.match(today, /StoryRevealSurface/);
+  assert.match(today, /RecallChoiceGroup/);
+  assert.match(today, /Could you tell it\?/);
+  assert.match(today, /Try a story/);
+  assert.match(today, /Enough for today/);
   assert.match(today, /selectPracticeMemory/);
-  assert.match(today, /practiceOffset/);
-  assert.match(today, /setPracticeOffset/);
-  assert.match(today, /Done for today/);
   assert.match(today, /readDailyReviewSession/);
-  assert.doesNotMatch(today, /<SectionHeader>Recent<\/SectionHeader>|ListRow|record_voice_over/);
+  assert.doesNotMatch(today, /storyCue|MemoryText|<SectionHeader>Recent<\/SectionHeader>|ListRow|record_voice_over/);
 
-  assert.match(practice, /See original/);
-  assert.match(practice, /Just practice/);
+  assert.match(practice, /StoryTriggerCard/);
+  assert.match(practice, /StoryRevealSurface/);
+  assert.match(practice, /Another story/);
   assert.doesNotMatch(practice, /gradeRecall|practiceRecall|saveNote|recordDailyReviewHandled/);
 
+  assert.match(triggerCard, /Story trigger/);
+  assert.match(triggerCard, /Tell it like you’d tell a friend/);
+  assert.match(triggerCard, /Need a hint\?/);
+  assert.match(revealSurface, /What you saved/);
+  assert.match(choices, /Not yet/);
+  assert.match(choices, /Mostly/);
+  assert.match(choices, /Yes/);
+
   assert.match(note, /Try telling/);
+  assert.match(note, /plainStoryText/);
   assert.match(note, /\/practice\/\[id\]/);
   assert.match(note, /ActionSheet/);
   assert.match(note, /beforeRemove/);
   assert.match(note, /runSaveLoop/);
   assert.doesNotMatch(note, /Edit memory/);
 
+  assert.match(library, /StoryListItem/);
+  assert.match(library, /Search stories/);
   assert.match(library, /Small typos are okay/);
+  assert.doesNotMatch(library, /memoryTitle|storyCue|cleanSnippet|ListRow/);
+  assert.match(storyListItem, /numberOfLines=\{2\}/);
+
+  for (const source of [capture, today, library, note, practice]) {
+    assert.doesNotMatch(source, /Opening your memories|Search memories|memories left for now|memory reminders/i);
+  }
+
   assert.doesNotMatch(provider, /BrowserFileStore|storageLocation|suggestLinks|resolveLink/);
   assert.doesNotMatch(draftStore, /Platform|localStorage/);
   assert.doesNotMatch(reminderPrefs, /Platform|localStorage/);
@@ -168,12 +200,12 @@ test('mobile flow contains the hardened Android storytelling contracts', async (
 });
 
 test('result copy stays storytelling-oriented and calm', () => {
-  assert.equal(recallResultLabel('forgot'), 'Forgot');
-  assert.equal(recallResultLabel('partial'), 'Close');
-  assert.equal(recallResultLabel('remembered'), 'Got it');
-  assert.equal(savedMemoryMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Saved. Comes back on Aug 29.');
+  assert.equal(recallResultLabel('forgot'), 'Not yet');
+  assert.equal(recallResultLabel('partial'), 'Mostly');
+  assert.equal(recallResultLabel('remembered'), 'Yes');
+  assert.equal(savedMemoryMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Saved. Back on Aug 29.');
   assert.equal(recallCompletionMessage('2026-09-09T10:00:00.000Z', 0, 'en-US'), 'Back on Sep 9. Done for now.');
-  assert.equal(nextUpcomingRecallMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Your next story comes back on Aug 29.');
+  assert.equal(nextUpcomingRecallMessage('2026-08-29T10:00:00.000Z', 'en-US'), 'Next story comes back on Aug 29.');
 });
 
 test('bottom tabs keep comfortable Android device-safe spacing', () => {
@@ -181,13 +213,13 @@ test('bottom tabs keep comfortable Android device-safe spacing', () => {
   assert.deepEqual(tabBarMetrics(24, false), { bottomPadding: 24, height: 82 });
 });
 
-test('reminder copy is generic and content-private', () => {
-  assert.equal(reminderNotificationMessage(1), 'A memory is ready to come back.');
-  assert.equal(reminderNotificationMessage(8), 'A few memories are ready to come back.');
-  assert.equal(reminderStatusCopy({ enabled: false, reminderHour: 9, reminderMinute: 0 }), 'Get a quiet alert when something is ready to come back.');
+test('reminder copy is generic, story-consistent and content-private', () => {
+  assert.equal(reminderNotificationMessage(1), 'A story is ready to come back.');
+  assert.equal(reminderNotificationMessage(8), 'A few stories are ready to come back.');
+  assert.equal(reminderStatusCopy({ enabled: false, reminderHour: 9, reminderMinute: 0 }), 'Get a quiet alert when a story is ready to come back.');
 });
 
-test('cold-start saves stay blocked until local memories have opened', () => {
+test('cold-start saves stay blocked until local stories have opened', () => {
   assert.throws(() => ensureVaultReady(false, true), /local vault is still opening/);
   assert.throws(() => ensureVaultReady(true, false), /local vault is still opening/);
   assert.doesNotThrow(() => ensureVaultReady(true, true));
