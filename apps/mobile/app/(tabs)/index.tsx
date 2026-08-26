@@ -1,22 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, PixelRatio, ScrollView, StyleSheet, View, useWindowDimensions, type ColorValue } from 'react-native';
+import { Alert, AppState, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deferRecall, dueRecalls, gradeRecall, MAX_SESSION_MEMORIES, stopResurfacing } from '@core/recall';
-import { storyCue } from '@core/story-cue';
+import { storyTrigger } from '@core/story-cue';
 import type { MemoryNote, RecallStatus } from '@core/model';
 import { useVault } from '@/src/vault/provider';
-import { colors, radii, sharedStyles, sizes, spacing } from '@/src/ui/theme';
+import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { tabBarMetrics } from '@/src/navigation/tab-bar';
-import { memoryAgeLabel, nextUpcomingRecallMessage, recallCompletionMessage, recallResultLabel, remainingStoryMessage, timeGreeting } from '@/src/recall/presentation';
+import { memoryAgeLabel, nextUpcomingRecallMessage, recallCompletionMessage, remainingStoryMessage } from '@/src/recall/presentation';
 import { selectPracticeMemory } from '@/src/recall/practice';
 import { readReminderPreferences, writeReminderPreferences } from '@/src/notifications/reminder-preferences';
 import { checkNotificationPermission, requestNotificationPermission } from '@/src/notifications/device-permissions';
 import { reconcileRecallReminder } from '@/src/notifications/reminder-scheduler';
 import { readDailyReviewSession, recordDailyReviewHandled } from '@/src/recall/daily-session-store';
 import { incrementDailyReviewSession, sessionForDay, type DailyReviewSession } from '@/src/recall/daily-session';
-import { MemoryText } from '@/src/ui/MemoryText';
 import { AppText } from '@/src/ui/components/AppText';
 import { Button } from '@/src/ui/components/Button';
 import { Card } from '@/src/ui/components/Card';
@@ -24,21 +23,19 @@ import { ErrorState } from '@/src/ui/components/ErrorState';
 import { IconButton } from '@/src/ui/components/IconButton';
 import { LoadingState } from '@/src/ui/components/LoadingState';
 import { Snackbar } from '@/src/ui/components/Snackbar';
+import { RecallChoiceGroup } from '@/src/ui/story/RecallChoiceGroup';
+import { StoryRevealSurface } from '@/src/ui/story/StoryRevealSurface';
+import { StoryTriggerCard } from '@/src/ui/story/StoryTriggerCard';
 
-type Stage = 'hidden' | 'revealed';
-
-const symbol = (ios: string, android: string, tint: ColorValue = colors.action) => (
-  <SymbolView name={{ ios: ios as never, android: android as never, web: android as never }} size={sizes.compactIcon} tintColor={tint} />
-);
+type Stage = 'trigger' | 'revealed';
 
 export default function TodayScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const fontScale = PixelRatio.getFontScale();
   const { hydrated, notes, openError, saveNote } = useVault();
   const [now, setNow] = useState(() => new Date());
-  const [stage, setStage] = useState<Stage>('hidden');
+  const [stage, setStage] = useState<Stage>('trigger');
+  const [hintVisible, setHintVisible] = useState(false);
   const [session, setSession] = useState<DailyReviewSession | null>(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -60,7 +57,8 @@ export default function TodayScreen() {
     let active = true;
     const focusedAt = new Date();
     setNow(focusedAt);
-    setStage('hidden');
+    setStage('trigger');
+    setHintVisible(false);
     void readDailyReviewSession(focusedAt).then((value) => {
       if (active && mounted.current) setSession(value);
     });
@@ -88,6 +86,7 @@ export default function TodayScreen() {
   const capped = activeSession.handled >= MAX_SESSION_MEMORIES;
   const current = capped ? undefined : due[0];
   const visibleDue = Math.min(due.length, Math.max(0, MAX_SESSION_MEMORIES - activeSession.handled));
+  const trigger = useMemo(() => storyTrigger(current?.body || ''), [current?.body]);
   const practiceCandidate = useMemo(() => selectPracticeMemory(healthy, practiceOffset), [healthy, practiceOffset]);
   const upcoming = useMemo(
     () => healthy
@@ -96,8 +95,6 @@ export default function TodayScreen() {
     [due, healthy],
   );
   const upcomingCopy = upcoming?.nextRecallAt ? nextUpcomingRecallMessage(upcoming.nextRecallAt) : undefined;
-  const stackRatings = width < 390 || fontScale >= 1.3;
-  const stackActions = width < 360 || fontScale >= 1.5;
 
   const markHandled = async (actionTime: Date): Promise<DailyReviewSession> => {
     try {
@@ -112,7 +109,8 @@ export default function TodayScreen() {
   };
 
   const finish = () => {
-    setStage('hidden');
+    setStage('trigger');
+    setHintVisible(false);
     setNow(new Date());
   };
 
@@ -215,7 +213,7 @@ export default function TodayScreen() {
     const prefs = await readReminderPreferences();
     await writeReminderPreferences({ ...prefs, enabled: true, promptedAfterReview: true });
     await reconcileRecallReminder(notes);
-    if (mounted.current) setStatus('Quiet reminders are on.');
+    if (mounted.current) setStatus('Reminders are on.');
   };
 
   if (!hydrated || !session) {
@@ -228,118 +226,83 @@ export default function TodayScreen() {
   const sessionDone = capped && due.length > 0;
   const tabBar = tabBarMetrics(insets.bottom, false);
   const subtitle = healthy.length === 0
-    ? 'What will you tell today?'
+    ? 'Have a story ready when conversation opens the door.'
     : current
-      ? (due.length > visibleDue ? 'Some stories came back.' : `${visibleDue} ${visibleDue === 1 ? 'story came back.' : 'stories came back.'}`)
+      ? (due.length > visibleDue ? 'A few stories came back.' : `${visibleDue} ${visibleDue === 1 ? 'story came back.' : 'stories came back.'}`)
       : sessionDone
-        ? 'That’s plenty for today.'
-        : 'All quiet. Try one anytime.';
+        ? 'Enough for today.'
+        : 'Nothing due today.';
 
   return (
     <SafeAreaView style={sharedStyles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <AppText accessibilityRole="header" variant="display">{timeGreeting()}</AppText>
+          <AppText accessibilityRole="header" variant="display">Today</AppText>
           <AppText variant="supporting" tone="secondary" style={styles.subtitle}>{subtitle}</AppText>
         </View>
 
         {healthy.length === 0 ? (
           <View style={styles.firstUse}>
-            <View style={styles.hero}>{symbol('quote.bubble.fill', 'chat_bubble')}</View>
-            <AppText variant="title">Your story bank</AppText>
-            <AppText variant="body" tone="secondary" style={styles.firstCopy}>The best stories are the ones you actually remember.</AppText>
-            <Button label="Save your first story" leading={symbol('plus', 'add', colors.onAction)} onPress={() => router.navigate('/capture')} style={styles.firstButton} />
+            <AppText variant="title">Have a story ready.</AppText>
+            <AppText variant="body" tone="secondary" style={styles.firstCopy}>Save moments worth telling. We’ll bring them back before they fade.</AppText>
+            <Button label="Save your first story" onPress={() => router.navigate('/capture')} style={styles.firstButton} />
           </View>
         ) : null}
 
         {current ? (
           <View style={styles.section}>
-            <Card accent>
-              <View style={styles.reviewTop}>
-                <AppText variant="metadata" tone="secondary" style={styles.age}>{memoryAgeLabel(current.createdAt, now)}</AppText>
-                <IconButton accessibilityLabel="Story options" disabled={saving} onPress={() => actions(current)}>
-                  <SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.textSecondary} />
-                </IconButton>
-              </View>
-
-              {stage === 'hidden' ? (
-                <>
-                  <AppText accessibilityRole="header" variant="title" style={styles.cue}>{storyCue(current.body)}</AppText>
-                  <View style={styles.tell}>
-                    <AppText variant="supporting" tone="secondary" style={styles.flex}>Say it back before you look.</AppText>
-                  </View>
-                  <View style={[styles.actions, stackActions && styles.actionsStack]}>
-                    <Button disabled={saving} label="See original" leading={symbol('eye', 'visibility', colors.onAction)} onPress={() => setStage('revealed')} style={stackActions ? styles.fullWidth : styles.flex} />
-                    <Button disabled={saving} label="Tomorrow" leading={symbol('clock', 'schedule')} variant="text" onPress={() => { void tomorrow(); }} style={stackActions ? styles.fullWidth : undefined} />
-                  </View>
-                </>
-              ) : (
-                <View accessibilityLiveRegion="polite">
-                  <View style={styles.original}><MemoryText body={current.body} /></View>
-                  <AppText variant="section" style={styles.ratingTitle}>How did it go?</AppText>
-                  <View style={[styles.ratings, stackRatings && styles.ratingsStack]}>
-                    {(['forgot', 'partial', 'remembered'] as const).map((result) => (
-                      <Button
-                        key={result}
-                        disabled={saving}
-                        label={recallResultLabel(result)}
-                        variant="secondary"
-                        onPress={() => { void complete(result); }}
-                        style={stackRatings ? styles.fullWidth : styles.rating}
-                      />
-                    ))}
-                  </View>
+            {stage === 'trigger' ? (
+              <View>
+                <View style={styles.storyOptions}>
+                  <IconButton accessibilityLabel="Story options" disabled={saving} onPress={() => actions(current)}>
+                    <SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.textSecondary} />
+                  </IconButton>
                 </View>
-              )}
-            </Card>
+                <StoryTriggerCard
+                  trigger={trigger}
+                  ageLabel={memoryAgeLabel(current.createdAt, now)}
+                  hintVisible={hintVisible}
+                  disabled={saving}
+                  onNeedHint={trigger.secondary ? () => setHintVisible(true) : undefined}
+                  onShowStory={() => setStage('revealed')}
+                  onTomorrow={() => { void tomorrow(); }}
+                />
+              </View>
+            ) : (
+              <Card>
+                <StoryRevealSurface body={current.body} />
+                <AppText variant="section" style={styles.ratingTitle}>Could you tell it?</AppText>
+                <RecallChoiceGroup disabled={saving} onSelect={(result) => { void complete(result); }} />
+              </Card>
+            )}
             {error ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{error}</AppText> : null}
           </View>
         ) : sessionDone ? (
           <Card style={styles.stateCard}>
-            <View style={styles.doneRow}>
-              <View style={styles.smallIcon}>{symbol('checkmark', 'check', colors.success)}</View>
-              <View style={styles.flex}>
-                <AppText variant="section">Done for today</AppText>
-                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>Plenty of stories for one sitting.</AppText>
-              </View>
-            </View>
+            <AppText variant="section">Enough for today</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.stateCopy}>The rest can wait.</AppText>
+            <Button label="New story" variant="tonal" onPress={() => router.navigate('/capture')} style={styles.stateAction} />
           </Card>
         ) : healthy.length > 0 ? (
           <Card style={styles.stateCard}>
-            <View style={styles.doneRow}>
-              <View style={styles.smallIcon}>{symbol('checkmark', 'check', colors.success)}</View>
-              <View style={styles.flex}>
-                <AppText variant="section">All quiet</AppText>
-                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>{upcomingCopy || 'Your stories are resting. Practice one anytime.'}</AppText>
-              </View>
-            </View>
-            <View style={[styles.actions, stackActions && styles.actionsStack]}>
-              <Button label="Try one now" leading={symbol('quote.bubble', 'chat_bubble', colors.onAction)} onPress={practiceNow} style={stackActions ? styles.fullWidth : styles.flex} />
-              <Button label="New story" leading={symbol('plus', 'add')} variant="secondary" onPress={() => router.navigate('/capture')} style={stackActions ? styles.fullWidth : styles.flex} />
-            </View>
+            <AppText variant="section">Your stories are resting</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.stateCopy}>{upcomingCopy || 'Try one anytime.'}</AppText>
+            <Button label="Try a story" onPress={practiceNow} style={styles.stateAction} />
+            <Button label="New story" variant="tonal" onPress={() => router.navigate('/capture')} style={styles.secondaryStateAction} />
           </Card>
         ) : null}
 
         {reminderPrompt ? (
           <Card style={styles.reminder}>
-            <View style={styles.doneRow}>
-              <View style={styles.smallIcon}>{symbol('bell', 'notifications')}</View>
-              <View style={styles.flex}>
-                <AppText variant="section">Get a nudge when stories come back?</AppText>
-                <AppText variant="supporting" tone="secondary" style={styles.tinyTop}>We’ll only remind you when something is ready.</AppText>
-              </View>
-            </View>
-            <View style={[styles.actions, stackActions && styles.actionsStack]}>
-              <Button label="Turn on" onPress={() => { void enableReminders(); }} style={stackActions ? styles.fullWidth : styles.flex} />
-              <Button label="Not now" variant="text" onPress={() => setReminderPrompt(false)} style={stackActions ? styles.fullWidth : undefined} />
-            </View>
+            <AppText variant="section">Want a nudge when stories come back?</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.stateCopy}>We’ll only remind you when something is ready.</AppText>
+            <Button label="Turn on" onPress={() => { void enableReminders(); }} style={styles.stateAction} />
+            <Button label="Not now" variant="text" onPress={() => setReminderPrompt(false)} style={styles.secondaryStateAction} />
           </Card>
         ) : null}
 
-        {healthy.length > 0 && (current || sessionDone) ? (
-          <View style={styles.section}>
-            <Button label="New story" leading={symbol('plus', 'add')} variant="secondary" onPress={() => router.navigate('/capture')} />
-          </View>
+        {healthy.length > 0 && current ? (
+          <Button label="New story" variant="tonal" onPress={() => router.navigate('/capture')} style={styles.newStory} />
         ) : null}
       </ScrollView>
       {status ? <View pointerEvents="none" style={[styles.snackbar, { bottom: tabBar.height + spacing.md }]}><Snackbar message={status} /></View> : null}
@@ -352,28 +315,17 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.md },
   subtitle: { marginTop: spacing.xxs },
   firstUse: { marginTop: spacing.xxl },
-  hero: { alignItems: 'center', backgroundColor: colors.actionMuted, borderRadius: radii.card, height: 56, justifyContent: 'center', marginBottom: spacing.lg, width: 56 },
   firstCopy: { marginTop: spacing.sm, maxWidth: 420 },
-  firstButton: { marginTop: spacing.xl },
-  section: { marginTop: spacing.xxl },
-  reviewTop: { alignItems: 'center', flexDirection: 'row' },
-  smallIcon: { alignItems: 'center', backgroundColor: colors.actionMuted, borderRadius: radii.compact, height: 36, justifyContent: 'center', marginRight: spacing.sm, width: 36 },
-  age: { flex: 1, fontWeight: '600', letterSpacing: 0.2 },
-  cue: { marginTop: spacing.lg },
-  tell: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
-  flex: { flex: 1 },
-  fullWidth: { width: '100%' },
-  actions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.lg },
-  actionsStack: { alignItems: 'stretch', flexDirection: 'column' },
-  original: { borderTopColor: colors.divider, borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.md, paddingTop: spacing.lg },
-  ratingTitle: { marginTop: spacing.md },
-  ratings: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
-  ratingsStack: { flexDirection: 'column' },
-  rating: { flex: 1, paddingHorizontal: spacing.xs },
+  firstButton: { marginTop: spacing.xl, width: '100%' },
+  section: { marginTop: spacing.xl },
+  storyOptions: { alignItems: 'flex-end', height: sizes.touchMinimum, justifyContent: 'center', marginBottom: -sizes.touchMinimum },
+  ratingTitle: { marginTop: spacing.lg },
   error: { marginTop: spacing.sm },
-  stateCard: { marginTop: spacing.xxl },
-  doneRow: { alignItems: 'center', flexDirection: 'row' },
-  tinyTop: { marginTop: spacing.xxs },
+  stateCard: { marginTop: spacing.xl },
+  stateCopy: { marginTop: spacing.xs },
+  stateAction: { marginTop: spacing.lg, width: '100%' },
+  secondaryStateAction: { marginTop: spacing.xs, width: '100%' },
   reminder: { marginTop: spacing.lg },
+  newStory: { marginTop: spacing.lg, width: '100%' },
   snackbar: { left: spacing.lg, position: 'absolute', right: spacing.lg },
 });
