@@ -51,7 +51,8 @@ function memory(overrides: Partial<MemoryNote> = {}): MemoryNote {
   };
 }
 
-test('legacy compatibility codec round-trips current scheduling metadata', () => {
+test('legacy compatibility codec stays schema-v1 and round-trips additive scheduling metadata', () => {
+  assert.equal(SCHEMA_VERSION, 1);
   const original = memory({
     nextRecallAt: '2026-08-18T10:00:00.000Z',
     recallStatus: 'remembered',
@@ -59,7 +60,7 @@ test('legacy compatibility codec round-trips current scheduling metadata', () =>
     reviewStrengthDays: 14,
   });
   const serialized = serializeNote(original);
-  assert.match(serialized, new RegExp(`^---\\nschemaVersion: ${SCHEMA_VERSION}\\n`));
+  assert.match(serialized, /^---\nschemaVersion: 1\n/);
   const parsed = parseNoteFile({ path: original.path, markdown: serialized });
   assert.equal(parsed.id, original.id);
   assert.equal(parsed.body, original.body);
@@ -165,7 +166,7 @@ test('successful recall progressively expands from stored strength', () => {
   assert.equal(third.reviewStrengthDays, 90);
 });
 
-test('deferring changes only the due date and stopping keeps the memory', () => {
+test('deferring changes only the due date and freezes inferred legacy strength', () => {
   const original = memory({
     nextRecallAt: '2026-08-26T10:00:00.000Z',
     lastRecalledAt: '2026-08-12T10:00:00.000Z',
@@ -174,6 +175,14 @@ test('deferring changes only the due date and stopping keeps the memory', () => 
   const deferred = deferRecall(original, new Date('2026-08-26T10:00:00.000Z'));
   assert.equal(deferred.nextRecallAt, '2026-08-27T10:00:00.000Z');
   assert.equal(deferred.reviewStrengthDays, 14);
+
+  const legacy = memory({
+    nextRecallAt: '2026-08-26T10:00:00.000Z',
+    lastRecalledAt: '2026-08-12T10:00:00.000Z',
+  });
+  const legacyDeferred = deferRecall(legacy, new Date('2026-08-26T10:00:00.000Z'));
+  assert.equal(legacyDeferred.reviewStrengthDays, 14);
+  assert.equal(stopResurfacing(legacy).reviewStrengthDays, 14);
   assert.equal(stopResurfacing(original).nextRecallAt, undefined);
 });
 
