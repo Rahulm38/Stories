@@ -1,5 +1,5 @@
 import type { MemoryNote } from '../../../../packages/core/src/model.ts';
-import { plainMemoryText } from '../../../../packages/core/src/story-cue.ts';
+import { plainStoryText } from '../../../../packages/core/src/story-cue.ts';
 
 function normalizeSearch(value: string): string {
   return value
@@ -31,7 +31,7 @@ function editDistance(a: string, b: string): number {
 
 function tokenScore(queryToken: string, words: string[], haystack: string): number | null {
   if (words.includes(queryToken)) return 0;
-  if (words.some((word) => word.startsWith(queryToken) || queryToken.startsWith(word))) return 1;
+  if (words.some((word) => word.startsWith(queryToken) || (word.length >= 3 && queryToken.startsWith(word)))) return 1;
   if (haystack.includes(queryToken)) return 1;
   if (queryToken.length < 4) return null;
   const tolerance = queryToken.length >= 8 ? 2 : 1;
@@ -45,8 +45,8 @@ export function librarySearchScore(note: MemoryNote, query: string): number | nu
   if (!normalizedQuery) return 0;
 
   const haystack = normalizeSearch([
-    plainMemoryText(note.title),
-    plainMemoryText(note.body),
+    plainStoryText(note.title),
+    plainStoryText(note.body),
     note.source || '',
   ].join(' '));
   const words = haystack.split(/\s+/).filter(Boolean);
