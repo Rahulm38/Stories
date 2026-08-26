@@ -45,7 +45,8 @@ Ship one calm Android story-memory loop, not a collection of note-taking feature
 - [x] Shipping app configuration targets Android only.
 - [x] Preview remains an internal APK; production remains an AAB.
 - [x] Release minification and resource shrinking enabled.
-- [x] Unused dev-client, custom-font, reanimated/worklet dependencies removed.
+- [x] Unused dev-client and reanimated/worklet dependencies removed.
+- [x] Required `expo-font` peer retained for `expo-symbols`.
 - [x] Native persistence/notification paths no longer carry web fallbacks.
 - [x] Generated native Android folder remains uncommitted/ephemeral.
 
