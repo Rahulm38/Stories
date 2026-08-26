@@ -1,58 +1,97 @@
 ---
-title: Master PRD
+title: Stories Master PRD
 status: active
-version: 2.0-tellable-memories
 last_reviewed: 2026-08-26
 ---
 
-# Stories v1 Master PRD
+# Stories — Master PRD
 
-## Executive summary
+## Product statement
 
-Stories is an Android-first, local-first personal-memory companion. It helps people keep moments, ideas and observations mentally available so they are there when the user has something worth telling.
+**Stories helps people keep moments, ideas and experiences available in memory so they are there when a conversation creates the opportunity to tell them.**
 
-The product succeeds outside the app: a good memory comes to mind naturally in conversation because Stories helped the user revisit and retell it beforehand.
+The product is not a generic notes app, flashcard system, storytelling course or memoir archive. The success moment happens outside Stories: something in conversation triggers a saved memory naturally and the user can tell it.
 
-## Goals
+## Core loop
 
-- **Fast capture**: save something worthwhile in seconds with one required text field.
-- **Real resurfacing**: return after time has passed with a clue that does not reveal the answer.
-- **Tellability**: encourage the user to tell the memory naturally before revealing it.
-- **Calm retention**: weak memories return sooner, strong memories spread out, and sessions never become a debt queue.
-- **Durability**: no silent data loss across save, edit, relaunch and draft recovery.
-- **Trust**: local memory content, no account, ads or analytics.
-- **Accessibility**: clear semantics, large-text support and 48dp minimum touch targets.
+1. **Save:** user writes one moment, idea, observation or detail naturally.
+2. **Rest:** a new memory first returns after three local calendar days.
+3. **Cue:** Today shows a short deterministic handle without showing the original memory.
+4. **Tell:** user tries to recall/tell it before looking.
+5. **Reveal:** Stories shows the exact original saved memory.
+6. **Rate:** `Not yet`, `Mostly`, or `Yes` adjusts future return strength.
+7. **Find anytime:** Library search can recover the original from fragments, people, places and small typos.
 
-## Core surfaces
+## Experience principles
 
-| Surface | User job | Primary actions |
-|---|---|---|
-| Today | See what is worth bringing back | Tell / Reveal / Not yet / Mostly / Yes / Tomorrow |
-| Capture | Preserve something before it disappears | Write / Save |
-| Library | Find a memory from fragments | Search / Open / New |
-| Memory | Read or change the original | Edit / Share / Stop resurfacing / Delete |
-| Settings | Control reminders and understand privacy | Reminder on/off / Privacy policy |
+- Capture must be easier than organizing.
+- Original memory is source of truth.
+- Never silently embellish or rewrite user memory.
+- Organization is the system's job.
+- A clue should trigger, not answer.
+- Natural telling matters more than verbatim recall.
+- Five handled returns per day is enough.
+- No backlog guilt, streak pressure or study-app mechanics.
+- Privacy/offline behavior is part of product value.
+- Every field and control must justify its friction.
 
-## End-to-end experience
+## V1 functional requirements
 
-1. **First launch** — short explanation: `Save it now. Tell it later.` One action: Save your first memory.
-2. **Capture** — ordinary text only. No category, format, source, cue or scheduling setup. First return is automatically set for 3 days.
-3. **Real return** — Today shows how long ago the memory was saved and a small clue made only from original words. Full title/body remain hidden.
-4. **Tell** — `Try telling it without looking. Out loud if you can.`
-5. **Reveal** — show the original memory.
-6. **Tellability** — ask `Could you tell it?` with `Not yet`, `Mostly`, `Yes`.
-7. **Resurface** — weaker memories return sooner; successful memories progressively spread out.
-8. **Session end** — after five memories, stop. Do not surface backlog debt.
+### Capture
+- one multiline plain-text field;
+- no title/category/folder/source/cue/date/formatting decisions;
+- local draft recovery;
+- explicit discard removes recovered draft;
+- first return automatically scheduled three local calendar days later.
 
-## Activation
+### Today
+- only healthy memories with due local calendar date are eligible;
+- hidden state shows conservative deterministic cue + instruction to try telling;
+- Reveal shows exact source memory;
+- rating options: Not yet / Mostly / Yes;
+- Tomorrow defers only the due date, not strength;
+- Stop resurfacing keeps memory in Library;
+- max five handled memories per local day, persisted across navigation/relaunch;
+- after daily engagement, reminders must not immediately re-nag about remaining backlog.
 
-The first scheduled return after actual time has passed is the primary activation event. There is no immediate fake practice loop after capture.
+### Library
+- flat searchable list;
+- no user-visible path/folder/type dependency;
+- exact phrase/fragments rank ahead of fuzzy matches;
+- minor spelling errors should still recover plausible memories;
+- opening result goes directly to the original memory.
 
-## Success signals
+### Memory
+- body directly editable;
+- debounced serialized autosave;
+- latest text must win if typing overlaps a previous save;
+- Android Back flushes latest non-empty text before leaving;
+- More sheet: Share, Stop/Bring back, Delete;
+- Bring back starts a fresh resurfacing cycle;
+- Delete is confirmed and permanent.
 
-- First memory saved.
-- First real return completed.
-- Share of returns answered `Mostly` or `Yes`.
-- Repeat resurfacing sessions without growing session size.
-- Search success using partial remembered fragments.
-- Qualitative: `Did something Stories brought back later come to mind in a real conversation?`
+### Reminders & privacy
+- reminders off by default;
+- contextual permission request only after the user has experienced return value;
+- generic local notification text only;
+- app-private storage, no account, no ads/analytics SDK, Android backup disabled;
+- no AI required for core behavior.
+
+## Internal compatibility
+
+Existing beta memories may use an older serialized file representation. `legacy-memory-format.ts` is an isolated compatibility codec so upgrades preserve those memories. It is not part of current UX or the user mental model. Do not expose filenames, folders, Markdown, wikilinks or storage paths in the Android product.
+
+## Non-goals for v1
+
+AI features, sync/accounts, folders/tags, rich text/Markdown authoring, custom schedules, streaks, statistics dashboards, custom voice recording, knowledge graphs, public sharing feeds and export/import UI.
+
+## Launch measurement
+
+Early beta should prioritize qualitative evidence:
+- users can explain why they save something;
+- due clues help them retrieve without revealing the story;
+- five returns feels manageable;
+- search recovers forgotten saved memories;
+- users report actually telling/reusing memories outside the app.
+
+Do not add remote analytics solely to measure these until there is a demonstrated need.
