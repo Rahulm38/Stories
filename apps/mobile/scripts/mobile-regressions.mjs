@@ -74,14 +74,17 @@ test('daily review limit persists conceptually for the whole local day and reset
   assert.equal(sessionForDay(session, new Date(2026, 7, 27, 0, 1)).handled, 0);
 });
 
-test('voluntary practice chooses a useful story without changing recall state', () => {
+test('voluntary practice prioritizes useful stories and rotates without changing recall state', () => {
   const base = { title: 'Story', body: 'A story', kind: 'note', folder: 'Inbox', parseStatus: 'healthy' };
   const notes = [
     { ...base, id: 'recent', path: 'Inbox/recent.md', createdAt: '2026-08-01T10:00:00.000Z', updatedAt: '2026-08-01T10:00:00.000Z', lastRecalledAt: '2026-08-25T10:00:00.000Z' },
     { ...base, id: 'unseen-new', path: 'Inbox/new.md', createdAt: '2026-08-20T10:00:00.000Z', updatedAt: '2026-08-20T10:00:00.000Z' },
     { ...base, id: 'unseen-old', path: 'Inbox/old.md', createdAt: '2026-08-10T10:00:00.000Z', updatedAt: '2026-08-10T10:00:00.000Z' },
   ];
-  assert.equal(selectPracticeMemory(notes)?.id, 'unseen-old');
+  assert.equal(selectPracticeMemory(notes, 0)?.id, 'unseen-old');
+  assert.equal(selectPracticeMemory(notes, 1)?.id, 'unseen-new');
+  assert.equal(selectPracticeMemory(notes, 2)?.id, 'recent');
+  assert.equal(selectPracticeMemory(notes, 3)?.id, 'unseen-old');
 });
 
 test('Library search combines fragments, ranks exact matches, and tolerates small typos', () => {
@@ -121,6 +124,8 @@ test('mobile flow contains the hardened Android storytelling contracts', async (
 
   assert.match(today, /Try one now/);
   assert.match(today, /selectPracticeMemory/);
+  assert.match(today, /practiceOffset/);
+  assert.match(today, /setPracticeOffset/);
   assert.match(today, /Ready to tell/);
   assert.match(today, /Done for today/);
   assert.match(today, /readDailyReviewSession/);
