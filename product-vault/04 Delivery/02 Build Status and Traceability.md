@@ -10,41 +10,54 @@ snapshot_date: 2026-08-26
 
 | Subsystem | Location | Current role |
 |---|---|---|
-| Android/iOS client | `apps/mobile` | Expo / React Native / Expo Router native client |
+| Android client | `apps/mobile` | Expo / React Native / Expo Router Android client |
 | Domain model & scheduling | `packages/core/src/model.ts`, `recall.ts` | Framework-independent memory and resurfacing rules |
-| Compatibility storage codec | `packages/core/src/legacy-memory-format.ts` | Reads/writes files created by existing beta builds; not a user-facing product model |
+| Compatibility storage codec | `packages/core/src/legacy-memory-format.ts` | Schema-v1 beta compatibility; not a user-facing product model |
 | Device storage | `apps/mobile/src/vault/device-file-store.ts` | App-private durable local files with recovery behavior |
 | Vault orchestration | `packages/core/src/vault.ts` | Serialized saves, list/read/delete, compatibility boundary |
-| Daily review state | `apps/mobile/src/recall/daily-session*.ts` | Persists five-item local-day limit across navigation/relaunch |
+| Daily scheduled-review state | `apps/mobile/src/recall/daily-session*.ts` | Persists five-item local-day limit across navigation/relaunch |
+| Voluntary practice selection | `apps/mobile/src/recall/practice.ts` | Picks a useful existing story without mutating recall state |
 | Search | `apps/mobile/src/navigation/library-search.ts` | Local relevance + fragment + typo-tolerant matching |
-| Reminders | `apps/mobile/src/notifications/*` | Generic local notifications and Android channel/permission behavior |
+| Reminders | `apps/mobile/src/notifications/*` | Android generic local notifications and permission/channel behavior |
 | Web prototype | `src/` | Non-shipping historical/reference surface; not the Android product contract |
 
 ## Current mobile flow map
 
-- **Today:** `apps/mobile/app/(tabs)/index.tsx`
-- **Capture:** `apps/mobile/app/capture.tsx`
+- **Today / scheduled recall / Try one now:** `apps/mobile/app/(tabs)/index.tsx`
+- **Capture + first-save Try telling:** `apps/mobile/app/capture.tsx`
+- **Read-only voluntary practice:** `apps/mobile/app/practice/[id].tsx`
 - **Library:** `apps/mobile/app/(tabs)/files.tsx`
-- **Memory editor:** `apps/mobile/app/note/[id].tsx`
+- **Memory editor + Try telling:** `apps/mobile/app/note/[id].tsx`
 - **Settings/privacy:** `apps/mobile/app/(tabs)/settings.tsx`, `app/privacy.tsx`
 - **Android action sheet:** `apps/mobile/src/ui/components/ActionSheet.tsx`
 - **Deterministic cue:** `packages/core/src/story-cue.ts`
 - **Progressive scheduling:** `packages/core/src/recall.ts`
-- **Daily cap:** `apps/mobile/src/recall/daily-session.ts`, `daily-session-store.ts`
 
-## Hardening changes in the current candidate
+## Current candidate changes
 
-- Daily five-memory limit is persistent instead of screen-local.
-- Reminder reconciliation respects a user's Today engagement instead of scheduling a second nudge a minute later.
-- Recall strength is persisted separately from `nextRecallAt`, so `Tomorrow` cannot inflate later intervals.
-- Restarting resurfacing resets recall status/strength.
+### Product identity
+- First save now demonstrates clue → tell → reveal immediately through `Try telling it now` while preserving the real +3-day return.
+- Today no longer duplicates Library with a Recent feed.
+- Nothing-due Today state offers `Try one now` so the core product remains usable between scheduled returns.
+- Saved memories expose `Try telling` in the action sheet.
+- Voluntary practice never calls save/rating/session APIs and therefore cannot alter recall status, strength, due date or the five-item scheduled cap.
+
+### Reliability / compatibility
+- Daily five-memory scheduled limit remains persistent instead of screen-local.
+- Reminder reconciliation respects a user's Today engagement instead of scheduling an immediate second nag.
+- Recall strength is persisted separately from `nextRecallAt`.
+- `Tomorrow` and `Stop resurfacing` freeze inferred strength for older memories before changing the due date.
+- Compatibility writes remain schema v1 because `reviewStrengthDays` is additive; this preserves beta rollback compatibility.
 - Capture discard/erase removes stale recovered drafts.
-- Story clues avoid the ending of short memories and no longer use a recording-like icon.
-- Library search ranks exact matches first and tolerates small spelling mistakes.
-- Memory body uses serialized autosave; Android Back flushes the newest text.
-- Share/resurface/delete actions use a bottom action sheet instead of an Android Alert with too many buttons.
-- Hosted privacy policy matches current behavior.
-- Mobile web/date-picker plumbing and obsolete wikilink/Markdown product code were removed from the shipping architecture.
+- Memory body uses serialized autosave; Android Back flushes newest text.
+
+### Android-only cleanup and size controls
+- App config targets Android only.
+- Release builds enable R8/code minification and Android resource shrinking through `expo-build-properties`.
+- Preview stays APK; production stays AAB.
+- Removed unused `expo-dev-client`, `expo-font`, `react-native-reanimated` and `react-native-worklets` dependencies.
+- Removed obsolete `Chip` component and web/iOS runtime branches from shipping persistence, notification, editor, tab and navigation paths.
+- Generated `apps/mobile/android` remains ignored; cloud/prebuild generation is authoritative rather than stale committed native files.
 
 ## Automated verification entry points
 
@@ -62,8 +75,8 @@ cd apps/mobile && npx expo-doctor
 
 ## Evidence status
 
-Do not treat this document as evidence that a command passed. The GitHub Actions result for the exact commit is authoritative for repository-level checks. Physical Android behavior still requires device testing for keyboard resize, predictive Back, notification delivery, TalkBack, display/font scaling and update compatibility.
+This document describes intended/current code, not proof that a command passed. The GitHub Actions result for the exact candidate commit is authoritative for repository-level checks. Physical Android testing is still required for install/update behavior, keyboard resize, predictive Back, notification delivery, TalkBack, display/font scaling and actual packaged size.
 
-## Storage note
+## Size measurement note
 
-Older beta memories retain their existing app-private serialized representation so updates do not destroy user data. New UI and product behavior do not expose folders, file paths, Markdown authoring or wikilinks. A future storage migration should be explicit, reversible/tested against beta data, and independent of product UX.
+A universal internal-test APK can be much larger than the install delivered by Google Play from the production AAB. Compare like-for-like artifacts and use Play's generated APK/install-size reporting or APK Analyzer before claiming a size reduction.
