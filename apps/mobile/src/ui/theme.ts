@@ -8,10 +8,7 @@ import { StyleSheet } from 'react-native';
  * - spacing follows the 4/8 baseline grid;
  * - interactive targets are at least 48dp;
  * - controls use a 12dp radius, cards 16dp, compact icon containers 8dp;
- * - typography is intentionally small and fixed so the app feels like one product.
- *
- * A few legacy aliases remain while older UI is migrated. New code should prefer
- * semantic names directly.
+ * - typography stays compact so the app feels calm rather than dashboard-like.
  */
 export const semanticColors = {
   canvas: '#FAFAF8',
@@ -44,18 +41,17 @@ export const colors = {
 } as const;
 
 export const typography = {
-  display: { fontSize: 32, lineHeight: 40, fontWeight: '600', letterSpacing: -0.6 },
-  title: { fontSize: 26, lineHeight: 32, fontWeight: '600', letterSpacing: -0.3 },
-  section: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
-  body: { fontSize: 17, lineHeight: 27, fontWeight: '400' },
+  display: { fontSize: 30, lineHeight: 36, fontWeight: '600', letterSpacing: -0.5 },
+  title: { fontSize: 24, lineHeight: 30, fontWeight: '600', letterSpacing: -0.2 },
+  section: { fontSize: 16, lineHeight: 21, fontWeight: '600' },
+  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
   supporting: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
   metadata: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
   action: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
 
-  // Legacy aliases. Prefer the semantic names above for new work.
-  screenTitle: { fontSize: 32, lineHeight: 40, fontWeight: '600', letterSpacing: -0.6 },
-  noteTitle: { fontSize: 26, lineHeight: 32, fontWeight: '600', letterSpacing: -0.3 },
-  sectionTitle: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  screenTitle: { fontSize: 30, lineHeight: 36, fontWeight: '600', letterSpacing: -0.5 },
+  noteTitle: { fontSize: 24, lineHeight: 30, fontWeight: '600', letterSpacing: -0.2 },
+  sectionTitle: { fontSize: 16, lineHeight: 21, fontWeight: '600' },
 } as const;
 
 export const spacing = {
@@ -76,8 +72,6 @@ export const radii = {
   control: 12,
   card: 16,
   pill: 999,
-
-  // Legacy aliases.
   subtle: 8,
   panel: 16,
   round: 999,

@@ -55,7 +55,7 @@ export default function SettingsScreen() {
     if (currentStatus === 'blocked') {
       Alert.alert(
         'Enable notifications in Settings',
-        'Stories only uses local notifications to tell you when a memory is ready to return.',
+        'Stories only uses local notifications when a memory is ready to review.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Open Settings', onPress: () => { void openDeviceNotificationSettings(); } },
@@ -72,10 +72,10 @@ export default function SettingsScreen() {
   return (
     <AppScreen scroll scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <AppText accessibilityRole="header" variant="display">Settings</AppText>
-      <AppText variant="supporting" tone="secondary" style={styles.subtitle}>Local by default. Recall on your terms.</AppText>
+      <AppText variant="supporting" tone="secondary" style={styles.subtitle}>Private by default. Reviews on your terms.</AppText>
 
       <View style={styles.section}>
-        <SectionHeader>Remembering</SectionHeader>
+        <SectionHeader>Reminders</SectionHeader>
         <View style={styles.settingRow}>
           <View style={styles.copy}>
             <AppText variant="action">Quiet reminder</AppText>
@@ -90,7 +90,7 @@ export default function SettingsScreen() {
             ) : null}
           </View>
           <Switch
-            accessibilityLabel="Enable quiet recall reminder"
+            accessibilityLabel="Enable review reminders"
             onValueChange={(value) => { void toggleReminders(value); }}
             thumbColor={colors.onAction}
             trackColor={{ false: colors.controlBorder, true: colors.action }}
@@ -100,11 +100,11 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader>Storage & privacy</SectionHeader>
+        <SectionHeader>Privacy</SectionHeader>
         <View style={styles.settingRow}>
           <View style={styles.copy}>
             <AppText variant="action">Stored on this device</AppText>
-            <AppText variant="supporting" tone="secondary" style={styles.detail}>Each memory is a local Markdown file. Stories does not upload your memory content or require an account.</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.detail}>Your memory content stays on this device. Stories does not require an account or upload your memories.</AppText>
           </View>
           <AppText variant="metadata" tone="success" style={styles.value}>Local</AppText>
         </View>

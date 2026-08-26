@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { captureKindFromParam, editingFromParam } from '../src/navigation/route-state.ts';
@@ -13,25 +14,39 @@ import { DEFAULT_RECALL_CHOICE, MEMORY_KIND_OPTIONS, RECALL_OPTIONS, memoryDetai
 import { tabBarMetrics } from '../src/navigation/tab-bar.ts';
 import { nextUpcomingRecallMessage, recallCompletionMessage, recallCue, recallResultLabel, remainingRecallMessage, savedMemoryMessage } from '../src/recall/presentation.ts';
 
-test('capture route params update the selected capture kind', () => {
+test('legacy memory kinds remain readable for backwards compatibility', () => {
   assert.equal(captureKindFromParam(undefined), 'note');
   assert.equal(captureKindFromParam('book-learning'), 'book-learning');
   assert.equal(captureKindFromParam(['experience']), 'experience');
   assert.deepEqual(MEMORY_KIND_OPTIONS.map((option) => option.label), ['Note', 'Book learning', 'Experience']);
 });
 
-test('capture defaults to a three-day recall without a Tomorrow shortcut', () => {
+test('new capture defaults to a three-day return', () => {
   assert.equal(DEFAULT_RECALL_CHOICE, 'three-days');
   assert.equal(recallDaysForChoice(DEFAULT_RECALL_CHOICE), 3);
   assert.equal(recallDaysForChoice('week'), 7);
   assert.equal(recallDaysForChoice('off'), undefined);
-  assert.deepEqual(RECALL_OPTIONS.map((option) => option.label), ['3 days', '1 week', 'Off']);
+  assert.deepEqual(RECALL_OPTIONS.map((option) => option.label), ['3 days', '1 week', 'Never']);
 });
 
-test('collapsed memory details summarize kind and the existing recall choice', () => {
+test('legacy detail summaries remain parse-compatible', () => {
   assert.equal(memoryDetailsSummary('note', 'three-days'), 'Note · returns in 3 days');
   assert.equal(memoryDetailsSummary('book-learning', 'week'), 'Book learning · returns in 1 week');
   assert.equal(memoryDetailsSummary('experience', 'off'), 'Experience · does not return');
+});
+
+test('mobile capture and library no longer expose legacy taxonomy controls', async () => {
+  const [capture, library, note] = await Promise.all([
+    readFile(new URL('../app/capture.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/(tabs)/files.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/note/[id].tsx', import.meta.url), 'utf8'),
+  ]);
+
+  assert.doesNotMatch(capture, /MEMORY_KIND_OPTIONS|DisclosureRow|Recall cue|Memory details/);
+  assert.doesNotMatch(library, /FILTERS|Book learning|Experiences/);
+  assert.doesNotMatch(note, /DisclosureRow|SegmentedControl|FieldLabel/);
+  assert.match(capture, /Show me again/);
+  assert.match(note, /Show me again/);
 });
 
 test('recall result copy maps to the existing scheduling outcomes', () => {
@@ -40,7 +55,7 @@ test('recall result copy maps to the existing scheduling outcomes', () => {
   assert.equal(recallResultLabel('remembered'), 'Got it');
 });
 
-test('personalized recall cues format dynamically from kind, source, and prompt', () => {
+test('legacy personalized recall cues remain readable', () => {
   assert.equal(
     recallCue({ kind: 'book-learning', source: 'Atomic Habits', recallPrompt: '' }),
     'What idea from “Atomic Habits” did you want to remember?',
@@ -67,21 +82,21 @@ test('personalized recall cues format dynamically from kind, source, and prompt'
   );
 });
 
-test('recall completion names the return date and remaining work', () => {
+test('review completion names the return date and remaining work', () => {
   assert.equal(
     recallCompletionMessage('2026-08-25T10:00:00.000Z', 2, 'en-US'),
-    'Practiced. Back on Aug 25. 2 recalls left today.',
+    'Reviewed. Back on Aug 25. 2 reviews left today.',
   );
   assert.equal(remainingRecallMessage(0), 'All caught up today.');
-  assert.equal(recallCompletionMessage('not-a-date', 0, 'en-US'), 'Practiced. All caught up today.');
+  assert.equal(recallCompletionMessage('not-a-date', 0, 'en-US'), 'Reviewed. All caught up today.');
 });
 
 test('first-save confirmation explains the scheduled return', () => {
   assert.equal(
     savedMemoryMessage('2026-08-26T10:00:00.000Z', 'en-US'),
-    'Saved privately. It returns on Aug 26.',
+    'Saved. We’ll show it again on Aug 26.',
   );
-  assert.equal(savedMemoryMessage(undefined, 'en-US'), 'Saved privately.');
+  assert.equal(savedMemoryMessage(undefined, 'en-US'), 'Saved.');
 });
 
 test('upcoming recall message presents the next scheduled return date', () => {
@@ -266,10 +281,10 @@ test('angle-wrapped external Markdown links are unwrapped before handoff', async
 });
 
 test('cold-start saves stay blocked until the vault has hydrated', () => {
-assert.throws(() => ensureVaultReady(false, true), /local vault is still opening/);
-assert.throws(() => ensureVaultReady(true, false), /local vault is still opening/);
-assert.throws(() => ensureVaultReady(true, true, 'The local vault contains invalid files'), /invalid files/);
-assert.doesNotThrow(() => ensureVaultReady(true, true));
+  assert.throws(() => ensureVaultReady(false, true), /local vault is still opening/);
+  assert.throws(() => ensureVaultReady(true, false), /local vault is still opening/);
+  assert.throws(() => ensureVaultReady(true, true, 'The local vault contains invalid files'), /invalid files/);
+  assert.doesNotThrow(() => ensureVaultReady(true, true));
 });
 
 test('vault export bundles notes into verifiable Markdown files', async () => {
@@ -301,14 +316,14 @@ test('reminder service formats times, messages, and next schedule correctly', as
   assert.equal(formatReminderTime(0, 15), '12:15 AM');
 
   assert.equal(reminderNotificationMessage(0), undefined);
-  assert.equal(reminderNotificationMessage(1), 'You have 1 memory ready to recall today.');
-  assert.equal(reminderNotificationMessage(5), 'You have 5 memories ready to recall today.');
+  assert.equal(reminderNotificationMessage(1), '1 memory is ready to review.');
+  assert.equal(reminderNotificationMessage(5), '5 memories are ready to review.');
 
-  assert.equal(reminderStatusCopy({ enabled: true, reminderHour: 9, reminderMinute: 0 }, false), 'Quiet reminder at 9:00 AM when memories are due.');
-  assert.equal(reminderStatusCopy({ enabled: false, reminderHour: 9, reminderMinute: 0 }, false), 'Receive a quiet offline alert when memories are due for recall.');
+  assert.equal(reminderStatusCopy({ enabled: true, reminderHour: 9, reminderMinute: 0 }, false), 'Quiet reminder at 9:00 AM when a memory is ready.');
+  assert.equal(reminderStatusCopy({ enabled: false, reminderHour: 9, reminderMinute: 0 }, false), 'Get a quiet offline alert when a memory is ready to review.');
   assert.equal(reminderStatusCopy({ enabled: true, reminderHour: 9, reminderMinute: 0 }, true), 'Notifications are blocked on your device. Tap to open Settings and enable them.');
 
-  assert.equal(firstMemoryReminderPrompt(3), "Your memory is scheduled to return in 3 days. Enable quiet reminders so you don't miss it?");
+  assert.equal(firstMemoryReminderPrompt(3), 'This memory comes back in 3 days. Turn on a quiet reminder so you don’t miss it?');
 
   const morning = new Date('2026-08-24T08:00:00');
   const nextMorning = nextReminderDate({ enabled: true, reminderHour: 9, reminderMinute: 0 }, morning);
@@ -329,7 +344,6 @@ test('first memory flag triggers on empty vault after deleting previous notes', 
   const populatedVaultNotes = [{ id: 'note-1', title: 'A', body: 'B' }];
   assert.equal(populatedVaultNotes.length === 0, false);
 
-  // Deleting all notes returns vault to empty state
   populatedVaultNotes.pop();
   assert.equal(populatedVaultNotes.length === 0, true);
 });
@@ -337,18 +351,9 @@ test('first memory flag triggers on empty vault after deleting previous notes', 
 test('cleanSnippet strips Markdown symbols and duplicates', async () => {
   const { cleanSnippet } = await import('../src/navigation/snippet.ts');
 
-  // Skips title repetition
   assert.equal(cleanSnippet('# Atomic Habits\n\nBuild good habits.', 'Atomic Habits'), 'Build good habits.');
-
-  // Strips blockquotes and bold/italics
   assert.equal(cleanSnippet('> **Small changes** make a *big difference*.', 'Habits'), 'Small changes make a big difference.');
-
-  // Strips bullet list symbols and numbered lists
   assert.equal(cleanSnippet('- First point\n- Second point', 'Overview'), 'First point');
   assert.equal(cleanSnippet('1. Step one\n2. Step two', 'Process'), 'Step one');
-
-  // Strips wikilinks
   assert.equal(cleanSnippet('Refer to [[James Clear]] for more details.', 'Reference'), 'Refer to James Clear for more details.');
 });
-
-

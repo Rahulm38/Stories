@@ -19,8 +19,8 @@ export function formatReminderTime(hour: number, minute: number): string {
 
 export function reminderNotificationMessage(dueCount: number): string | undefined {
   if (dueCount <= 0) return undefined;
-  if (dueCount === 1) return 'You have 1 memory ready to recall today.';
-  return `You have ${dueCount} memories ready to recall today.`;
+  if (dueCount === 1) return '1 memory is ready to review.';
+  return `${dueCount} memories are ready to review.`;
 }
 
 export function nextReminderDate(prefs: ReminderPreferences, now = new Date()): Date {
@@ -37,11 +37,11 @@ export function reminderStatusCopy(prefs: ReminderPreferences, isBlocked = false
     return 'Notifications are blocked on your device. Tap to open Settings and enable them.';
   }
   if (prefs.enabled) {
-    return `Quiet reminder at ${formatReminderTime(prefs.reminderHour, prefs.reminderMinute)} when memories are due.`;
+    return `Quiet reminder at ${formatReminderTime(prefs.reminderHour, prefs.reminderMinute)} when a memory is ready.`;
   }
-  return 'Receive a quiet offline alert when memories are due for recall.';
+  return 'Get a quiet offline alert when a memory is ready to review.';
 }
 
 export function firstMemoryReminderPrompt(days = 3): string {
-  return `Your memory is scheduled to return in ${days} days. Enable quiet reminders so you don't miss it?`;
+  return `This memory comes back in ${days} days. Turn on a quiet reminder so you don’t miss it?`;
 }

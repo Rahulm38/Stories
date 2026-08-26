@@ -20,6 +20,8 @@ export function timeGreeting(): string {
   return 'Good evening';
 }
 
+// Legacy helper retained for older data and tests. New mobile flows do not ask
+// people to create a separate reflection during review.
 export function reflectionPrompt(kind: MemoryKind): string {
   if (kind === 'book-learning') return 'Where could this idea matter in your life now?';
   if (kind === 'experience') return 'What would you do differently now?';
@@ -36,6 +38,8 @@ export function recallResultLabel(status: RecallStatus): string {
   return RESULT_LABELS[status];
 }
 
+// Legacy helper retained so older custom prompts continue to work. New review
+// surfaces use the memory title instead of exposing a "recall cue" concept.
 export function recallCue(note: Pick<MemoryNote, 'kind' | 'recallPrompt' | 'source'>): string {
   if (note.recallPrompt?.trim()) return note.recallPrompt.trim();
   if (note.kind === 'book-learning') {
@@ -53,23 +57,23 @@ export function recallCue(note: Pick<MemoryNote, 'kind' | 'recallPrompt' | 'sour
 
 export function savedMemoryMessage(nextRecallAt?: string, locale?: string): string {
   const returnDate = nextRecallAt ? shortDateLabel(nextRecallAt, locale) : undefined;
-  return returnDate ? `Saved privately. It returns on ${returnDate}.` : 'Saved privately.';
+  return returnDate ? `Saved. We’ll show it again on ${returnDate}.` : 'Saved.';
 }
 
 export function practiceCompletionMessage(nextRecallAt?: string, locale?: string): string {
   const returnDate = nextRecallAt ? shortDateLabel(nextRecallAt, locale) : undefined;
-  return returnDate ? `Practice complete. This memory still returns on ${returnDate}.` : 'Practice complete.';
+  return returnDate ? `Review complete. It still returns on ${returnDate}.` : 'Review complete.';
 }
 
 export function remainingRecallMessage(remaining: number): string {
   const safeRemaining = Math.max(0, Math.floor(remaining));
   if (safeRemaining === 0) return 'All caught up today.';
-  return `${safeRemaining} ${safeRemaining === 1 ? 'recall' : 'recalls'} left today.`;
+  return `${safeRemaining} ${safeRemaining === 1 ? 'review' : 'reviews'} left today.`;
 }
 
 export function recallCompletionMessage(nextRecallAt: string, remaining: number, locale?: string): string {
   const returnDate = shortDateLabel(nextRecallAt, locale);
-  return `Practiced.${returnDate ? ` Back on ${returnDate}.` : ''} ${remainingRecallMessage(remaining)}`;
+  return `Reviewed.${returnDate ? ` Back on ${returnDate}.` : ''} ${remainingRecallMessage(remaining)}`;
 }
 
 export function nextUpcomingRecallMessage(nextRecallAt?: string, locale?: string): string | undefined {

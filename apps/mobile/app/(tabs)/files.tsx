@@ -1,53 +1,34 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { MemoryKind, MemoryNote } from '@core/model';
+import type { MemoryNote } from '@core/model';
 import { matchesLibrarySearch } from '@/src/navigation/library-search';
 import { cleanSnippet } from '@/src/navigation/snippet';
 import { useVault } from '@/src/vault/provider';
 import { colors, radii, sharedStyles, sizes, spacing, typography } from '@/src/ui/theme';
-import { noteKindLabel } from '@/src/ui/MarkdownBody';
 import { AppText } from '@/src/ui/components/AppText';
 import { Button } from '@/src/ui/components/Button';
-import { Chip } from '@/src/ui/components/Chip';
 import { EmptyState } from '@/src/ui/components/EmptyState';
 import { ErrorState } from '@/src/ui/components/ErrorState';
 import { ListRow } from '@/src/ui/components/ListRow';
 import { LoadingState } from '@/src/ui/components/LoadingState';
 
-type Filter = 'all' | MemoryKind;
-
-const FILTERS: ReadonlyArray<{ label: string; value: Filter }> = [
-  { label: 'All', value: 'all' },
-  { label: 'Books', value: 'book-learning' },
-  { label: 'Experiences', value: 'experience' },
-  { label: 'Notes', value: 'note' },
-];
-
-function memorySymbol(kind: MemoryKind) {
-  if (kind === 'book-learning') return { ios: 'book.closed', android: 'book_2', web: 'book_2' } as const;
-  if (kind === 'experience') return { ios: 'person', android: 'person', web: 'person' } as const;
-  return { ios: 'doc.text', android: 'edit_note', web: 'edit_note' } as const;
-}
-
 export default function FilesScreen() {
   const router = useRouter();
   const { hydrated, notes, openError, readIssues } = useVault();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
   const normalizedQuery = query.trim().toLowerCase();
 
   const visibleNotes = useMemo(() => notes
     .filter((note) => note.parseStatus !== 'quarantine')
-    .filter((note) => filter === 'all' || note.kind === filter)
     .filter((note) => matchesLibrarySearch(note, normalizedQuery))
     .sort((a, b) => {
       const aTime = new Date(a.updatedAt).getTime() || 0;
       const bTime = new Date(b.updatedAt).getTime() || 0;
       return bTime - aTime || a.title.localeCompare(b.title);
-    }), [filter, normalizedQuery, notes]);
+    }), [normalizedQuery, notes]);
 
   if (!hydrated) {
     return <SafeAreaView style={sharedStyles.screen} edges={['top']}><LoadingState label="Opening your memories…" /></SafeAreaView>;
@@ -67,9 +48,9 @@ export default function FilesScreen() {
         <View style={[sharedStyles.scrollContent, styles.emptyScreen]}>
           <AppText accessibilityRole="header" variant="display">Library</AppText>
           <EmptyState
-            title="Your memories live here"
-            body="Save ideas, lessons and experiences you want to find again."
-            action={<Button label="Create your first memory" onPress={() => router.navigate('/capture')} />}
+            title="Nothing saved yet"
+            body="Memories you save will appear here."
+            action={<Button label="Save your first memory" onPress={() => router.navigate('/capture')} />}
           />
         </View>
       </SafeAreaView>
@@ -78,16 +59,15 @@ export default function FilesScreen() {
 
   const renderMemory = ({ item, index }: { item: MemoryNote; index: number }) => {
     const snippet = cleanSnippet(item.body, item.title);
-    const metadata = `${item.source ? `${item.source} · ` : ''}${noteKindLabel(item)}`;
     return (
       <ListRow
-        accessibilityLabel={`${item.title}, ${noteKindLabel(item)}`}
+        accessibilityLabel={`Open ${item.title}`}
         leading={(
           <View style={styles.memoryIcon}>
-            <SymbolView name={memorySymbol(item.kind)} size={sizes.compactIcon} tintColor={colors.action} />
+            <SymbolView name={{ ios: 'doc.text', android: 'notes', web: 'notes' }} size={sizes.compactIcon} tintColor={colors.action} />
           </View>
         )}
-        metadata={metadata}
+        metadata={item.source || undefined}
         onPress={() => router.push({ pathname: '/note/[id]', params: { id: item.id } })}
         showTopDivider={index > 0}
         subtitle={snippet || undefined}
@@ -125,9 +105,6 @@ export default function FilesScreen() {
                 <AppText variant="metadata" tone="secondary" style={styles.issueCopy}>
                   The affected file{readIssues.length === 1 ? ' was' : 's were'} left unchanged. Reopen Stories to retry.
                 </AppText>
-                {readIssues.slice(0, 2).map((issue) => (
-                  <AppText key={issue.path} numberOfLines={1} variant="metadata" style={styles.issuePath}>{issue.path}</AppText>
-                ))}
               </View>
             ) : null}
 
@@ -146,26 +123,13 @@ export default function FilesScreen() {
                 value={query}
               />
             </View>
-
-            <ScrollView
-              accessibilityRole="radiogroup"
-              accessibilityLabel="Filter memories"
-              horizontal
-              keyboardShouldPersistTaps="handled"
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterRow}
-            >
-              {FILTERS.map((option) => (
-                <Chip key={option.value} label={option.label} selected={filter === option.value} onPress={() => setFilter(option.value)} />
-              ))}
-            </ScrollView>
           </>
         )}
         ListEmptyComponent={(
           <EmptyState
             title="No memories found"
-            body="Try another search or filter."
-            action={<Button label="Clear filters" variant="secondary" onPress={() => { setQuery(''); setFilter('all'); }} />}
+            body="Try another search."
+            action={<Button label="Clear search" variant="secondary" onPress={() => setQuery('')} />}
           />
         )}
         renderItem={renderMemory}
@@ -189,7 +153,6 @@ const styles = StyleSheet.create({
   },
   issueTitle: { fontWeight: '700' },
   issueCopy: { marginTop: spacing.xxs },
-  issuePath: { marginTop: spacing.xs },
   searchField: {
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -198,11 +161,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: spacing.xs,
+    marginBottom: spacing.md,
     minHeight: sizes.touchMinimum,
     paddingHorizontal: spacing.sm,
   },
-  searchInput: { color: colors.textPrimary, flex: 1, paddingVertical: 0, ...typography.action, fontWeight: '400' },
-  filterRow: { gap: spacing.xs, paddingBottom: spacing.md, paddingTop: spacing.sm },
+  searchInput: { color: colors.textPrimary, flex: 1, paddingVertical: spacing.none, ...typography.action, fontWeight: '400' },
   memoryIcon: {
     alignItems: 'center',
     backgroundColor: colors.actionMuted,

@@ -1,5 +1,7 @@
 import type { MemoryKind } from '@core/model';
 
+// Kept for backward compatibility with existing files. The mobile UI no longer asks
+// people to classify memories when they capture or edit them.
 export const MEMORY_KIND_OPTIONS: ReadonlyArray<{ label: string; value: MemoryKind }> = [
   { label: 'Note', value: 'note' },
   { label: 'Book learning', value: 'book-learning' },
@@ -13,7 +15,7 @@ export const DEFAULT_RECALL_CHOICE: RecallChoice = 'three-days';
 export const RECALL_OPTIONS: ReadonlyArray<{ label: string; value: RecallChoice }> = [
   { label: '3 days', value: 'three-days' },
   { label: '1 week', value: 'week' },
-  { label: 'Off', value: 'off' },
+  { label: 'Never', value: 'off' },
 ];
 
 export function recallDaysForChoice(choice: RecallChoice): number | undefined {
