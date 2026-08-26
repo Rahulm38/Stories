@@ -4,7 +4,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleFirstRecall } from '@core/recall';
-import { memoryTitle, plainMemoryText } from '@core/story-cue';
+import { memoryTitle, plainStoryText } from '@core/story-cue';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { MemoryEditor } from '@/src/ui/MemoryEditor';
@@ -27,7 +27,7 @@ function returnLabel(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
-  return `Comes back ${date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+  return `Back ${date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
 }
 
 export default function NoteScreen() {
@@ -62,7 +62,7 @@ export default function NoteScreen() {
 
   useEffect(() => {
     if (!note || loadedIdRef.current === note.id) return;
-    const body = plainMemoryText(note.body);
+    const body = plainStoryText(note.body);
     loadedIdRef.current = note.id;
     latestBodyRef.current = body;
     persistedBodyRef.current = body;
@@ -92,7 +92,7 @@ export default function NoteScreen() {
             setSaveError('');
           }
         } catch (error) {
-          if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be saved');
+          if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This story could not be saved');
           throw error;
         }
       }
@@ -112,7 +112,7 @@ export default function NoteScreen() {
   }, [deleting, draft, leaving, note, persistedBody, runSaveLoop]);
 
   const flushLatest = useCallback(async () => {
-    if (!latestBodyRef.current.trim()) throw new Error('A memory cannot be empty');
+    if (!latestBodyRef.current.trim()) throw new Error('A story cannot be empty');
     await runSaveLoop();
     if (latestBodyRef.current !== persistedBodyRef.current) await runSaveLoop();
   }, [runSaveLoop]);
@@ -134,7 +134,7 @@ export default function NoteScreen() {
 
     event.preventDefault();
     if (!latestBodyRef.current.trim()) {
-      Alert.alert('Memory can’t be empty', 'Restore the last saved version or keep writing.', [
+      Alert.alert('Story can’t be empty', 'Restore the last saved version or keep writing.', [
         { text: 'Keep writing', style: 'cancel' },
         { text: 'Restore saved version', onPress: restoreSavedBody },
       ]);
@@ -165,7 +165,7 @@ export default function NoteScreen() {
       if (!mountedRef.current) return;
       router.push({ pathname: '/practice/[id]', params: { id: note.id, from: 'memory' } });
     } catch (error) {
-      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be opened for practice');
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This story could not be opened');
     }
   };
 
@@ -176,7 +176,7 @@ export default function NoteScreen() {
       await flushLatest();
       await saveNote({ id: note.id, body: latestBodyRef.current, nextRecallAt: undefined });
     } catch (error) {
-      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be updated');
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This story could not be updated');
     }
   };
 
@@ -194,7 +194,7 @@ export default function NoteScreen() {
         reviewStrengthDays: undefined,
       });
     } catch (error) {
-      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be updated');
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This story could not be updated');
     }
   };
 
@@ -208,7 +208,7 @@ export default function NoteScreen() {
       allowNextRemovalRef.current = true;
       router.dismissTo('/(tabs)/files');
     } catch (error) {
-      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be deleted');
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This story could not be deleted');
     } finally {
       if (mountedRef.current) setDeleting(false);
     }
@@ -283,7 +283,7 @@ export default function NoteScreen() {
 
           <View style={styles.metaRow}>
             <SymbolView name={{ ios: returns ? 'clock' : 'archivebox', android: returns ? 'schedule' : 'inventory_2', web: returns ? 'schedule' : 'inventory_2' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
-            <AppText variant="metadata" tone="secondary" style={styles.metaCopy}>{returns || 'Saved in Library'}</AppText>
+            <AppText variant="metadata" tone="secondary" style={styles.metaCopy}>{returns || 'In Library'}</AppText>
             <AppText accessibilityLiveRegion="polite" variant="metadata" tone={saveError ? 'danger' : 'secondary'}>
               {saveError ? 'Save failed' : saving || draft !== persistedBody ? 'Saving…' : 'Saved'}
             </AppText>
