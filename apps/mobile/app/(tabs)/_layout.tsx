@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { Platform, type ColorValue } from 'react-native';
+import type { ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, sizes, spacing } from '@/src/ui/theme';
 import { tabBarMetrics } from '@/src/navigation/tab-bar';
@@ -17,7 +17,7 @@ function TabIcon({ android, color, ios }: TabIconProps) {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const tabBar = tabBarMetrics(insets.bottom, Platform.OS === 'ios');
+  const tabBar = tabBarMetrics(insets.bottom, false);
 
   return (
     <Tabs
