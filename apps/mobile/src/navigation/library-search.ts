@@ -30,8 +30,9 @@ function editDistance(a: string, b: string): number {
 }
 
 function tokenScore(queryToken: string, words: string[], haystack: string): number | null {
-  if (haystack.includes(queryToken)) return 0;
+  if (words.includes(queryToken)) return 0;
   if (words.some((word) => word.startsWith(queryToken) || queryToken.startsWith(word))) return 1;
+  if (haystack.includes(queryToken)) return 1;
   if (queryToken.length < 4) return null;
   const tolerance = queryToken.length >= 8 ? 2 : 1;
   return words.some((word) => Math.abs(word.length - queryToken.length) <= tolerance && editDistance(word, queryToken) <= tolerance)
