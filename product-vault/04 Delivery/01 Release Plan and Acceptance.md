@@ -1,55 +1,76 @@
 ---
 title: Release Plan and Acceptance
 status: active
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-26
 ---
 
 # Release Plan and Acceptance
 
-## Delivery Principle
+## Delivery principle
 
-Ship vertical, device-tested product slices. A slice is complete only when the user journey can be executed seamlessly and failure/relaunch scenarios are verified.
+Ship one calm Android product loop, not a collection of note-taking features. A release is ready when a tester can save a real memory, later retrieve it from a clue, tell it, reveal the original, rate availability, find it again in Library, edit it safely, and relaunch without losing data.
 
----
+## Current v1 scope
 
-## Release Milestones & Gates
+### Capture
+- [x] One-field plain-text capture.
+- [x] No categories, folders, title requirement, formatting toolbar, cue field or schedule configuration.
+- [x] New memories first return after three local calendar days.
+- [x] Interrupted drafts recover locally.
+- [x] Explicit discard/empty composer clears draft recovery state.
 
-### M0: Core Foundations & Privacy Invariants
-- [x] Functional domain core (`@core`) with 0 external runtime dependencies.
-- [x] Atomic Markdown filesystem persistence with `.tmp`/`.bak` crash recovery.
-- [x] Zero-network guarantee with Android cloud backup disabled.
+### Today
+- [x] Cue -> attempt to tell -> Reveal -> `Not yet` / `Mostly` / `Yes`.
+- [x] Cue generation is deterministic, local and intentionally conservative.
+- [x] Maximum five handled memories per local calendar day, persisted across tab changes and relaunches.
+- [x] `Tomorrow` and `Stop resurfacing` count as handled for that day's calm session.
+- [x] Progressive return intervals use durable review strength rather than mutable due date.
+- [x] No streaks, backlog pressure or overdue debt UI.
 
-### M1: Onboarding & First-Session Loop (P0)
-- [x] **First-Session Aha Experience**: Instant practice recall option on Day 1 (and upon deleting all memories).
-- [x] **Warm Empty State**: Clear value proposition explaining the capture-and-recall companion.
-- [x] **Capture Flow**: One-field fast capture, auto-focus, clean "Memory details" disclosure.
+### Library & memory
+- [x] Flat Library ordered by relevance during search and recency otherwise.
+- [x] Search supports combinations of remembered fragments and small typos.
+- [x] Memory body is directly editable with debounced serialized autosave.
+- [x] Android Back flushes the latest non-empty edit before leaving.
+- [x] Share / stop-or-restart resurfacing / delete live in an Android-safe action sheet.
+- [x] Restarting a stopped memory begins a fresh resurfacing cycle.
 
-### M2: Active Recall & Calm Habit (P0)
-- [x] In-app 3-stage loop: Contextual Cue $\rightarrow$ Hidden Attempt $\rightarrow$ Reveal & Rate.
-- [x] **Personalized Cues**: Dynamic questions using book source or experience context.
-- [x] **Anticipation Cue**: Today shows *"Next memory returns on [Date]"* when queue is clear.
-- [x] **On-Demand Practice**: Practice recall anytime directly from the Memory Reader.
+### Privacy & reminders
+- [x] App-private local storage; no account.
+- [x] Android cloud backup disabled.
+- [x] No ads, analytics SDK or AI dependency.
+- [x] Generic local reminder notifications only.
+- [x] After a user engages with Today's session, reminders do not immediately re-nag for remaining backlog.
+- [x] In-app and hosted privacy policy aligned.
 
-### M3: Device Reminders & Portability (P0)
-- [x] **Native Local Reminders**: Privacy-safe notifications with contextual Android 13+ permissions and deep link recovery.
-- [x] **1-Click Vault Export**: Export timestamped Markdown backup archive via browser download on web and document storage on native.
-- [x] **Library View Toggle**: Segmented toggle between *By folder* tree and flat *All memories* list with clean snippet previews.
-- [x] **Factual Memory Statistics**: Calm 3-stat overview (Saved, Practiced, Due today) in Settings.
+## Launch-blocking gates
 
-### M4: Polish & Store Hardening (P1)
-- [x] **Vocabulary Audit**: Standardized 100% adherence to "memory", "Library", and non-guilt copy.
-- [x] **Automated Monorepo Suite**: 79/79 passing unit, mobile regression, and web regression tests with 0 lint errors.
-- [ ] **Physical Android Testing**: Physical device TalkBack screen-reader walkthrough and 200% font scaling tests.
-- [ ] **Play Store Listing**: Approved assets, privacy policy URL, and Data Safety declaration.
-
----
-
-## Launch-Blocking Gates
-
-| Gate | Pass Condition | Status |
+| Gate | Pass condition | Current status |
 |---|---|---|
-| **Data Safety** | Zero silent loss across save, rename, edit, backgrounding, or process kill | Verified (79/79 tests passing) |
-| **First-Session Value** | User completes a capture and experiences recall within Session 1 | Verified (Day 1 practice flow) |
-| **Portability** | User can export their full vault with 1 tap | Verified (1-click export) |
-| **Notifications** | Local alarms schedule accurately without leaking note text on lock screen | Verified (reminder service & permissions) |
-| **Accessibility** | 48dp touch targets, TalkBack semantics, and 200% font scaling | Automated pass; physical audit pending |
+| Data durability | Save/edit/back/relaunch do not silently lose newer text | Automated coverage added; physical Android QA required |
+| Existing beta data | Older memories open without destructive migration | Compatibility codec retained; device QA required |
+| Core loop | Capture -> later cue -> tell -> reveal -> rate works end to end | Implemented; device QA required |
+| Daily calm limit | Five handled items remains five after tab changes/relaunch; resets next day | Implemented with persisted local-day state |
+| Search recovery | Real fragments and small typos find relevant memories | Implemented locally |
+| Notifications | Generic, local, no immediate post-session nag loop | Implemented; device timing QA required |
+| Accessibility | 48dp controls, responsive review actions, TalkBack semantics | Automated design checks + physical TalkBack/font QA required |
+| Play compliance | Current privacy URL/listing/Data Safety match shipping behavior | Privacy updated; Play Console check still required |
+
+## What is deliberately not in v1
+
+AI, sync, accounts, folders/tags, custom scheduling controls, streaks, statistics dashboards, custom voice recording, rich-text/Markdown authoring, graph links and vault-export UI are outside the current Android product.
+
+## Tester build acceptance
+
+Before asking closed-test users to focus on feedback, perform one physical-device pass:
+
+1. fresh install / update from prior beta;
+2. save several real memories;
+3. force-stop and reopen;
+4. exercise capture discard and draft recovery;
+5. make memories due and complete five;
+6. leave/reopen Today and confirm the cap remains;
+7. type/edit quickly, press Back during autosave, reopen and verify newest text;
+8. search with two fragments and a deliberate one-character typo;
+9. exercise Share, Stop/Bring back and Delete;
+10. enable notifications and confirm quiet generic behavior.
