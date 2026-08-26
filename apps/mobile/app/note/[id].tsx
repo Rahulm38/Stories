@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -157,6 +157,18 @@ export default function NoteScreen() {
     else router.replace('/(tabs)/files');
   };
 
+  const tryTelling = async () => {
+    if (!note || deleting || leaving) return;
+    setSaveError('');
+    try {
+      await flushLatest();
+      if (!mountedRef.current) return;
+      router.push({ pathname: '/practice/[id]', params: { id: note.id, from: 'memory' } });
+    } catch (error) {
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This memory could not be opened for practice');
+    }
+  };
+
   const stopReturning = async () => {
     if (!note) return;
     setSaveError('');
@@ -217,6 +229,11 @@ export default function NoteScreen() {
   const returns = returnLabel(note.nextRecallAt);
   const sheetActions: ActionSheetAction[] = [
     {
+      label: 'Try telling',
+      icon: <SymbolView name={{ ios: 'quote.bubble', android: 'chat_bubble', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.action} />,
+      onPress: () => { void tryTelling(); },
+    },
+    {
       label: 'Share',
       icon: <SymbolView name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }} size={sizes.compactIcon} tintColor={colors.action} />,
       onPress: () => { void Share.share({ title: memoryTitle(draft), message: draft }); },
@@ -248,7 +265,7 @@ export default function NoteScreen() {
         right={<IconButton accessibilityLabel="More memory actions" disabled={deleting || leaving || !draft.trim()} onPress={() => setActionsOpen(true)}><SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.action} /></IconButton>}
       />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.editorWrap}>
+      <KeyboardAvoidingView behavior="height" style={styles.editorWrap}>
         <ScrollView contentContainerStyle={styles.editorContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
           <MemoryEditor
             value={draft}
