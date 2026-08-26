@@ -55,7 +55,7 @@ export default function SettingsScreen() {
     if (currentStatus === 'blocked') {
       Alert.alert(
         'Enable notifications in Settings',
-        'Stories only uses quiet local notifications when something is ready to come back.',
+        'Stories only uses local notifications when a story is ready to come back.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Open Settings', onPress: () => { void openDeviceNotificationSettings(); } },
@@ -81,7 +81,7 @@ export default function SettingsScreen() {
             <SymbolView name={{ ios: 'bell', android: 'notifications', web: 'notifications' }} size={sizes.compactIcon} tintColor={colors.action} />
           </View>
           <View style={styles.copy}>
-            <AppText variant="action">Quiet reminder</AppText>
+            <AppText variant="action">Story reminder</AppText>
             <AppText variant="supporting" tone="secondary" style={styles.detail}>{reminderStatusCopy(reminderPrefs, permissionStatus === 'blocked')}</AppText>
             {permissionStatus === 'blocked' ? (
               <ListRow
@@ -93,7 +93,7 @@ export default function SettingsScreen() {
             ) : null}
           </View>
           <Switch
-            accessibilityLabel="Enable memory reminders"
+            accessibilityLabel="Enable story reminders"
             onValueChange={(value) => { void toggleReminders(value); }}
             thumbColor={colors.onAction}
             trackColor={{ false: colors.controlBorder, true: colors.action }}
@@ -110,13 +110,13 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.copy}>
             <AppText variant="action">Stays on this device</AppText>
-            <AppText variant="supporting" tone="secondary" style={styles.detail}>Your memories stay local. Stories does not require an account or upload your content.</AppText>
+            <AppText variant="supporting" tone="secondary" style={styles.detail}>Your stories stay local. Stories does not require an account or upload your content.</AppText>
           </View>
           <AppText variant="metadata" tone="success" style={styles.value}>Local</AppText>
         </View>
         <ListRow
           title="Privacy policy"
-          subtitle="How Stories handles your memories and device data."
+          subtitle="How Stories handles your stories and device data."
           onPress={() => router.push('/privacy')}
           trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.textSecondary} />}
         />
