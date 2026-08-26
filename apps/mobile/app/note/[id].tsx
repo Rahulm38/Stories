@@ -4,6 +4,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleFirstRecall } from '@core/recall';
+import { markStoryTold, storyReadiness, storyReadinessLabel } from '@core/story-state';
 import { memoryTitle, plainStoryText } from '@core/story-cue';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
@@ -44,6 +45,7 @@ export default function NoteScreen() {
   const [deleting, setDeleting] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [outcomeMessage, setOutcomeMessage] = useState('');
   const [actionsOpen, setActionsOpen] = useState(false);
 
   const mountedRef = useRef(true);
@@ -59,6 +61,12 @@ export default function NoteScreen() {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  useEffect(() => {
+    if (!outcomeMessage) return undefined;
+    const timer = setTimeout(() => setOutcomeMessage(''), 6_000);
+    return () => clearTimeout(timer);
+  }, [outcomeMessage]);
 
   useEffect(() => {
     if (!note || loadedIdRef.current === note.id) return;
@@ -169,6 +177,19 @@ export default function NoteScreen() {
     }
   };
 
+  const markAsTold = async () => {
+    if (!note || deleting || leaving) return;
+    setSaveError('');
+    try {
+      await flushLatest();
+      const latestNote = { ...note, body: latestBodyRef.current };
+      await saveNote(markStoryTold(latestNote));
+      if (mountedRef.current) setOutcomeMessage('Nice. That’s what Stories is for.');
+    } catch (error) {
+      if (mountedRef.current) setSaveError(error instanceof Error ? error.message : 'This story could not be updated');
+    }
+  };
+
   const stopReturning = async () => {
     if (!note) return;
     setSaveError('');
@@ -227,11 +248,18 @@ export default function NoteScreen() {
   if (!note) return <SafeAreaView style={sharedStyles.screen} edges={['top', 'bottom']}><ErrorState title="This story isn't available" body="It may have been deleted." action={<Button label="Back to Library" variant="text" onPress={() => router.dismissTo('/(tabs)/files')} />} /></SafeAreaView>;
 
   const returns = returnLabel(note.nextRecallAt);
+  const readiness = storyReadiness(note);
+  const readinessLabel = storyReadinessLabel(note);
   const sheetActions: ActionSheetAction[] = [
     {
       label: 'Try telling',
       icon: <SymbolView name={{ ios: 'quote.bubble', android: 'chat_bubble', web: 'chat_bubble' }} size={sizes.compactIcon} tintColor={colors.action} />,
       onPress: () => { void tryTelling(); },
+    },
+    {
+      label: 'I told this',
+      icon: <SymbolView name={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }} size={sizes.compactIcon} tintColor={colors.action} />,
+      onPress: () => { void markAsTold(); },
     },
     {
       label: 'Share',
@@ -282,12 +310,16 @@ export default function NoteScreen() {
           />
 
           <View style={styles.metaRow}>
-            <SymbolView name={{ ios: returns ? 'clock' : 'archivebox', android: returns ? 'schedule' : 'inventory_2', web: returns ? 'schedule' : 'inventory_2' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
-            <AppText variant="metadata" tone="secondary" style={styles.metaCopy}>{returns || 'In Library'}</AppText>
+            <SymbolView name={{ ios: readiness === 'ready' ? 'checkmark.circle' : returns ? 'clock' : 'archivebox', android: readiness === 'ready' ? 'check_circle' : returns ? 'schedule' : 'inventory_2', web: readiness === 'ready' ? 'check_circle' : returns ? 'schedule' : 'inventory_2' }} size={sizes.compactIcon} tintColor={readiness === 'ready' ? colors.action : colors.textSecondary} />
+            <View style={styles.metaCopy}>
+              <AppText variant="metadata" tone={readiness === 'ready' ? 'action' : 'secondary'}>{readinessLabel}</AppText>
+              <AppText variant="metadata" tone="secondary" style={styles.returnMeta}>{returns || 'In Library'}</AppText>
+            </View>
             <AppText accessibilityLiveRegion="polite" variant="metadata" tone={saveError ? 'danger' : 'secondary'}>
               {saveError ? 'Save failed' : saving || draft !== persistedBody ? 'Saving…' : 'Saved'}
             </AppText>
           </View>
+          {outcomeMessage ? <AppText accessibilityLiveRegion="polite" variant="supporting" tone="action" style={styles.outcome}>{outcomeMessage}</AppText> : null}
           {saveError ? <AppText accessibilityRole="alert" variant="supporting" tone="danger" style={styles.error}>{saveError}</AppText> : null}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -302,5 +334,7 @@ const styles = StyleSheet.create({
   editorContent: { paddingBottom: spacing.xxxl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
   metaRow: { alignItems: 'center', borderTopColor: colors.divider, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.xs, marginTop: spacing.lg, paddingTop: spacing.md },
   metaCopy: { flex: 1 },
+  returnMeta: { marginTop: spacing.xxs },
+  outcome: { marginTop: spacing.sm },
   error: { marginTop: spacing.sm },
 });
