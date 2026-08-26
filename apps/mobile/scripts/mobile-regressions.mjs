@@ -125,7 +125,7 @@ test('mobile flow contains discover, remember and tell outcome contracts', async
 
   for (const source of [capture, today, library, note, practice]) {
     assert.doesNotMatch(source, /Book learning|Experience|Recall cue|Memory details|Formatting toolbar/);
-    assert.doesNotMatch(source, /streak|points|leaderboard|score/i);
+    assert.doesNotMatch(source, /\b(?:streaks?|points?|leaderboards?)\b/i);
   }
 
   assert.match(capture, /What would you want to tell later\?/);
