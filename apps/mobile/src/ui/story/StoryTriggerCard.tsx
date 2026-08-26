@@ -9,6 +9,7 @@ import { colors, radii, spacing } from '../theme';
 type StoryTriggerCardProps = {
   trigger: StoryTrigger;
   ageLabel?: string;
+  coachingPrompt?: string;
   headerAction?: ReactNode;
   hintVisible?: boolean;
   disabled?: boolean;
@@ -19,6 +20,7 @@ type StoryTriggerCardProps = {
 
 export function StoryTriggerCard({
   ageLabel,
+  coachingPrompt = 'Tell it like you’d tell a friend.',
   disabled = false,
   headerAction,
   hintVisible = false,
@@ -50,7 +52,7 @@ export function StoryTriggerCard({
         </View>
       ) : null}
 
-      <AppText variant="supporting" tone="secondary" style={styles.prompt}>Tell it like you’d tell a friend.</AppText>
+      <AppText variant="supporting" tone="secondary" style={styles.prompt}>{coachingPrompt}</AppText>
 
       <Button disabled={disabled} label="Show story" onPress={onShowStory} style={styles.primaryAction} />
 
