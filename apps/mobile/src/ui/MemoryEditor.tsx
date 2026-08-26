@@ -1,10 +1,6 @@
 import { forwardRef } from 'react';
-import { Platform, StyleSheet, TextInput, type TextStyle } from 'react-native';
+import { StyleSheet, TextInput } from 'react-native';
 import { colors, spacing, typography } from './theme';
-
-const webInputStyle = Platform.OS === 'web'
-  ? ({ outlineStyle: 'none' } as unknown as TextStyle)
-  : null;
 
 type MemoryEditorProps = {
   value: string;
@@ -34,7 +30,7 @@ export const MemoryEditor = forwardRef<TextInput, MemoryEditorProps>(function Me
       ref={ref}
       selectionColor={colors.action}
       spellCheck
-      style={[styles.input, !editable && styles.disabled, { minHeight }, webInputStyle]}
+      style={[styles.input, !editable && styles.disabled, { minHeight }]}
       textAlignVertical="top"
       value={value}
     />
