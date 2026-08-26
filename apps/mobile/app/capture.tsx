@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleFirstRecall } from '@core/recall';
@@ -22,6 +22,9 @@ const DEFAULT_PROMPT = 'What would you want to tell later?';
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
+  const mode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  const startedFromPrompt = mode === 'prompt';
   const { hydrated, openError, saveNote } = useVault();
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -29,7 +32,7 @@ export default function CaptureScreen() {
   const [recovered, setRecovered] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [savedId, setSavedId] = useState<string>();
-  const [promptOpen, setPromptOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(startedFromPrompt);
   const [capturePrompt, setCapturePrompt] = useState(DEFAULT_PROMPT);
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
@@ -54,6 +57,7 @@ export default function CaptureScreen() {
   }, []);
 
   const dirty = Boolean(draft.trim());
+  const usingStarter = capturePrompt !== DEFAULT_PROMPT;
   const allowNextNavigation = useUnsavedChangesGuard(dirty, saving, clearCaptureDraft);
 
   useEffect(() => {
@@ -152,8 +156,10 @@ export default function CaptureScreen() {
           {recovered ? <StatusMessage message="Recovered your unfinished story." /> : null}
 
           <AppText accessibilityRole="header" variant="title" style={styles.prompt}>{capturePrompt}</AppText>
-          <AppText variant="supporting" tone="secondary" style={styles.support}>A moment, idea, or observation. One sentence is enough.</AppText>
-          {!dirty ? <Button label={capturePrompt === DEFAULT_PROMPT ? 'Need an idea?' : 'Try another idea'} variant="text" onPress={() => setPromptOpen(true)} style={styles.ideaButton} /> : null}
+          <AppText variant="supporting" tone="secondary" style={styles.support}>
+            {usingStarter ? 'Follow the question wherever it takes you. One sentence is enough.' : 'A moment, idea, or observation. One sentence is enough.'}
+          </AppText>
+          {!dirty ? <Button label={usingStarter ? 'Find another story' : 'Find a story'} variant="text" onPress={() => setPromptOpen(true)} style={styles.ideaButton} /> : null}
 
           <MemoryEditor
             value={draft}
@@ -163,8 +169,8 @@ export default function CaptureScreen() {
               if (recovered) setRecovered(false);
             }}
             accessibilityLabel={capturePrompt}
-            placeholder="Something that happened, surprised you, or stuck with you…"
-            autoFocus
+            placeholder={usingStarter ? 'Start with what happened…' : 'Something that happened, surprised you, or stuck with you…'}
+            autoFocus={!startedFromPrompt}
             editable={!saving}
             minHeight={300}
           />
@@ -186,7 +192,7 @@ export default function CaptureScreen() {
           />
         </View>
       </KeyboardAvoidingView>
-      <ActionSheet visible={promptOpen} title="Need an idea?" actions={promptActions} onClose={() => setPromptOpen(false)} />
+      <ActionSheet visible={promptOpen} title="Find a story" actions={promptActions} onClose={() => setPromptOpen(false)} />
     </SafeAreaView>
   );
 }
