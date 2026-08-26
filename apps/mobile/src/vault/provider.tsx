@@ -1,9 +1,7 @@
-import { Platform } from 'react-native';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createMemoryVault } from '@core/index';
-import type { LinkResolution, MemoryNote, MemoryVault, NoteDraft, VaultReadIssue } from '@core/index';
-import { BrowserFileStore } from './browser-file-store';
-import { DeviceFileStore, deviceVaultLocation } from './device-file-store';
+import type { MemoryNote, MemoryVault, NoteDraft, VaultReadIssue } from '@core/index';
+import { DeviceFileStore } from './device-file-store';
 import { ensureVaultReady } from './save-gate';
 import { reconcileRecallReminder } from '@/src/notifications/reminder-scheduler';
 
@@ -12,11 +10,8 @@ type VaultContextValue = {
   readIssues: VaultReadIssue[];
   hydrated: boolean;
   openError: string | null;
-  storageLocation: string;
   saveNote: (draft: NoteDraft) => Promise<MemoryNote>;
   deleteNote: (id: string) => Promise<void>;
-  suggestLinks: (query: string, fromId?: string) => MemoryNote[];
-  resolveLink: (target: string, fromId?: string) => LinkResolution;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -28,11 +23,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
   const mountedRef = useRef(true);
-  const storageLocation = useMemo(() => (Platform.OS === 'web' ? 'This browser · stories-vault' : deviceVaultLocation()), []);
 
   useEffect(() => {
     mountedRef.current = true;
-    const vault = createMemoryVault(Platform.OS === 'web' ? new BrowserFileStore() : new DeviceFileStore());
+    const vault = createMemoryVault(new DeviceFileStore());
     vaultRef.current = vault;
     const unsubscribe = vault.subscribe(() => {
       if (mountedRef.current) setNotes(vault.list());
@@ -59,9 +53,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || openError || Platform.OS === 'web') return;
+    if (!hydrated || openError) return;
     void reconcileRecallReminder(notes).catch(() => {
-      // Reminder reconciliation must never block access to the local vault.
+      // Reminder reconciliation must never block access to local memories.
     });
   }, [hydrated, notes, openError]);
 
@@ -77,10 +71,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return vault!.remove(id);
   }, [hydrated, openError]);
 
-  const suggestLinks = useCallback((query: string, fromId?: string) => vaultRef.current?.suggestLinks(query, fromId) || [], []);
-  const resolveLink = useCallback((target: string, fromId?: string) => vaultRef.current?.resolveLink(target, fromId) || { target, status: 'missing' as const }, []);
-
-  const value = useMemo(() => ({ notes, readIssues, hydrated, openError, storageLocation, saveNote, deleteNote, suggestLinks, resolveLink }), [deleteNote, hydrated, notes, readIssues, openError, resolveLink, saveNote, storageLocation, suggestLinks]);
+  const value = useMemo(
+    () => ({ notes, readIssues, hydrated, openError, saveNote, deleteNote }),
+    [deleteNote, hydrated, notes, readIssues, openError, saveNote],
+  );
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
 }
 
