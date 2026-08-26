@@ -5,7 +5,6 @@ import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleFirstRecall } from '@core/recall';
 import { memoryTitle, plainMemoryText } from '@core/story-cue';
-import type { MemoryNote } from '@core/model';
 import { useVault } from '@/src/vault/provider';
 import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
 import { MemoryEditor } from '@/src/ui/MemoryEditor';
@@ -67,12 +66,11 @@ export default function NoteScreen() {
     loadedIdRef.current = note.id;
     latestBodyRef.current = body;
     persistedBodyRef.current = body;
+    dirtyRef.current = false;
     setDraft(body);
     setPersistedBody(body);
     setSaveError('');
   }, [note]);
-
-  dirtyRef.current = draft !== persistedBody;
 
   const runSaveLoop = useCallback((): Promise<void> => {
     if (!note) return Promise.resolve();
@@ -88,6 +86,7 @@ export default function NoteScreen() {
         try {
           await saveNote({ id: note.id, title: memoryTitle(body), body });
           persistedBodyRef.current = body;
+          dirtyRef.current = latestBodyRef.current !== body;
           if (mountedRef.current) {
             setPersistedBody(body);
             setSaveError('');
@@ -115,13 +114,13 @@ export default function NoteScreen() {
   const flushLatest = useCallback(async () => {
     if (!latestBodyRef.current.trim()) throw new Error('A memory cannot be empty');
     await runSaveLoop();
-    // A second pass closes the small window where typing changed while the first write was in flight.
     if (latestBodyRef.current !== persistedBodyRef.current) await runSaveLoop();
   }, [runSaveLoop]);
 
   const restoreSavedBody = useCallback(() => {
     const saved = persistedBodyRef.current;
     latestBodyRef.current = saved;
+    dirtyRef.current = false;
     setDraft(saved);
     setSaveError('');
   }, []);
@@ -255,6 +254,7 @@ export default function NoteScreen() {
             value={draft}
             onChangeText={(body) => {
               latestBodyRef.current = body;
+              dirtyRef.current = body !== persistedBodyRef.current;
               setDraft(body);
               if (saveError) setSaveError('');
             }}
