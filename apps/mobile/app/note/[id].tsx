@@ -459,10 +459,6 @@ export default function NoteScreen() {
 
               <View style={styles.divider} />
               <MarkdownBody body={note.body} onLinkError={() => setSaveError('This link could not be opened safely.')} onOpenLink={(target) => { void openLink(target); }} />
-              <View style={styles.pathRow}>
-                <SymbolView name={{ ios: 'doc.text', android: 'description', web: 'description' }} size={18} tintColor={colors.textSecondary} />
-                <AppText accessibilityLabel={`Stored as ${note.path}`} variant="metadata" tone="secondary" style={styles.pathText}>Stored locally · {note.path}</AppText>
-              </View>
             </>
           ) : practiceStage === 'attempt' ? (
             <Card>
@@ -550,8 +546,6 @@ const styles = StyleSheet.create({
   metaCopy: { flex: 1 },
   dueLabel: { fontWeight: '600', marginTop: spacing.xxs },
   divider: { backgroundColor: colors.divider, height: StyleSheet.hairlineWidth, marginBottom: spacing.xl, marginTop: spacing.lg },
-  pathRow: { alignItems: 'center', borderTopColor: colors.divider, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xxl, paddingTop: spacing.md },
-  pathText: { flex: 1 },
   practiceHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   practiceTitle: { flex: 1 },
   practiceSupport: { marginTop: spacing.sm },
