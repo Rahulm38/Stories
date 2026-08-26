@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
@@ -19,6 +19,7 @@ import { StoryTriggerCard } from '@/src/ui/story/StoryTriggerCard';
 
 type PracticeSource = 'saved' | 'today' | 'memory';
 type Stage = 'trigger' | 'revealed';
+type PracticeViewState = { noteId?: string; stage: Stage; hintVisible: boolean };
 
 export default function PracticeScreen() {
   const router = useRouter();
@@ -28,13 +29,8 @@ export default function PracticeScreen() {
   const source: PracticeSource = sourceValue === 'saved' || sourceValue === 'memory' ? sourceValue : 'today';
   const { hydrated, notes, openError } = useVault();
   const note = notes.find((item) => item.id === noteId && item.parseStatus !== 'quarantine');
-  const [stage, setStage] = useState<Stage>('trigger');
-  const [hintVisible, setHintVisible] = useState(false);
-
-  useEffect(() => {
-    setStage('trigger');
-    setHintVisible(false);
-  }, [noteId]);
+  const [viewState, setViewState] = useState<PracticeViewState>(() => ({ noteId, stage: 'trigger', hintVisible: false }));
+  const currentView = viewState.noteId === noteId ? viewState : { noteId, stage: 'trigger' as const, hintVisible: false };
 
   const trigger = useMemo(() => storyTrigger(note?.body || ''), [note?.body]);
   const nextStory = useMemo(() => note ? nextPracticeMemory(notes, note.id) : undefined, [note, notes]);
@@ -77,12 +73,12 @@ export default function PracticeScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {stage === 'trigger' ? (
+        {currentView.stage === 'trigger' ? (
           <StoryTriggerCard
             trigger={trigger}
-            hintVisible={hintVisible}
-            onNeedHint={trigger.secondary ? () => setHintVisible(true) : undefined}
-            onShowStory={() => setStage('revealed')}
+            hintVisible={currentView.hintVisible}
+            onNeedHint={trigger.secondary ? () => setViewState({ noteId, stage: 'trigger', hintVisible: true }) : undefined}
+            onShowStory={() => setViewState({ noteId, stage: 'revealed', hintVisible: currentView.hintVisible })}
           />
         ) : (
           <Card>
@@ -90,7 +86,7 @@ export default function PracticeScreen() {
             <AppText variant="supporting" tone="secondary" style={styles.explainer}>That’s it. We’ll bring it back later.</AppText>
             <Button label="Done" onPress={close} style={styles.primary} />
             {source === 'today' && nextStory ? <Button label="Another story" variant="tonal" onPress={anotherStory} style={styles.secondary} /> : null}
-            <Button label="Try again" variant="text" onPress={() => { setStage('trigger'); setHintVisible(false); }} style={styles.secondary} />
+            <Button label="Try again" variant="text" onPress={() => setViewState({ noteId, stage: 'trigger', hintVisible: false })} style={styles.secondary} />
           </Card>
         )}
       </ScrollView>
