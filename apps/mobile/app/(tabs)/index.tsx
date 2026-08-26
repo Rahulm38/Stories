@@ -252,22 +252,20 @@ export default function TodayScreen() {
         {current ? (
           <View style={styles.section}>
             {stage === 'trigger' ? (
-              <View>
-                <View style={styles.storyOptions}>
+              <StoryTriggerCard
+                trigger={trigger}
+                ageLabel={memoryAgeLabel(current.createdAt, now)}
+                headerAction={(
                   <IconButton accessibilityLabel="Story options" disabled={saving} onPress={() => actions(current)}>
                     <SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={sizes.standardIcon} tintColor={colors.textSecondary} />
                   </IconButton>
-                </View>
-                <StoryTriggerCard
-                  trigger={trigger}
-                  ageLabel={memoryAgeLabel(current.createdAt, now)}
-                  hintVisible={hintVisible}
-                  disabled={saving}
-                  onNeedHint={trigger.secondary ? () => setHintVisible(true) : undefined}
-                  onShowStory={() => setStage('revealed')}
-                  onTomorrow={() => { void tomorrow(); }}
-                />
-              </View>
+                )}
+                hintVisible={hintVisible}
+                disabled={saving}
+                onNeedHint={trigger.secondary ? () => setHintVisible(true) : undefined}
+                onShowStory={() => setStage('revealed')}
+                onTomorrow={() => { void tomorrow(); }}
+              />
             ) : (
               <Card>
                 <StoryRevealSurface body={current.body} />
@@ -318,7 +316,6 @@ const styles = StyleSheet.create({
   firstCopy: { marginTop: spacing.sm, maxWidth: 420 },
   firstButton: { marginTop: spacing.xl, width: '100%' },
   section: { marginTop: spacing.xl },
-  storyOptions: { alignItems: 'flex-end', height: sizes.touchMinimum, justifyContent: 'center', marginBottom: -sizes.touchMinimum },
   ratingTitle: { marginTop: spacing.lg },
   error: { marginTop: spacing.sm },
   stateCard: { marginTop: spacing.xl },
