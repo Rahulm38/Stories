@@ -14,7 +14,7 @@ import { ListRow } from '@/src/ui/components/ListRow';
 import { SectionHeader } from '@/src/ui/components/SectionHeader';
 
 export default function SettingsScreen() {
-  const { notes, storageLocation } = useVault();
+  const { notes } = useVault();
   const [reminderPrefs, setReminderPrefs] = useState<ReminderPreferences>(DEFAULT_REMINDER_PREFS);
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>('denied');
 
@@ -112,16 +112,6 @@ export default function SettingsScreen() {
           title="Privacy policy"
           subtitle="How Stories handles your memories and device data."
           onPress={() => router.push('/privacy')}
-          trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.textSecondary} />}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <SectionHeader>Advanced</SectionHeader>
-        <ListRow
-          title="Vault location"
-          subtitle="App-private storage on this device"
-          onPress={() => Alert.alert('Vault location', storageLocation, [{ text: 'Done' }])}
           trailing={<SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={18} tintColor={colors.textSecondary} />}
         />
       </View>
