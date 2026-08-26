@@ -36,7 +36,7 @@ cd apps/mobile
 npx expo start
 ```
 
-Release builds enable Android code minification and resource shrinking. Unused development-client, custom-font and animation/worklet dependencies have been removed. Preview builds remain APKs for direct testing; production builds remain AABs so Google Play can deliver device-specific splits.
+Release builds enable Android code minification and resource shrinking. Unused development-client and animation/worklet dependencies have been removed; `expo-font` remains because `expo-symbols` requires it. Preview builds remain APKs for direct testing; production builds remain AABs so Google Play can deliver device-specific splits.
 
 Memory editing is direct plain text with serialized autosave. Android Back waits for the newest non-empty edit to become durable before leaving. `Try telling`, Share, resurfacing and delete actions live in the memory action sheet.
 
