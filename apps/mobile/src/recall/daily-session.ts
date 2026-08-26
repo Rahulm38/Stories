@@ -1,4 +1,4 @@
-import { MAX_SESSION_MEMORIES } from '@core/recall';
+import { MAX_SESSION_MEMORIES } from '../../../../packages/core/src/recall.ts';
 
 export type DailyReviewSession = {
   day: string;
