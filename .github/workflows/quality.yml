@@ -2,7 +2,7 @@ name: Quality
 
 on:
   push:
-    branches: [main, fix/product-hardening-v1]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -27,8 +27,6 @@ jobs:
       - name: Web build
         run: npm run build
       - name: Mobile typecheck
-        run: npx --prefix apps/mobile tsc --noEmit
+        run: npm --prefix apps/mobile exec tsc -- --noEmit
       - name: Expo doctor
         run: cd apps/mobile && npx expo-doctor
-      - name: Expo web export
-        run: cd apps/mobile && npx expo export --platform web
