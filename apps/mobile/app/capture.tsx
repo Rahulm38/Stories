@@ -47,10 +47,14 @@ export default function CaptureScreen() {
   }, []);
 
   const dirty = Boolean(draft.trim());
-  const allowNextNavigation = useUnsavedChangesGuard(dirty, saving);
+  const allowNextNavigation = useUnsavedChangesGuard(dirty, saving, clearCaptureDraft);
 
   useEffect(() => {
-    if (!draftLoaded || !dirty || saving) return undefined;
+    if (!draftLoaded || saving) return undefined;
+    if (!dirty) {
+      void clearCaptureDraft();
+      return undefined;
+    }
     const timer = setTimeout(() => {
       void writeCaptureDraft({ body: draft, savedAt: new Date().toISOString() });
     }, 700);
@@ -58,7 +62,7 @@ export default function CaptureScreen() {
   }, [draft, draftLoaded, dirty, saving]);
 
   const leaveCapture = useCallback(() => {
-    if (Platform.OS !== 'web' && router.canGoBack()) router.back();
+    if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
   }, [router]);
 
@@ -69,7 +73,7 @@ export default function CaptureScreen() {
     setSaving(true);
     setSaveError('');
     try {
-      await saveNote({ body: draft.trim(), kind: 'note', folder: 'Inbox', nextRecallAt });
+      await saveNote({ body: draft.trim(), nextRecallAt });
       await clearCaptureDraft();
       if (!mountedRef.current) return;
       allowNextNavigation();
@@ -110,7 +114,11 @@ export default function CaptureScreen() {
 
           <MemoryEditor
             value={draft}
-            onChangeText={(value) => { if (!savingRef.current) setDraft(value); }}
+            onChangeText={(value) => {
+              if (savingRef.current) return;
+              setDraft(value);
+              if (recovered) setRecovered(false);
+            }}
             accessibilityLabel="What’s worth remembering?"
             placeholder="Something that happened, a useful idea, a detail you want to tell later…"
             autoFocus
