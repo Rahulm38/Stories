@@ -52,7 +52,7 @@ export function ActionSheet({ actions, onClose, title, visible }: ActionSheetPro
 }
 
 const styles = StyleSheet.create({
-  root: { backgroundColor: 'rgba(0,0,0,0.28)', flex: 1, justifyContent: 'flex-end' },
+  root: { backgroundColor: colors.scrim, flex: 1, justifyContent: 'flex-end' },
   safeArea: { backgroundColor: 'transparent' },
   sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radii.card, borderTopRightRadius: radii.card, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   title: { paddingBottom: spacing.sm, paddingTop: spacing.xs },
