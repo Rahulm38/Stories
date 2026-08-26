@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, sharedStyles, sizes, spacing } from '@/src/ui/theme';
@@ -10,7 +10,6 @@ import { TopAppBar } from '@/src/ui/components/TopAppBar';
 
 export default function PrivacyScreen() {
   useEffect(() => {
-    if (Platform.OS !== 'android') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (router.canGoBack()) return false;
       router.replace('/(tabs)/settings');
@@ -20,7 +19,7 @@ export default function PrivacyScreen() {
   }, []);
 
   const goBack = () => {
-    if (Platform.OS === 'web' || router.canGoBack()) router.back();
+    if (router.canGoBack()) router.back();
     else router.replace('/(tabs)/settings');
   };
 
