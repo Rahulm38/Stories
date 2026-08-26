@@ -13,11 +13,11 @@ const FRONTMATTER_PREFIX = /^\uFEFF?---(?:\r?\n|$)/;
 const KNOWN_FRONTMATTER_FIELDS = new Set([
   'schemaVersion', 'id', 'title', 'kind', 'folder', 'date', 'updatedAt', 'source',
   'nextRecallAt', 'recallPrompt', 'recallStatus', 'lastRecalledAt', 'reviewStrengthDays',
+  'toldCount', 'lastToldAt',
 ]);
 
-// reviewStrengthDays is additive metadata, not a structural migration. Staying on
-// schema v1 keeps memories writable by current builds and readable by earlier beta
-// builds if a tester temporarily rolls back the APK.
+// Recall strength and story-outcome fields are additive metadata, not structural
+// migrations. Staying on schema v1 keeps current tester files rollback-compatible.
 export const SCHEMA_VERSION = 1;
 
 function hasMalformedFrontmatterStructure(content: string): boolean {
@@ -140,6 +140,8 @@ export function serializeNote(note: MemoryNote): string {
     ...(Number.isInteger(note.reviewStrengthDays) && (note.reviewStrengthDays || 0) > 0
       ? [`reviewStrengthDays: ${note.reviewStrengthDays}`]
       : []),
+    ...(Number.isInteger(note.toldCount) && (note.toldCount || 0) > 0 ? [`toldCount: ${note.toldCount}`] : []),
+    ...(note.lastToldAt ? [`lastToldAt: ${metadataValue(note.lastToldAt)}`] : []),
     ...(note.frontmatter || []),
   ];
 
@@ -190,6 +192,7 @@ export function parseNoteFile(file: VaultFile): MemoryNote {
   const kind: MemoryKind = fields.kind === 'experience' || fields.kind === 'book-learning' ? fields.kind : 'note';
   const schemaVersionValue = Number(fields.schemaVersion);
   const reviewStrengthValue = Number(fields.reviewStrengthDays);
+  const toldCountValue = Number(fields.toldCount);
   const parseStatus = classifyNoteFile(file);
 
   return migrateParsedNote({
@@ -209,6 +212,8 @@ export function parseNoteFile(file: VaultFile): MemoryNote {
       : undefined,
     lastRecalledAt: fields.lastRecalledAt,
     reviewStrengthDays: Number.isInteger(reviewStrengthValue) && reviewStrengthValue > 0 ? reviewStrengthValue : undefined,
+    toldCount: Number.isInteger(toldCountValue) && toldCountValue > 0 ? toldCountValue : undefined,
+    lastToldAt: normalizeRecallTimestamp(fields.lastToldAt),
     frontmatter: extraFrontmatter.length ? extraFrontmatter : undefined,
     schemaVersion: Number.isFinite(schemaVersionValue) && fields.schemaVersion !== undefined ? schemaVersionValue : undefined,
     parseStatus,
@@ -236,6 +241,8 @@ export function createNote(draft: NoteDraft, path: string): MemoryNote {
     recallStatus: draft.recallStatus,
     lastRecalledAt: draft.lastRecalledAt,
     reviewStrengthDays: draft.reviewStrengthDays,
+    toldCount: draft.toldCount,
+    lastToldAt: draft.lastToldAt,
     frontmatter: draft.frontmatter,
   };
 }
