@@ -2,7 +2,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { storyPreview } from '@core/story-cue';
 import { AppText } from '../components/AppText';
-import { colors, sizes, spacing } from '../theme';
+import { colors, spacing } from '../theme';
+
+const CHEVRON_SIZE = 20;
 
 type StoryListItemProps = {
   body: string;
@@ -12,7 +14,7 @@ type StoryListItemProps = {
 };
 
 export function StoryListItem({ body, dateLabel, onPress, showTopDivider = true }: StoryListItemProps) {
-  const preview = storyPreview(body);
+  const preview = storyPreview(body) || 'Untitled story';
 
   return (
     <Pressable
@@ -26,7 +28,7 @@ export function StoryListItem({ body, dateLabel, onPress, showTopDivider = true 
         <AppText variant="body" numberOfLines={2} style={styles.preview}>{preview}</AppText>
         {dateLabel ? <AppText variant="metadata" tone="secondary" style={styles.date}>{dateLabel}</AppText> : null}
       </View>
-      <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={sizes.compactIcon} tintColor={colors.textSecondary} />
+      <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={CHEVRON_SIZE} tintColor={colors.textSecondary} />
     </Pressable>
   );
 }
