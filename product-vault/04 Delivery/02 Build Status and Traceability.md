@@ -19,7 +19,6 @@ snapshot_date: 2026-08-26
 | Voluntary practice selection | `apps/mobile/src/recall/practice.ts` | Picks a useful existing story without mutating recall state |
 | Search | `apps/mobile/src/navigation/library-search.ts` | Local relevance + fragment + typo-tolerant matching |
 | Reminders | `apps/mobile/src/notifications/*` | Android generic local notifications and permission/channel behavior |
-| Web prototype | `src/` | Non-shipping historical/reference surface; not the Android product contract |
 
 ## Current mobile flow map
 
@@ -63,16 +62,14 @@ snapshot_date: 2026-08-26
 ## Automated verification entry points
 
 ```bash
-npm ci
+npm install
 npm --prefix apps/mobile install
 npm test
-npm run lint
-npm run build
 npm --prefix apps/mobile exec tsc -- --noEmit
 cd apps/mobile && npx expo-doctor
 ```
 
-`.github/workflows/quality.yml` runs these checks for `main` and pull requests to `main`.
+`.github/workflows/quality.yml` runs the Android checks for `main` and pull requests to `main`.
 
 ## Evidence status
 

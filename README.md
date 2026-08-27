@@ -80,11 +80,9 @@ Stories keeps an isolated compatibility codec for stories created by older beta 
 ## Verification
 
 ```bash
-npm ci
+npm install
 npm --prefix apps/mobile install
 npm test
-npm run lint
-npm run build
 npm --prefix apps/mobile exec tsc -- --noEmit
 cd apps/mobile && npx expo-doctor
 ```

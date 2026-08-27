@@ -3,33 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
     "test:core": "node --import tsx --test packages/core/src/*.test.ts",
-    "test:web": "node --import tsx --test src/lib/*.test.ts",
     "test:mobile": "node --import tsx --test apps/mobile/scripts/mobile-regressions.mjs apps/mobile/scripts/design-system-regressions.mjs",
-    "test": "npm run test:core && npm run test:web && npm run test:mobile",
+    "test": "npm run test:core && npm run test:mobile",
     "mobile:start": "npm --prefix apps/mobile run start",
-    "mobile:android": "npm --prefix apps/mobile run android",
-    "mobile:ios": "npm --prefix apps/mobile run ios"
-  },
-  "dependencies": {
-    "lucide-react": "^1.14.0",
-    "next": "^16.3.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "mobile:android": "npm --prefix apps/mobile run android"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "^16.3.0",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.12",
-    "typescript": "^5"
+    "tsx": "^4.23.12"
   }
 }
